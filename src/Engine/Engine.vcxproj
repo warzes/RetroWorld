@@ -120,6 +120,7 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="_app_input.h" />
     <ClInclude Include="_app_window.h" />
+    <ClInclude Include="_gpu_contextState.h" />
     <ClInclude Include="_gpu_system.h" />
     <ClInclude Include="_ogl_context.h" />
   </ItemGroup>
@@ -142,6 +143,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="_gpu_contextState.cpp" />
     <ClCompile Include="_ogl_context.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

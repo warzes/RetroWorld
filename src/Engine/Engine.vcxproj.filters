@@ -77,6 +77,9 @@
     <ClInclude Include="core_flags.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="_gpu_contextState.h">
+      <Filter>gpu\private</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -124,6 +127,9 @@
     </ClCompile>
     <ClCompile Include="gpu_buffer.cpp">
       <Filter>gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="_gpu_contextState.cpp">
+      <Filter>gpu\private</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

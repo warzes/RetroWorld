@@ -1,24 +1,25 @@
 ﻿#pragma once
 
 #include "gpu_core.h"
+#include "gpu_buffer.h"
 
 namespace gpu::vao
 {
 	struct VertexArray;
 	using VertexArrayPtr = std::shared_ptr<VertexArray>;
 
-	struct VertexAttrib final
+	struct VertexInputBindingDescription final
 	{
-		uint32_t         index;
-		int32_t          size;
-		VertexAttribType type{ VertexAttribType::Float };
-		bool             normalized{ false };
-		uint32_t         relativeOffset;
-		uint32_t         binding;
+		uint32_t location{ 0 }; // glEnableVertexArrayAttrib + glVertexArrayAttribFormat
+		uint32_t binding{ 0 };  // glVertexArrayAttribBinding
+		Format   format{ 0 };   // glVertexArrayAttribFormat
+		uint32_t offset{ 0 };   // glVertexArrayAttribFormat
 	};
 
-	VertexArrayPtr CreateVertexArray();
+	VertexArrayPtr CreateVertexArray(const std::vector<VertexInputBindingDescription>& vertexInputState);
 
 	void BindVertexArray(VertexArrayPtr vao);
+	void BindVertexBuffer(VertexArrayPtr vao, uint32_t bindingIndex, gpu::buffer::BufferPtr buffer, uint64_t offset, uint64_t stride);
+	void BindIndexBuffer(VertexArrayPtr vao, gpu::buffer::BufferPtr buffer, IndexType indexType);
 
 } // namespace gpu::vao

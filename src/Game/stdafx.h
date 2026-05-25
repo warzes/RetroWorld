@@ -30,6 +30,7 @@
 #include <gpu_core.h>
 #include <gpu_program.h>
 #include <gpu_uniform.h>
+#include <gpu_buffer.h>
 #include <gpu_vao.h>
 #include <gpu_system.h>
 

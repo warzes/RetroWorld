@@ -28,8 +28,13 @@ namespace gpu
 
 	void SetViewport(float x, float y, float width, float height);
 
-	void DrawElements(PrimitiveMode primitiveMode, uint32_t indexCount);
-	void DrawElementsInstanced(PrimitiveMode primitiveMode, uint32_t indexCount, uint32_t instances);
-	void DrawArrays(PrimitiveMode primitiveMode, uint32_t vertexCount);
-	void DrawArraysInstanced(PrimitiveMode primitiveMode, uint32_t vertexCount, uint32_t instances);
+	//void DrawElements(PrimitiveMode primitiveMode, uint32_t indexCount);
+	//void DrawElementsInstanced(PrimitiveMode primitiveMode, uint32_t indexCount, uint32_t instances);
+	//void DrawArrays(PrimitiveMode primitiveMode, uint32_t vertexCount);
+	//void DrawArraysInstanced(PrimitiveMode primitiveMode, uint32_t vertexCount, uint32_t instances);
+
+	// Equivalent to glDrawArraysInstancedBaseInstance or vkCmdDraw
+	void Draw(PrimitiveTopology topology, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
+	// Equivalent to glDrawElementsInstancedBaseVertexBaseInstance or vkCmdDrawIndexed
+	void DrawIndexed(PrimitiveTopology topology, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 } // namespace gpu

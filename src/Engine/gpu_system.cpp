@@ -2,6 +2,7 @@
 #include "_gpu_system.h"
 #include "gpu_program.h"
 #include "gpu_vao.h"
+#include "_gpu_contextState.h"
 #include "app_window.h"
 #include "core_log.h"
 //=============================================================================
@@ -112,23 +113,44 @@ inline GLenum EnumToValue(gpu::CullFace cull) noexcept
 	}
 }
 //=============================================================================
-inline GLenum EnumToValue(gpu::PrimitiveMode mode) noexcept
+inline GLenum EnumToValue(gpu::PrimitiveTopology topology) noexcept
 {
-	switch (mode) {
-	case gpu::PrimitiveMode::Points:                 return GL_POINTS;
-	case gpu::PrimitiveMode::Lines:                  return GL_LINES;
-	case gpu::PrimitiveMode::LineLoop:               return GL_LINE_LOOP;
-	case gpu::PrimitiveMode::LineStrip:              return GL_LINE_STRIP;
-	case gpu::PrimitiveMode::Triangles:              return GL_TRIANGLES;
-	case gpu::PrimitiveMode::TriangleStrip:          return GL_TRIANGLE_STRIP;
-	case gpu::PrimitiveMode::TriangleFan:            return GL_TRIANGLE_FAN;
-	case gpu::PrimitiveMode::LinesAdjacency:         return GL_LINES_ADJACENCY;
-	case gpu::PrimitiveMode::LineStripAdjacency:     return GL_LINE_STRIP_ADJACENCY;
-	case gpu::PrimitiveMode::TrianglesAdjacency:     return GL_TRIANGLES_ADJACENCY;
-	case gpu::PrimitiveMode::TriangleStripAdjacency: return GL_TRIANGLE_STRIP_ADJACENCY;
+	switch (topology)
+	{
+	case  gpu::PrimitiveTopology::PointList:     return GL_POINTS;
+	case  gpu::PrimitiveTopology::LineList:      return GL_LINES;
+	case  gpu::PrimitiveTopology::LineStrip:     return GL_LINE_STRIP;
+	case  gpu::PrimitiveTopology::TriangleList:  return GL_TRIANGLES;
+	case  gpu::PrimitiveTopology::TriangleStrip: return GL_TRIANGLE_STRIP;
+	case  gpu::PrimitiveTopology::TriangleFan:   return GL_TRIANGLE_FAN;
+	case  gpu::PrimitiveTopology::PatchList:     return GL_PATCHES;
 	default: std::unreachable();
 	}
 }
+//=============================================================================
+inline GLenum EnumToValue(gpu::IndexType type)
+{
+	switch (type)
+	{
+	case gpu::IndexType::UNSIGNED_BYTE:  return GL_UNSIGNED_BYTE;
+	case gpu::IndexType::UNSIGNED_SHORT: return GL_UNSIGNED_SHORT;
+	case gpu::IndexType::UNSIGNED_INT:   return GL_UNSIGNED_INT;
+	default: std::unreachable();
+	}
+}
+//=============================================================================
+inline size_t GetIndexSize(gpu::IndexType indexType)
+{
+	switch (indexType)
+	{
+	case gpu::IndexType::UNSIGNED_BYTE:  return 1;
+	case gpu::IndexType::UNSIGNED_SHORT: return 2;
+	case gpu::IndexType::UNSIGNED_INT:   return 4;
+	default: std::unreachable();
+	}
+}
+//=============================================================================
+extern std::unordered_map<size_t, gpu::vao::VertexArrayPtr> vertexArrayCache;
 //=============================================================================
 namespace
 {
@@ -158,6 +180,7 @@ bool gpu::Init()
 //=============================================================================
 void gpu::Close()
 {
+	vertexArrayCache.clear();
 }
 //=============================================================================
 bool gpu::BeginFrame()
@@ -179,7 +202,8 @@ bool gpu::BeginFrame()
 //=============================================================================
 void gpu::EndFrame()
 {
-
+	context.isRendering = false;
+	context.isIndexBufferBound = false;
 }
 //=============================================================================
 void gpu::SetClearColor(float red, float green, float blue, float alpha)
@@ -269,24 +293,51 @@ void gpu::SetViewport(float x, float y, float width, float height)
 {
 	glViewport(x, y, width, height);
 }
+////=============================================================================
+//void gpu::DrawElements(PrimitiveMode primitiveMode, uint32_t indexCount)
+//{
+//	glDrawElements(EnumToValue(primitiveMode), indexCount, GL_UNSIGNED_INT, nullptr);
+//}
+////=============================================================================
+//void gpu::DrawElementsInstanced(PrimitiveMode primitiveMode, uint32_t indexCount, uint32_t instances)
+//{
+//	glDrawElementsInstanced(EnumToValue(primitiveMode), indexCount, GL_UNSIGNED_INT, nullptr, instances);
+//}
+////=============================================================================
+//void gpu::DrawArrays(PrimitiveMode primitiveMode, uint32_t vertexCount)
+//{
+//	glDrawArrays(EnumToValue(primitiveMode), 0, vertexCount);
+//}
+////=============================================================================
+//void gpu::DrawArraysInstanced(PrimitiveMode primitiveMode, uint32_t vertexCount, uint32_t instances)
+//{
+//	glDrawArraysInstanced(EnumToValue(primitiveMode), 0, vertexCount, instances);
+//}
 //=============================================================================
-void gpu::DrawElements(PrimitiveMode primitiveMode, uint32_t indexCount)
+void gpu::Draw(PrimitiveTopology topology, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
-	glDrawElements(EnumToValue(primitiveMode), indexCount, GL_UNSIGNED_INT, nullptr);
+	assert(context.isRendering);
+
+	glDrawArraysInstancedBaseInstance(EnumToValue(topology),
+		firstVertex,
+		vertexCount,
+		instanceCount,
+		firstInstance);
 }
 //=============================================================================
-void gpu::DrawElementsInstanced(PrimitiveMode primitiveMode, uint32_t indexCount, uint32_t instances)
+void gpu::DrawIndexed(PrimitiveTopology topology, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
 {
-	glDrawElementsInstanced(EnumToValue(primitiveMode), indexCount, GL_UNSIGNED_INT, nullptr, instances);
-}
-//=============================================================================
-void gpu::DrawArrays(PrimitiveMode primitiveMode, uint32_t vertexCount)
-{
-	glDrawArrays(EnumToValue(primitiveMode), 0, vertexCount);
-}
-//=============================================================================
-void gpu::DrawArraysInstanced(PrimitiveMode primitiveMode, uint32_t vertexCount, uint32_t instances)
-{
-	glDrawArraysInstanced(EnumToValue(primitiveMode), 0, vertexCount, instances);
+	//assert(context.isRendering);
+	assert(context.isIndexBufferBound);
+
+	// double cast is needed to prevent compiler from complaining about 32->64 bit pointer cast
+	glDrawElementsInstancedBaseVertexBaseInstance(
+		EnumToValue(topology),
+		indexCount,
+		EnumToValue(context.currentIndexType),
+		reinterpret_cast<void*>(static_cast<uintptr_t>(firstIndex * GetIndexSize(context.currentIndexType))),
+		instanceCount,
+		vertexOffset,
+		firstInstance);
 }
 //=============================================================================

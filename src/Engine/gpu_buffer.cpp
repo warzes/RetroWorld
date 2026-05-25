@@ -53,6 +53,11 @@ struct gpu::buffer::Buffer final
 	void*              mappedMemory{ nullptr };
 };
 //=============================================================================
+gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(TriviallyCopyableByteSpan data, BufferStorageFlags storageFlags, std::string_view name)
+{
+	return CreateBuffer(data.data(), data.size_bytes(), storageFlags, name);
+}
+//=============================================================================
 gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(const void* data, size_t size, BufferStorageFlags storageFlags, std::string_view name)
 {
 	GLbitfield glflags = bufferStorageFlagsToGL(storageFlags);
@@ -87,13 +92,13 @@ bool gpu::buffer::IsMapped(BufferPtr buffer) noexcept
 	return buffer->mappedMemory != nullptr;
 }
 //=============================================================================
-auto gpu::buffer::Size(BufferPtr buffer) noexcept
+size_t gpu::buffer::Size(BufferPtr buffer) noexcept
 {
 	assert(buffer);
 	return buffer->size;
 }
 //=============================================================================
-auto gpu::buffer::Handle(BufferPtr buffer) noexcept
+uint32_t gpu::buffer::Handle(BufferPtr buffer) noexcept
 {
 	assert(buffer);
 	return buffer->id;
@@ -103,6 +108,11 @@ void gpu::buffer::Invalidate(BufferPtr buffer)
 {
 	assert(buffer);
 	glInvalidateBufferData(buffer->id);
+}
+//=============================================================================
+void gpu::buffer::UpdateData(BufferPtr buffer, TriviallyCopyableByteSpan data, size_t destOffsetBytes)
+{
+	UpdateData(buffer, data.data(), data.size_bytes(), destOffsetBytes);
 }
 //=============================================================================
 void gpu::buffer::UpdateData(BufferPtr buffer, const void* data, size_t size, size_t destOffsetBytes)
