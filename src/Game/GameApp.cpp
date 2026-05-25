@@ -49,6 +49,7 @@ void main()
 	   0.0f,  1.0f, 0.0f, };
 
 	gpu::program::ShaderProgramPtr program;
+	//gpu::vao::VertexArrayPtr vao;
 
 	GLuint vao;
 	GLuint vbo;
@@ -56,7 +57,11 @@ void main()
 //=============================================================================
 bool GameInit()
 {
-	program = gpu::program::CreateShaderProgram(vertexSource, fragmentSource);
+	gpu::program::GraphicsProgramCreateInfo createInfo{
+		.name               = "Program",
+		.vertexShaderCode   = vertexSource,
+		.fragmentShaderCode = fragmentSource };
+	program = gpu::program::CreateShaderProgram(createInfo);
 
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);

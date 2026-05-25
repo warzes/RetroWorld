@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "_gpu_system.h"
 #include "gpu_program.h"
+#include "gpu_vao.h"
 #include "app_window.h"
 #include "core_log.h"
 //=============================================================================
@@ -150,6 +151,7 @@ bool gpu::Init()
 	MetricsCurrent = MetricsPrevious = { 0 };
 
 	gpu::program::BindShaderProgram(nullptr);
+	gpu::vao::BindVertexArray(nullptr);
 
 	return true;
 }

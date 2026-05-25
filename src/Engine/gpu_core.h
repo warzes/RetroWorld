@@ -2,6 +2,8 @@
 
 namespace gpu
 {
+	constexpr inline uint64_t WHOLE_BUFFER = static_cast<uint64_t>(-1);
+
 	enum class RenderingCapability : uint8_t
 	{
 		Blend,
@@ -145,18 +147,6 @@ namespace gpu
 		Float,
 		Uint8,
 		Int,
-	};
-
-	// Buffer Type
-	enum class BufferType : uint8_t
-	{
-		Vertex,
-		Index,
-		Frame,
-		Uniform,
-		UniformConstant,
-		ShaderStorage,
-		Sampler
 	};
 
 	// Buffer Usage Type

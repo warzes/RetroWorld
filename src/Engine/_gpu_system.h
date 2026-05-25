@@ -9,4 +9,5 @@ namespace gpu
 
 	bool BeginFrame();
 	void EndFrame();
+
 } // namespace gpu

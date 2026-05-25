@@ -5,15 +5,27 @@ namespace gpu::program
 	struct ShaderProgram;
 	using ShaderProgramPtr = std::shared_ptr<ShaderProgram>;
 
+	struct ComputeProgramCreateInfo final
+	{
+		std::string_view name;
+
+		std::string shaderCode{};
+	};
+
+	struct GraphicsProgramCreateInfo final
+	{
+		std::string_view name;
+
+		std::string vertexShaderCode{};
+		std::string fragmentShaderCode{};
+		std::string tessellationControlShaderCode{};
+		std::string tessellationEvaluationShaderCode{};
+	};
+
 	std::string LoadShaderCode(const std::string& filename, const std::vector<std::string>& defines = {});
 
-	ShaderProgramPtr LoadShaderProgram(const std::string& vsFile, const std::vector<std::string>& defines = {});
-	ShaderProgramPtr LoadShaderProgram(const std::string& vsFile, const std::string& fsFile, const std::vector<std::string>& defines = {});
-	ShaderProgramPtr LoadShaderProgram(const std::string& vsFile, const std::string& gsFile, const std::string& fsFile, const std::vector<std::string>& defines = {});
-
-	ShaderProgramPtr CreateShaderProgram(const std::string& vertexShaderSrc);
-	ShaderProgramPtr CreateShaderProgram(const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc);
-	ShaderProgramPtr CreateShaderProgram(const std::string& vertexShaderSrc, const std::string& geometryShaderSrc, const std::string& fragmentShaderSrc);
+	ShaderProgramPtr CreateShaderProgram(const GraphicsProgramCreateInfo& createInfo);
+	ShaderProgramPtr CreateShaderProgram(const ComputeProgramCreateInfo& createInfo);
 
 	void BindShaderProgram(ShaderProgramPtr program);
 

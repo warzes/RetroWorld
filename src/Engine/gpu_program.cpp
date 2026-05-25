@@ -57,9 +57,11 @@ inline std::string loadShaderCode(const std::string& path, unsigned int level)
 {
 	switch (stage)
 	{
-	case GL_VERTEX_SHADER:   return "GL_VERTEX_SHADER";
-	case GL_GEOMETRY_SHADER: return "GL_GEOMETRY_SHADER";
-	case GL_FRAGMENT_SHADER: return "GL_FRAGMENT_SHADER";
+	case GL_VERTEX_SHADER:          return "GL_VERTEX_SHADER";
+	case GL_FRAGMENT_SHADER:        return "GL_FRAGMENT_SHADER";
+	case GL_TESS_CONTROL_SHADER:    return "GL_TESS_CONTROL_SHADER";
+	case GL_TESS_EVALUATION_SHADER: return "GL_TESS_EVALUATION_SHADER";
+	case GL_COMPUTE_SHADER:         return "GL_COMPUTE_SHADER";
 	default: std::unreachable();
 	}
 }
@@ -93,14 +95,14 @@ inline std::string loadShaderCode(const std::string& path, unsigned int level)
 {
 	if (sourceGLSL.empty())
 	{
-		core::Error("Failed to create OpenGL shader object for stage: " + std::string(shaderStageToString(stage)) + ". Source code Empty.");
+		core::Error("Failed to create OpenGL shader object for stage: " + shaderStageToString(stage) + ". Source code Empty.");
 		return 0;
 	}
 
 	GLuint shader = glCreateShader(stage);
 	if (!shader)
 	{
-		core::Error("Failed to create OpenGL shader object for stage: " + std::string(shaderStageToString(stage)));
+		core::Error("Failed to create OpenGL shader object for stage: " + shaderStageToString(stage));
 		return 0;
 	}
 	const GLchar* codeSrc = sourceGLSL.data();
@@ -142,6 +144,8 @@ struct ShaderHandle final
 	GLuint handle = 0;
 };
 //=============================================================================
+gpu::program::ShaderProgramPtr currentShaderProgram{ nullptr };
+//=============================================================================
 struct gpu::program::ShaderProgram final
 {
 	ShaderProgram() noexcept { programID = glCreateProgram(); }
@@ -149,6 +153,7 @@ struct gpu::program::ShaderProgram final
 	{
 		if (programID)
 		{
+			if (currentShaderProgram->programID == programID) currentShaderProgram = nullptr;
 			core::Debug("Destroy shader program " + std::to_string(programID));
 			glDeleteProgram(programID);
 		}
@@ -174,8 +179,6 @@ struct gpu::program::ShaderProgram final
 
 	unsigned programID{ 0 };
 };
-//=============================================================================
-gpu::program::ShaderProgramPtr currentShaderProgram{ nullptr };
 //=============================================================================
 std::string gpu::program::LoadShaderCode(const std::string& path, const std::vector<std::string>& defines)
 {
@@ -209,61 +212,44 @@ std::string gpu::program::LoadShaderCode(const std::string& path, const std::vec
 
 	return shaderStream.str();
 }
-//=============================================================================
-gpu::program::ShaderProgramPtr gpu::program::LoadShaderProgram(const std::string& vsFile, const std::vector<std::string>& defines)
+gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const GraphicsProgramCreateInfo& createInfo)
 {
-	return CreateShaderProgram(LoadShaderCode(vsFile, defines));
-}
-//=============================================================================
-gpu::program::ShaderProgramPtr gpu::program::LoadShaderProgram(const std::string& vsFile, const std::string& fsFile, const std::vector<std::string>& defines)
-{
-	return CreateShaderProgram(LoadShaderCode(vsFile, defines), LoadShaderCode(fsFile, defines));
-}
-//=============================================================================
-gpu::program::ShaderProgramPtr gpu::program::LoadShaderProgram(const std::string& vsFile, const std::string& gsFile, const std::string& fsFile, const std::vector<std::string>& defines)
-{
-	return CreateShaderProgram(LoadShaderCode(vsFile, defines), LoadShaderCode(gsFile, defines), LoadShaderCode(fsFile, defines));
-}
-//=============================================================================
-gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const std::string& vertexShaderSrc)
-{
-	return CreateShaderProgram(vertexShaderSrc, "", "");
-}
-//=============================================================================
-gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc)
-{
-	return CreateShaderProgram(vertexShaderSrc, "", fragmentShaderSrc);
-}
-//=============================================================================
-gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const std::string& vertexShaderSrc, const std::string& geometryShaderSrc, const std::string& fragmentShaderSrc)
-{
-	assert(!vertexShaderSrc.empty());
+	assert(!createInfo.vertexShaderCode.empty());
 	ShaderHandle vertexShader;
-	vertexShader.handle = compileShaderGLSL(GL_VERTEX_SHADER, vertexShaderSrc);
+	vertexShader.handle = compileShaderGLSL(GL_VERTEX_SHADER, createInfo.vertexShaderCode);
 	if (!vertexShader) return nullptr;
 
-	ShaderHandle geometryShader;
-	if (!geometryShaderSrc.empty())
-	{
-		geometryShader.handle = compileShaderGLSL(GL_GEOMETRY_SHADER, geometryShaderSrc);
-		if (!geometryShader) return nullptr;
-	}
-
 	ShaderHandle fragmentShader;
-	if (!fragmentShaderSrc.empty())
+	if (!createInfo.fragmentShaderCode.empty())
 	{
-		fragmentShader.handle = compileShaderGLSL(GL_FRAGMENT_SHADER, fragmentShaderSrc);
+		fragmentShader.handle = compileShaderGLSL(GL_FRAGMENT_SHADER, createInfo.fragmentShaderCode);
 		if (!fragmentShader) return nullptr;
 	}
 
+	ShaderHandle tessControlShader;
+	if (!createInfo.tessellationControlShaderCode.empty())
+	{
+		tessControlShader.handle = compileShaderGLSL(GL_TESS_CONTROL_SHADER, createInfo.tessellationControlShaderCode);
+		if (!tessControlShader) return nullptr;
+	}
+
+	ShaderHandle tessEvalShader;
+	if (!createInfo.tessellationEvaluationShaderCode.empty())
+	{
+		tessEvalShader.handle = compileShaderGLSL(GL_TESS_EVALUATION_SHADER, createInfo.tessellationEvaluationShaderCode);
+		if (!tessEvalShader) return nullptr;
+	}
+
 	ShaderProgramPtr program = std::make_shared<ShaderProgram>();
-	if (vertexShader)   glAttachShader(program->programID, vertexShader.get());
-	if (geometryShader) glAttachShader(program->programID, geometryShader.get());
-	if (fragmentShader) glAttachShader(program->programID, fragmentShader.get());
+	if (vertexShader)      glAttachShader(program->programID, vertexShader.get());
+	if (fragmentShader)    glAttachShader(program->programID, fragmentShader.get());
+	if (tessControlShader) glAttachShader(program->programID, tessControlShader.get());
+	if (tessEvalShader)    glAttachShader(program->programID, tessEvalShader.get());
 	glLinkProgram(program->programID);
-	if (vertexShader)   glDetachShader(program->programID, vertexShader.get());
-	if (geometryShader) glDetachShader(program->programID, geometryShader.get());
-	if (fragmentShader) glDetachShader(program->programID, fragmentShader.get());
+	if (vertexShader)      glDetachShader(program->programID, vertexShader.get());
+	if (fragmentShader)    glDetachShader(program->programID, fragmentShader.get());
+	if (tessControlShader) glDetachShader(program->programID, tessControlShader.get());
+	if (tessEvalShader)    glDetachShader(program->programID, tessEvalShader.get());
 
 	GLint linkStatus;
 	glGetProgramiv(program->programID, GL_LINK_STATUS, &linkStatus);
@@ -276,6 +262,41 @@ gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const std::stri
 		core::Error(" Shader program failed\n" + errorLog);
 		return nullptr;
 	}
+
+	if (!createInfo.name.empty())
+		glObjectLabel(GL_PROGRAM, program->programID, static_cast<GLsizei>(createInfo.name.length()), createInfo.name.data());
+
+	core::Debug("Create shader program " + std::to_string(program->programID));
+
+	return program;
+}
+//=============================================================================
+gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const ComputeProgramCreateInfo& createInfo)
+{
+	assert(!createInfo.shaderCode.empty());
+	ShaderHandle shader;
+	shader.handle = compileShaderGLSL(GL_COMPUTE_SHADER, createInfo.shaderCode);
+	if (!shader) return nullptr;
+
+	ShaderProgramPtr program = std::make_shared<ShaderProgram>();
+	if (shader) glAttachShader(program->programID, shader.get());
+	glLinkProgram(program->programID);
+	if (shader) glDetachShader(program->programID, shader.get());
+
+	GLint linkStatus;
+	glGetProgramiv(program->programID, GL_LINK_STATUS, &linkStatus);
+	if (linkStatus == GL_FALSE)
+	{
+		GLint maxLength;
+		glGetProgramiv(program->programID, GL_INFO_LOG_LENGTH, &maxLength);
+		std::string errorLog(maxLength, ' ');
+		glGetProgramInfoLog(program->programID, maxLength, &maxLength, errorLog.data());
+		core::Error(" Shader program failed\n" + errorLog);
+		return nullptr;
+	}
+
+	if (!createInfo.name.empty())
+		glObjectLabel(GL_PROGRAM, program->programID, static_cast<GLsizei>(createInfo.name.length()), createInfo.name.data());
 
 	core::Debug("Create shader program " + std::to_string(program->programID));
 
