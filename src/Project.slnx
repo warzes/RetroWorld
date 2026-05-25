@@ -6,6 +6,7 @@
     <File Path="3rdparty.md" />
     <File Path="idea.md" />
     <File Path="other.md" />
+    <File Path="WebGL2.md" />
   </Folder>
   <Project Path="3rdparty/3rdparty.vcxproj" Id="85d00892-bf33-46df-b47c-bdfc3b6937a1" />
   <Project Path="Engine/Engine.vcxproj" Id="c46b92ad-642b-4901-8b8b-c55733bb2556" />

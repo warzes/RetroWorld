@@ -408,12 +408,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, float value)
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform1f(program->GetId(), location, value);
-#else
-		BindShaderProgram(program);
-		glUniform1f(location, value);
-#endif
 		return true;
 	}
 	return false;
@@ -423,12 +418,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, int value)
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform1i(program->GetId(), location, value);
-#else
-		BindShaderProgram(program);
-		glUniform1i(location, value);
-#endif
 		return true;
 	}
 	return false;
@@ -438,12 +428,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, unsigned int 
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform1ui(program->GetId(), location, value);
-#else
-		BindShaderProgram(program);
-		glUniform1ui(location, value);
-#endif
 		return true;
 	}
 	return false;
@@ -453,12 +438,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, bool value)
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform1i(program->GetId(), location, value ? 1 : 0);
-#else
-		BindShaderProgram(program);
-		glUniform1i(location, value ? 1 : 0);
-#endif
 		return true;
 	}
 	return false;
@@ -478,12 +458,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform1fv(program->GetId(), location, static_cast<GLint>(value.size()), value.data());
-#else
-		BindShaderProgram(program);
-		glUniform1fv(location, static_cast<GLint>(value.size()), value.data());
-#endif
 		return true;
 	}
 	return false;
@@ -493,12 +468,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform1iv(program->GetId(), location, static_cast<GLint>(value.size()), value.data());
-#else
-		BindShaderProgram(program);
-		glUniform1iv(location, static_cast<GLint>(value.size()), value.data());
-#endif
 		return true;
 	}
 	return false;
@@ -508,12 +478,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform1uiv(program->GetId(), location, static_cast<GLint>(value.size()), value.data());
-#else
-		BindShaderProgram(program);
-		glUniform1uiv(location, static_cast<GLint>(value.size()), value.data());
-#endif
 		return true;
 	}
 	return false;
@@ -523,12 +488,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform2fv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform2fv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -538,12 +498,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform3fv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform3fv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -553,12 +508,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform4fv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform4fv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -568,12 +518,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::iv
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform2iv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform2iv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -583,12 +528,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::iv
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform3iv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform3iv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -598,12 +538,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::iv
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform4iv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform4iv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -613,12 +548,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::uv
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform2uiv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform2uiv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -628,12 +558,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::uv
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform3uiv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform3uiv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -643,12 +568,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::uv
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform4uiv(program->GetId(), location, 1, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniform4uiv(location, 1, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -658,12 +578,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix2fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix2fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -673,12 +588,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix3fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -688,12 +598,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix4fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -703,12 +608,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix2x3fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix2x3fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -718,12 +618,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix3x2fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix3x2fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -733,12 +628,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix2x4fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix2x4fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -748,12 +638,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix4x2fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix4x2fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -763,12 +648,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix3x4fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix3x4fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -778,12 +658,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ma
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix4x3fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix4x3fv(location, 1, GL_FALSE, glm::value_ptr(value));
-#endif
 		return true;
 	}
 	return false;
@@ -793,12 +668,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform2fv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform2fv(location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -808,12 +678,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform3fv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform3fv(location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -823,12 +688,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform4fv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform4fv(location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -838,12 +698,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform2iv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform2iv(location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -853,12 +708,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform3iv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform3iv(location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -868,12 +718,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform4iv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform4iv(location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -883,12 +728,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform2uiv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform2uiv(location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -898,12 +738,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform3uiv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform3uiv(location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -913,12 +748,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniform4uiv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniform4uiv(location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -928,12 +758,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix2fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix2fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -943,12 +768,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix3fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix3fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -958,12 +778,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix4fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix4fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -973,12 +788,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix2x3fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix2x3fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -988,12 +798,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix3x2fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix3x2fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -1003,12 +808,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix2x4fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix2x4fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -1018,12 +818,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix4x2fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix4x2fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -1033,12 +828,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix3x4fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix3x4fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
@@ -1048,12 +838,7 @@ bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::ve
 {
 	if (location >= 0)
 	{
-#if USE_OPENGL4
 		glProgramUniformMatrix4x3fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#else
-		BindShaderProgram(program);
-		glUniformMatrix4x3fv(location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
-#endif
 		return true;
 	}
 	return false;
