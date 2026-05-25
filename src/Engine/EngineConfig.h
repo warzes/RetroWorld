@@ -1,0 +1,18 @@
+﻿#pragma once
+
+#define ENGINE_VERSION_STR "0.1"
+
+#define PLATFORM_DESKTOP_WIN32 0
+#define PLATFORM_DESKTOP_RGFW 0
+#define PLATFORM_WEB 0
+#define PLATFORM_WEB_RGFW 0
+#define PLATFORM_ANDROID 0
+
+#if defined(_WIN32)
+#	undef PLATFORM_DESKTOP_WIN32
+#	define PLATFORM_DESKTOP_WIN32 1
+#endif
+
+#define USE_OPENGL 1
+
+#define USE_SRGB 1
