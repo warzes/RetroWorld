@@ -65,6 +65,9 @@
     <ClInclude Include="gpu_uniform.h">
       <Filter>gpu</Filter>
     </ClInclude>
+    <ClInclude Include="_gpu_system.h">
+      <Filter>gpu\private</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

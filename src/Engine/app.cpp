@@ -2,7 +2,7 @@
 #include "app.h"
 #include "_app_window.h"
 #include "_app_input.h"
-#include "gpu_system.h"
+#include "_gpu_system.h"
 //=============================================================================
 namespace
 {
@@ -62,8 +62,7 @@ static bool Init(const app::AppCreateInfo& info)
 		return false;
 	input::Init();
 
-	gpu::CreateInfo gpuCreateInfo{};
-	if (!gpu::Init(gpuCreateInfo))
+	if (!gpu::Init())
 		return false;
 
 	return true;
