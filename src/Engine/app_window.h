@@ -11,6 +11,7 @@ namespace window
 		bool           borderless{ false };
 		bool           fullscreen{ false };
 		bool           highDpi{ false };
+		bool           adaptiveVsync{ false };
 	};
 
 	uint16_t GetWidth() noexcept;

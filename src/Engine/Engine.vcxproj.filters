@@ -41,14 +41,8 @@
     <ClInclude Include="app_messageHandler.h">
       <Filter>app</Filter>
     </ClInclude>
-    <ClInclude Include="core_string.h">
-      <Filter>core</Filter>
-    </ClInclude>
     <ClInclude Include="core_utils.h">
       <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="gpu_resources.h">
-      <Filter>gpu</Filter>
     </ClInclude>
     <ClInclude Include="EngineConfig.h">
       <Filter>base</Filter>
@@ -58,6 +52,18 @@
     </ClInclude>
     <ClInclude Include="_ogl_context.h">
       <Filter>gpu\private</Filter>
+    </ClInclude>
+    <ClInclude Include="gr_camera.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="core_image.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="gpu_program.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="gpu_uniform.h">
+      <Filter>gpu</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -86,17 +92,20 @@
     <ClCompile Include="gpu_system.cpp">
       <Filter>gpu</Filter>
     </ClCompile>
-    <ClCompile Include="core_string.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
     <ClCompile Include="core_utils.cpp">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="gpu_resources.cpp">
-      <Filter>gpu</Filter>
-    </ClCompile>
     <ClCompile Include="_ogl_context.cpp">
       <Filter>gpu\private</Filter>
+    </ClCompile>
+    <ClCompile Include="gr_camera.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="core_image.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_program.cpp">
+      <Filter>gpu</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -123,6 +132,9 @@
     </Filter>
     <Filter Include="base">
       <UniqueIdentifier>{c22178a9-b8f5-43a6-b8ba-f60ac51212e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="graphics">
+      <UniqueIdentifier>{f3c56fec-9bb6-4ebf-93c1-7c971b23202b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -102,13 +102,15 @@
     <ClInclude Include="app_messageHandler.h" />
     <ClInclude Include="app_window.h" />
     <ClInclude Include="core_file.h" />
+    <ClInclude Include="core_image.h" />
     <ClInclude Include="core_log.h" />
-    <ClInclude Include="core_string.h" />
     <ClInclude Include="core_utils.h" />
     <ClInclude Include="EngineConfig.h" />
     <ClInclude Include="gpu_core.h" />
-    <ClInclude Include="gpu_resources.h" />
+    <ClInclude Include="gpu_program.h" />
     <ClInclude Include="gpu_system.h" />
+    <ClInclude Include="gpu_uniform.h" />
+    <ClInclude Include="gr_camera.h" />
     <ClInclude Include="math_aabb.h" />
     <ClInclude Include="math_core.h" />
     <ClInclude Include="math_point2.h" />
@@ -122,12 +124,13 @@
     <ClCompile Include="app_input.cpp" />
     <ClCompile Include="app_window.cpp" />
     <ClCompile Include="core_file.cpp" />
+    <ClCompile Include="core_image.cpp" />
     <ClCompile Include="core_log.cpp" />
-    <ClCompile Include="core_string.cpp" />
     <ClCompile Include="core_utils.cpp" />
     <ClCompile Include="gpu_core.cpp" />
-    <ClCompile Include="gpu_resources.cpp" />
+    <ClCompile Include="gpu_program.cpp" />
     <ClCompile Include="gpu_system.cpp" />
+    <ClCompile Include="gr_camera.cpp" />
     <ClCompile Include="mathTest.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

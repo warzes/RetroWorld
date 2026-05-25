@@ -3,6 +3,8 @@
 #include <3rdpartyConfig.h>
 #include <EngineConfig.h>
 
+#include <Engine/stdafx.h>
+
 #if defined(_MSC_VER)
 #	pragma warning(push, 3)
 //#	pragma warning(disable : 4061)
@@ -18,10 +20,17 @@
 
 #include <core_log.h>
 #include <core_file.h>
+#include <core_image.h>
+#include <core_utils.h>
 
 #include <math_core.h>
 #include <math_point2.h>
 #include <math_aabb.h>
+
+#include <gpu_core.h>
+#include <gpu_program.h>
+#include <gpu_uniform.h>
+#include <gpu_system.h>
 
 #include <app.h>
 

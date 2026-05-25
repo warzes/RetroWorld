@@ -73,6 +73,7 @@
 #include <cmath>
 
 #include <chrono>
+#include <regex>
 #include <thread>
 #include <filesystem>
 #include <fstream>

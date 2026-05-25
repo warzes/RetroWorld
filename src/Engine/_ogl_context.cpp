@@ -14,7 +14,7 @@ extern "C"
 }
 #endif
 //=============================================================================
-void APIENTRY glDebugOutput(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) noexcept
+void APIENTRY GLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) noexcept
 {
 	if (id == 131169 ||
 		id == 131185 || // NV: Buffer will use video memory
@@ -62,7 +62,7 @@ void APIENTRY glDebugOutput(GLenum source, GLenum type, GLuint id, GLenum severi
 	core::Error(msg);
 }
 //=============================================================================
-bool InitOpenGLContext(HINSTANCE hinstance, HWND hwnd, HDC hdc, HGLRC& outcontext)
+bool InitOpenGLContext(HINSTANCE hinstance, HWND hwnd, HDC hdc, HGLRC& outcontext, bool adaptiveVsync)
 {
 	const uint32_t pfdFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
 
@@ -176,8 +176,8 @@ bool InitOpenGLContext(HINSTANCE hinstance, HWND hwnd, HDC hdc, HGLRC& outcontex
 
 	int pixelFormat{ 0 };
 	UINT numFormats;
-	wglChoosePixelFormatARB(hdc, attribs, 0, 1, &pixelFormat, &numFormats);
-	if (!numFormats || !pixelFormat)
+	BOOL result = wglChoosePixelFormatARB(hdc, attribs, 0, 1, &pixelFormat, &numFormats);
+	if (result == FALSE || !numFormats || !pixelFormat)
 	{
 		core::Error("Failed to create a pixel format for WGL.");
 		return false;
@@ -194,12 +194,13 @@ bool InitOpenGLContext(HINSTANCE hinstance, HWND hwnd, HDC hdc, HGLRC& outcontex
 	const int contextAttribs[] = {
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
 		WGL_CONTEXT_MINOR_VERSION_ARB, 6,
+		WGL_CONTEXT_PROFILE_MASK_ARB,  WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+		WGL_CONTEXT_FLAGS_ARB,
 #if defined(_DEBUG)
-		WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+		WGL_CONTEXT_DEBUG_BIT_ARB,
 #else
-		WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_OPENGL_NO_ERROR_ARB,
+		GLAD_WGL_ARB_create_context_no_error ? WGL_CONTEXT_OPENGL_NO_ERROR_ARB : 0,
 #endif
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
 		0, 0
 	};
 	outcontext = wglCreateContextAttribsARB(hdc, nullptr, contextAttribs);
@@ -216,12 +217,19 @@ bool InitOpenGLContext(HINSTANCE hinstance, HWND hwnd, HDC hdc, HGLRC& outcontex
 		return false;
 	}
 
-#if defined(_DEBUG)
-	glEnable(GL_DEBUG_OUTPUT);
-	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-	glDebugMessageCallback(glDebugOutput, nullptr);
-	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
-#endif
+	// enable debug context
+	int flags;
+	glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+	if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
+	{
+		core::Print("Enable OpenGL Debug Context");
+		glEnable(GL_DEBUG_OUTPUT);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // makes sure errors are displayed synchronously
+		glDebugMessageCallback(GLDebugMessageCallback, nullptr);
+		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+	}
+
+	wglSwapIntervalEXT(adaptiveVsync ? -1 : 0); // Adaptive Vsync, если есть EXT_swap_control_tear (включает vsync если фпс высокое, отключает на низком)
 
 	return true;
 }

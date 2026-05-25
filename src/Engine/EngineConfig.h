@@ -14,5 +14,6 @@
 #endif
 
 #define USE_OPENGL 1
+#define USE_OPENGL4 1
 
 #define USE_SRGB 1

@@ -239,8 +239,8 @@ bool window::Init(const WindowCreateInfo& createInfo)
 		return false;
 	}
 
-	bool InitOpenGLContext(HINSTANCE, HWND, HDC, HGLRC&);
-	if (!InitOpenGLContext(instance, hwnd, hdc, context))
+	bool InitOpenGLContext(HINSTANCE, HWND, HDC, HGLRC&, bool);
+	if (!InitOpenGLContext(instance, hwnd, hdc, context, createInfo.adaptiveVsync))
 		return false;
 #endif
 
