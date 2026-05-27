@@ -3,7 +3,7 @@
 #include "_gpu_contextState.h"
 #include "_gpu_enumDesc.h"
 //=============================================================================
-inline void GLEnableOrDisable(GLenum state, GLboolean value)
+void GLEnableOrDisable(GLenum state, GLboolean value) noexcept
 {
 	(value == GL_TRUE ? glEnable : glDisable)(state);
 }
@@ -324,7 +324,7 @@ void gpu::cmd::SetState(const InputAssemblyState& ias)
 		GLEnableOrDisable(GL_PRIMITIVE_RESTART_FIXED_INDEX, ias.primitiveRestartEnable);
 		context.inputAssemblyState.primitiveRestartEnable = ias.primitiveRestartEnable;
 	}
-	context.inputAssemblyState.topology= ias.topology;
+	context.inputAssemblyState.topology = ias.topology;
 }
 //=============================================================================
 void gpu::cmd::SetState(const TessellationState& ts)
@@ -461,7 +461,6 @@ void gpu::cmd::SetState(const StencilState& ss)
 	if (ss.stencilTestEnable != context.stencilState.stencilTestEnable)
 	{
 		GLEnableOrDisable(GL_STENCIL_TEST, ss.stencilTestEnable);
-		context.stencilState.stencilTestEnable = ss.stencilTestEnable;
 	}
 
 	// Stencil front
@@ -495,6 +494,8 @@ void gpu::cmd::SetState(const StencilState& ss)
 		}
 		context.stencilState.back = ss.back;
 	}
+
+	context.stencilState.stencilTestEnable = ss.stencilTestEnable;
 }
 //=============================================================================
 void gpu::cmd::SetState(const ColorBlendState& cb)
@@ -502,12 +503,12 @@ void gpu::cmd::SetState(const ColorBlendState& cb)
 	if (cb.logicOpEnable != context.colorBlendState.logicOpEnable)
 	{
 		GLEnableOrDisable(GL_COLOR_LOGIC_OP, cb.logicOpEnable);
-		context.colorBlendState.logicOpEnable = cb.logicOpEnable;
 		if (!context.colorBlendState.logicOpEnable || (cb.logicOpEnable && cb.logicOp != context.colorBlendState.logicOp))
 		{
 			glLogicOp(EnumToValue(cb.logicOp));
 			context.colorBlendState.logicOp = cb.logicOp;
 		}
+		context.colorBlendState.logicOpEnable = cb.logicOpEnable;
 	}
 
 	if (std::memcmp(cb.blendConstants, context.colorBlendState.blendConstants, sizeof(cb.blendConstants)) != 0)

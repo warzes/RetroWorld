@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "_gpu_system.h"
 #include "gpu_program.h"
+#include "gpu_cmd.h"
 #include "gpu_vao.h"
 #include "_gpu_contextState.h"
 #include "_gpu_enumDesc.h"
@@ -13,8 +14,7 @@ namespace
 //=============================================================================
 bool gpu::Init()
 {
-	context.contextWidth  = window::GetWidth();
-	context.contextHeight = window::GetHeight();
+	context.Init(window::GetWidth(), window::GetHeight());
 
 	const char* vendor = (const char*)glGetString(GL_VENDOR);
 	const char* renderer = (const char*)glGetString(GL_RENDERER);

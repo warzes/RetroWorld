@@ -40,7 +40,7 @@ namespace gpu
 	struct DepthState final
 	{
 		bool depthTestEnable     = false;           // gl{Enable, Disable}(GL_DEPTH_TEST)
-		bool depthWriteEnable    = false;           // glDepthMask(depthWriteEnable)
+		bool depthWriteEnable    = true;            // glDepthMask(depthWriteEnable)
 		CompareOp depthCompareOp = CompareOp::Less; // glDepthFunc
 	};
 
@@ -82,7 +82,7 @@ namespace gpu
 	{
 		bool logicOpEnable = false;       // gl{Enable, Disable}(GL_COLOR_LOGIC_OP)
 		LogicOp logicOp = LogicOp::Copy;  // glLogicOp(logicOp)
-		std::span<const ColorBlendAttachmentState> attachments = {}; // glBlendFuncSeparatei + glBlendEquationSeparatei
+		std::vector<ColorBlendAttachmentState> attachments = {}; // glBlendFuncSeparatei + glBlendEquationSeparatei
 		float blendConstants[4] = { 0, 0, 0, 0 }; // glBlendColor
 	};
 
