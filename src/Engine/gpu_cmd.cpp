@@ -22,6 +22,291 @@ inline void setViewportInternal(const gpu::Viewport& viewport, const gpu::Viewpo
 	}
 }
 //=============================================================================
+inline gpu::fbo::FramebufferPtr makeSingleTextureFbo(gpu::texture::TexturePtr texture)
+{
+	auto format = gpu::texture::GetCreateInfo(texture).format;
+
+	auto depthStencil = gpu::fbo::RenderDepthStencilAttachment{ .texture = texture };
+	auto color = gpu::fbo::RenderColorAttachment{ .texture = texture };
+	gpu::fbo::FramebufferCreateInfo createInfo;
+
+	if (gpu::IsDepthFormat(format))
+		createInfo.depthAttachment = depthStencil;
+
+	if (gpu::IsStencilFormat(format))
+		createInfo.stencilAttachment = depthStencil;
+
+	if (gpu::IsColorFormat(format))
+		createInfo.colorAttachments.push_back(color);
+
+	return gpu::fbo::CreateFramebuffer(createInfo);
+}
+//=============================================================================
+void gpu::cmd::BlitTexture(texture::TexturePtr source, texture::TexturePtr target, core::Offset3D sourceOffset, core::Offset3D targetOffset, core::Extent3D sourceExtent, core::Extent3D targetExtent, Filter filter, AspectMask aspect)
+{
+	auto fboSource = makeSingleTextureFbo(source);
+	auto fboTarget = makeSingleTextureFbo(target);
+	glBlitNamedFramebuffer(
+		gpu::fbo::Handle(fboSource),
+		gpu::fbo::Handle(fboTarget),
+		sourceOffset.x,
+		sourceOffset.y,
+		sourceExtent.width,
+		sourceExtent.height,
+		targetOffset.x,
+		targetOffset.y,
+		targetExtent.width,
+		targetExtent.height,
+		gpu::EnumToValue(aspect),
+		gpu::EnumToValue(filter));
+}
+//=============================================================================
+void gpu::cmd::BlitTextureToSwapchain(texture::TexturePtr source, core::Offset3D sourceOffset, core::Offset3D targetOffset, core::Extent3D sourceExtent, core::Extent3D targetExtent, Filter filter, AspectMask aspect)
+{
+	auto fbo = makeSingleTextureFbo(source);
+
+	glBlitNamedFramebuffer(gpu::fbo::Handle(fbo),
+		0,
+		sourceOffset.x,
+		sourceOffset.y,
+		sourceExtent.width,
+		sourceExtent.height,
+		targetOffset.x,
+		targetOffset.y,
+		targetExtent.width,
+		targetExtent.height,
+		gpu::EnumToValue(aspect),
+		gpu::EnumToValue(filter));
+}
+//=============================================================================
+void gpu::cmd::SwapchainRendering(const fbo::SwapchainRenderInfo& renderInfo)
+{
+	const auto& ri = renderInfo;
+
+	if (!context.isRenderingToSwapchain) 
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	context.isRenderingToSwapchain = true;
+
+	switch (ri.colorLoadOp)
+	{
+	case fbo::AttachmentLoadOp::Load: break;
+	case fbo::AttachmentLoadOp::Clear:
+	{
+		if (context.lastColorMask[0] != ColorComponentFlag::RGBA_BITS)
+		{
+			glColorMaski(0, true, true, true, true);
+			context.lastColorMask[0] = ColorComponentFlag::RGBA_BITS;
+		}
+		glClearNamedFramebufferfv(0, GL_COLOR, 0, ri.clearColorValue);
+		break;
+	}
+	case fbo::AttachmentLoadOp::DontCare:
+	{
+		GLenum attachment = GL_COLOR;
+		glInvalidateNamedFramebufferData(0, 1, &attachment);
+		break;
+	}
+	default: std::unreachable();
+	}
+
+	switch (ri.depthLoadOp)
+	{
+	case fbo::AttachmentLoadOp::Load: break;
+	case fbo::AttachmentLoadOp::Clear:
+	{
+		if (context.lastDepthMask == false)
+		{
+			glDepthMask(true);
+			context.lastDepthMask = true;
+		}
+		glClearNamedFramebufferfv(0, GL_DEPTH, 0, &ri.clearDepthValue);
+		break;
+	}
+	case fbo::AttachmentLoadOp::DontCare:
+	{
+		GLenum attachment = GL_DEPTH;
+		glInvalidateNamedFramebufferData(0, 1, &attachment);
+		break;
+	}
+	default: std::unreachable();
+	}
+
+	switch (ri.stencilLoadOp)
+	{
+	case fbo::AttachmentLoadOp::Load: break;
+	case fbo::AttachmentLoadOp::Clear:
+	{
+		if (context.lastStencilMask[0] == false || context.lastStencilMask[1] == false)
+		{
+			glStencilMask(true);
+			context.lastStencilMask[0] = true;
+			context.lastStencilMask[1] = true;
+		}
+		glClearNamedFramebufferiv(0, GL_STENCIL, 0, &ri.clearStencilValue);
+		break;
+	}
+	case fbo::AttachmentLoadOp::DontCare:
+	{
+		GLenum attachment = GL_STENCIL;
+		glInvalidateNamedFramebufferData(0, 1, &attachment);
+		break;
+	}
+	default: std::unreachable();
+	}
+
+	setViewportInternal(renderInfo.viewport, context.lastViewport, context.initViewport);
+
+	context.lastViewport = renderInfo.viewport;
+	context.initViewport = false;
+}
+//=============================================================================
+void gpu::cmd::BindFramebuffer(fbo::FramebufferPtr fbo)
+{
+	context.isRenderingToSwapchain = false;
+
+	GLuint fboId = fbo::Handle(fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fboId);
+
+	const auto& ri = fbo::GetCreateInfo(fbo);
+
+	for (GLint i = 0; i < static_cast<GLint>(ri.colorAttachments.size()); i++)
+	{
+		const auto& attachment = ri.colorAttachments[i];
+		switch (attachment.loadOp)
+		{
+		case fbo::AttachmentLoadOp::Load: break;
+		case fbo::AttachmentLoadOp::Clear:
+		{
+			if (context.lastColorMask[i] != ColorComponentFlag::RGBA_BITS)
+			{
+				glColorMaski(i, true, true, true, true);
+				context.lastColorMask[i] = ColorComponentFlag::RGBA_BITS;
+			}
+
+			glClearNamedFramebufferfv(fboId, GL_COLOR, i, attachment.clearValue);
+			break;
+		}
+		case fbo::AttachmentLoadOp::DontCare:
+		{
+			GLenum colorAttachment = GL_COLOR_ATTACHMENT0 + i;
+			glInvalidateNamedFramebufferData(fboId, 1, &colorAttachment);
+			break;
+		}
+		default: std::unreachable();
+		}
+	}
+
+	if (ri.depthAttachment)
+	{
+		switch (ri.depthAttachment->loadOp)
+		{
+		case fbo::AttachmentLoadOp::Load: break;
+		case fbo::AttachmentLoadOp::Clear:
+		{
+			// clear just depth
+			if (context.lastDepthMask == false)
+			{
+				glDepthMask(true);
+				context.lastDepthMask = true;
+			}
+
+			glClearNamedFramebufferfv(fboId, GL_DEPTH, 0, &ri.depthAttachment->clearValue.depth);
+			break;
+		}
+		case fbo::AttachmentLoadOp::DontCare:
+		{
+			GLenum attachment = GL_DEPTH_ATTACHMENT;
+			glInvalidateNamedFramebufferData(fboId, 1, &attachment);
+			break;
+		}
+		default: std::unreachable();
+		}
+	}
+
+	if (ri.stencilAttachment)
+	{
+		switch (ri.stencilAttachment->loadOp)
+		{
+		case fbo::AttachmentLoadOp::Load: break;
+		case fbo::AttachmentLoadOp::Clear:
+		{
+			// clear just stencil
+			if (context.lastStencilMask[0] == false || context.lastStencilMask[1] == false)
+			{
+				glStencilMask(true);
+				context.lastStencilMask[0] = true;
+				context.lastStencilMask[1] = true;
+			}
+
+			glClearNamedFramebufferiv(fboId, GL_STENCIL, 0, &ri.stencilAttachment->clearValue.stencil);
+			break;
+		}
+		case fbo::AttachmentLoadOp::DontCare:
+		{
+			GLenum attachment = GL_STENCIL_ATTACHMENT;
+			glInvalidateNamedFramebufferData(fboId, 1, &attachment);
+			break;
+		}
+		default: std::unreachable();
+		}
+	}
+
+	Viewport viewport{};
+	if (ri.viewport)
+	{
+		viewport = *ri.viewport;
+	}
+	else
+	{
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+
+		// determine intersection of all render targets
+		core::Rect2D drawRect{
+		.offset = {},
+		.extent = {std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()},
+		};
+		for (const auto& attachment : ri.colorAttachments)
+		{
+			drawRect.extent.width = std::min(drawRect.extent.width, texture::GetCreateInfo(attachment.texture).extent.width);
+			drawRect.extent.height =
+				std::min(drawRect.extent.height, texture::GetCreateInfo(attachment.texture).extent.height);
+		}
+		if (ri.depthAttachment)
+		{
+			drawRect.extent.width =
+				std::min(drawRect.extent.width, texture::GetCreateInfo(ri.depthAttachment->texture).extent.width);
+			drawRect.extent.height =
+				std::min(drawRect.extent.height, texture::GetCreateInfo(ri.depthAttachment->texture).extent.height);
+		}
+		if (ri.stencilAttachment)
+		{
+			drawRect.extent.width =
+				std::min(drawRect.extent.width, texture::GetCreateInfo(ri.stencilAttachment->texture).extent.width);
+			drawRect.extent.height =
+				std::min(drawRect.extent.height, texture::GetCreateInfo(ri.stencilAttachment->texture).extent.height);
+		}
+		viewport.drawRect = drawRect;
+	}
+
+	setViewportInternal(viewport, context.lastViewport, context.initViewport);
+
+	context.lastViewport = viewport;
+	context.initViewport = false;
+}
+//=============================================================================
+void gpu::cmd::BindFramebufferNoAttachments(fbo::FramebufferPtr fbo, const fbo::RenderNoAttachmentsInfo& info)
+{
+	BindFramebuffer(fbo);
+	GLuint fboId = fbo::Handle(fbo);
+
+	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_WIDTH, info.framebufferSize.width);
+	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_HEIGHT, info.framebufferSize.height);
+	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_LAYERS, info.framebufferSize.depth);
+	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_SAMPLES, EnumToValue(info.framebufferSamples));
+	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_FIXED_SAMPLE_LOCATIONS, GL_TRUE);
+}
+//=============================================================================
 void gpu::cmd::SetTopology(PrimitiveTopology topology)
 {
 	context.currentTopology = topology;

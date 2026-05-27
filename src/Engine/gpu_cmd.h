@@ -4,9 +4,32 @@
 #include "gpu_texture.h"
 #include "gpu_vao.h"
 #include "gpu_buffer.h"
+#include "gpu_framebuffer.h"
 
 namespace gpu::cmd
 {
+	void BlitTexture(
+		texture::TexturePtr source,
+		texture::TexturePtr target,
+		core::Offset3D sourceOffset,
+		core::Offset3D targetOffset,
+		core::Extent3D sourceExtent,
+		core::Extent3D targetExtent,
+		Filter filter,
+		AspectMask aspect = AspectMaskBit::COLOR_BUFFER_BIT);
+
+	void BlitTextureToSwapchain(texture::TexturePtr source,
+		core::Offset3D sourceOffset,
+		core::Offset3D targetOffset,
+		core::Extent3D sourceExtent,
+		core::Extent3D targetExtent,
+		Filter filter,
+		AspectMask aspect = AspectMaskBit::COLOR_BUFFER_BIT);
+
+	void SwapchainRendering(const fbo::SwapchainRenderInfo& renderInfo);
+	void BindFramebuffer(fbo::FramebufferPtr fbo);
+	void BindFramebufferNoAttachments(fbo::FramebufferPtr fbo, const fbo::RenderNoAttachmentsInfo& info);
+
 	void SetTopology(PrimitiveTopology topology);
 
 	void SetViewport(const Viewport& viewport);

@@ -256,6 +256,44 @@ namespace gpu
 		Always
 	};
 
+	enum class ColorComponentFlag : uint32_t
+	{
+		NONE,
+		R_BIT = 0b0001,
+		G_BIT = 0b0010,
+		B_BIT = 0b0100,
+		A_BIT = 0b1000,
+		RGBA_BITS = 0b1111,
+	};
+	SE_DECLARE_FLAG_TYPE(ColorComponentFlags, ColorComponentFlag, uint32_t);
+
+	enum class AspectMaskBit : uint32_t
+	{
+		COLOR_BUFFER_BIT = 1 << 0,
+		DEPTH_BUFFER_BIT = 1 << 1,
+		STENCIL_BUFFER_BIT = 1 << 2,
+	};
+	SE_DECLARE_FLAG_TYPE(AspectMask, AspectMaskBit, uint32_t);
+
+	enum class MemoryBarrierBit : uint32_t
+	{
+		NONE = 0,
+		VERTEX_BUFFER_BIT = 1 << 0,  // GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT
+		INDEX_BUFFER_BIT = 1 << 1,  // GL_ELEMENT_ARRAY_BARRIER_BIT
+		UNIFORM_BUFFER_BIT = 1 << 2,  // GL_UNIFORM_BARRIER_BIT
+		TEXTURE_FETCH_BIT = 1 << 3,  // GL_TEXTURE_FETCH_BARRIER_BIT
+		IMAGE_ACCESS_BIT = 1 << 4,  // GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+		COMMAND_BUFFER_BIT = 1 << 5,  // GL_COMMAND_BARRIER_BIT
+		TEXTURE_UPDATE_BIT = 1 << 6,  // GL_TEXTURE_UPDATE_BARRIER_BIT
+		BUFFER_UPDATE_BIT = 1 << 7,  // GL_BUFFER_UPDATE_BARRIER_BIT
+		MAPPED_BUFFER_BIT = 1 << 8,  // GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT
+		FRAMEBUFFER_BIT = 1 << 9,  // GL_FRAMEBUFFER_BARRIER_BIT
+		SHADER_STORAGE_BIT = 1 << 10, // GL_SHADER_STORAGE_BARRIER_BIT
+		QUERY_COUNTER_BIT = 1 << 11, // GL_QUERY_BUFFER_BARRIER_BIT
+		ALL_BITS = static_cast<uint32_t>(-1),
+		// TODO: add more bits as necessary
+	};
+	SE_DECLARE_FLAG_TYPE(MemoryBarrierBits, MemoryBarrierBit, uint32_t);
 
 
 

@@ -92,6 +92,12 @@
     <ClInclude Include="gpu_cmd.h">
       <Filter>gpu</Filter>
     </ClInclude>
+    <ClInclude Include="gpu_framebuffer.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="gpu_copy.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -147,6 +153,12 @@
       <Filter>gpu</Filter>
     </ClCompile>
     <ClCompile Include="gpu_cmd.cpp">
+      <Filter>gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_framebuffer.cpp">
+      <Filter>gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_copy.cpp">
       <Filter>gpu</Filter>
     </ClCompile>
   </ItemGroup>

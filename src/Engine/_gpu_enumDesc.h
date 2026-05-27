@@ -417,6 +417,35 @@ namespace gpu
 		}
 	}
 
+	inline bool IsDepthFormat(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::D32_FLOAT:
+		case Format::D32_UNORM:
+		case Format::D24_UNORM:
+		case Format::D16_UNORM:
+		case Format::D32_FLOAT_S8_UINT:
+		case Format::D24_UNORM_S8_UINT: return true;
+		default: return false;
+		}
+	}
+
+	inline bool IsStencilFormat(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::D32_FLOAT_S8_UINT:
+		case Format::D24_UNORM_S8_UINT: return true;
+		default: return false;
+		}
+	}
+
+	inline bool IsColorFormat(Format format) noexcept
+	{
+		return !IsDepthFormat(format) && !IsStencilFormat(format);
+	}
+
 	inline GLenum EnumToValue(IndexType type) noexcept
 	{
 		switch (type)
@@ -676,6 +705,52 @@ namespace gpu
 			return GL_NEGATIVE_ONE_TO_ONE;
 		return GL_ZERO_TO_ONE;
 	}
+
+	inline GLbitfield EnumToValue(AspectMask bits) noexcept
+	{
+		GLbitfield ret = 0;
+		ret |= bits & AspectMaskBit::COLOR_BUFFER_BIT ? GL_COLOR_BUFFER_BIT : 0;
+		ret |= bits & AspectMaskBit::DEPTH_BUFFER_BIT ? GL_DEPTH_BUFFER_BIT : 0;
+		ret |= bits & AspectMaskBit::STENCIL_BUFFER_BIT ? GL_STENCIL_BUFFER_BIT : 0;
+		return ret;
+	}
+
+	inline GLenum EnumToValue(Filter filter) noexcept
+	{
+		switch (filter)
+		{
+		case Filter::Nearest:              return GL_NEAREST;
+		case Filter::Linear:               return GL_LINEAR;
+		case Filter::NearestMipmapNearest: return GL_NEAREST_MIPMAP_NEAREST;
+		case Filter::NearestMipmapLinear:  return GL_NEAREST_MIPMAP_LINEAR;
+		case Filter::LinearMipmapNearest:  return GL_LINEAR_MIPMAP_NEAREST;
+		case Filter::LinearMipmapLinear:   return GL_LINEAR_MIPMAP_LINEAR;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLbitfield EnumToValue(MemoryBarrierBits bits) noexcept
+	{
+		GLbitfield ret = 0;
+		ret |= bits & MemoryBarrierBit::VERTEX_BUFFER_BIT ? GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::INDEX_BUFFER_BIT ? GL_ELEMENT_ARRAY_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::UNIFORM_BUFFER_BIT ? GL_UNIFORM_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::TEXTURE_FETCH_BIT ? GL_TEXTURE_FETCH_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::IMAGE_ACCESS_BIT ? GL_SHADER_IMAGE_ACCESS_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::COMMAND_BUFFER_BIT ? GL_COMMAND_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::TEXTURE_UPDATE_BIT ? GL_TEXTURE_UPDATE_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::BUFFER_UPDATE_BIT ? GL_BUFFER_UPDATE_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::MAPPED_BUFFER_BIT ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::FRAMEBUFFER_BIT ? GL_FRAMEBUFFER_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::SHADER_STORAGE_BIT ? GL_SHADER_STORAGE_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::QUERY_COUNTER_BIT ? GL_QUERY_BUFFER_BARRIER_BIT : 0;
+		return ret;
+	}
+
+	
+
+
+
 
 
 

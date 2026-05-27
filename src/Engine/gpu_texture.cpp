@@ -137,6 +137,37 @@ struct gpu::texture::Sampler final
 	uint32_t id{ 0 };
 };
 //=============================================================================
+void SubImageInternal(gpu::texture::TexturePtr texture, const gpu::texture::TextureUpdateInfo& info)
+{
+	assert(!gpu::IsBlockCompressedFormat(texture->createInfo.format));
+	GLenum format{};
+	if (info.format == gpu::UploadFormat::INFER_FORMAT)
+		format = EnumToValue(FormatToUploadFormat(texture->createInfo.format));
+	else
+		format = EnumToValue(info.format);
+
+	GLenum type{};
+	if (info.type == gpu::UploadType::INFER_TYPE)
+		type = FormatToTypeGL(texture->createInfo.format);
+	else
+		type = EnumToValue(info.type);
+
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, info.rowLength);
+	glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, info.imageHeight);
+
+	switch (ImageTypeToDimension(texture->createInfo.imageType))
+	{
+	case 1:
+		glTextureSubImage1D(texture->id, info.level, info.offset.x, info.extent.width, format, type, info.pixels); break;
+	case 2:
+		glTextureSubImage2D(texture->id, info.level, info.offset.x, info.offset.y, info.extent.width, info.extent.height, format, type, info.pixels);
+		break;
+	case 3:
+		glTextureSubImage3D(texture->id, info.level, info.offset.x, info.offset.y, info.offset.z, info.extent.width, info.extent.height, info.extent.depth, format, type, info.pixels);
+		break;
+	}
+}
+//=============================================================================
 gpu::texture::TexturePtr gpu::texture::CreateTexture(const TextureCreateInfo& createInfo, std::string_view name)
 {
 	auto texture = std::make_shared<Texture>();
@@ -530,34 +561,7 @@ bool gpu::texture::IsValid(SamplerPtr sampler) noexcept
 void gpu::texture::UpdateImage(TexturePtr texture, const TextureUpdateInfo& info)
 {
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-	assert(!IsBlockCompressedFormat(texture->createInfo.format));
-	GLenum format{};
-	if (info.format == UploadFormat::INFER_FORMAT)
-		format = EnumToValue(FormatToUploadFormat(texture->createInfo.format));
-	else
-		format = EnumToValue(info.format);
-
-	GLenum type{};
-	if (info.type == UploadType::INFER_TYPE)
-		type = FormatToTypeGL(texture->createInfo.format);
-	else
-		type = EnumToValue(info.type);
-
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, info.rowLength);
-	glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, info.imageHeight);
-
-	switch (ImageTypeToDimension(texture->createInfo.imageType))
-	{
-	case 1:
-		glTextureSubImage1D(texture->id, info.level, info.offset.x, info.extent.width, format, type, info.pixels); break;
-	case 2:
-		glTextureSubImage2D(texture->id, info.level, info.offset.x, info.offset.y, info.extent.width, info.extent.height, format, type, info.pixels);
-		break;
-	case 3:
-		glTextureSubImage3D(texture->id, info.level, info.offset.x, info.offset.y, info.offset.z, info.extent.width, info.extent.height, info.extent.depth, format, type, info.pixels);
-		break;
-	}
+	SubImageInternal(texture, info);
 }
 //=============================================================================
 void gpu::texture::UpdateCompressedImage(TexturePtr texture, const CompressedTextureUpdateInfo& info)
