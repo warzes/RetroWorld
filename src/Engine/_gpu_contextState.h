@@ -2,6 +2,7 @@
 
 #include "gpu_core.h"
 #include "gpu_texture.h"
+#include "gpu_pipeline.h"
 
 namespace gpu::program
 {
@@ -74,7 +75,13 @@ namespace gpu
 		// Used for error checking for indexed draws
 		bool isIndexBufferBound = false;
 
-		PrimitiveTopology currentTopology{ PrimitiveTopology::TriangleList };
+		InputAssemblyState inputAssemblyState{};
+		TessellationState  tessellationState{};
+		RasterizationState rasterizationState{};
+		MultisampleState   multisampleState{};
+		DepthState         depthState{};
+		StencilState       stencilState{};
+		ColorBlendState    colorBlendState{};
 
 		std::array<ColorComponentFlags, MAX_COLOR_ATTACHMENTS> lastColorMask = {};
 		bool lastDepthMask = true;

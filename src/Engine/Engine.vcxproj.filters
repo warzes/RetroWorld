@@ -98,6 +98,9 @@
     <ClInclude Include="gpu_copy.h">
       <Filter>gpu</Filter>
     </ClInclude>
+    <ClInclude Include="gpu_pipeline.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -159,6 +162,9 @@
       <Filter>gpu</Filter>
     </ClCompile>
     <ClCompile Include="gpu_copy.cpp">
+      <Filter>gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_pipeline.cpp">
       <Filter>gpu</Filter>
     </ClCompile>
   </ItemGroup>

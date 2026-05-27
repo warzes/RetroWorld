@@ -747,42 +747,86 @@ namespace gpu
 		return ret;
 	}
 
-	
-
-
-
-
-
-
-
-
-	inline GLenum EnumToValue(gpu::RenderingCapability c) noexcept
-	{
-		switch (c)
-		{
-		case gpu::RenderingCapability::Blend:                 return GL_BLEND;
-		case gpu::RenderingCapability::CullFace:              return GL_CULL_FACE;
-		case gpu::RenderingCapability::DepthTest:             return GL_DEPTH_TEST;
-		case gpu::RenderingCapability::Dither:                return GL_DITHER;
-		case gpu::RenderingCapability::PolygonOffsetFill:     return GL_POLYGON_OFFSET_FILL;
-		case gpu::RenderingCapability::SampleAlphaToCoverage: return GL_SAMPLE_ALPHA_TO_COVERAGE;
-		case gpu::RenderingCapability::SampleCoverage:        return GL_SAMPLE_COVERAGE;
-		case gpu::RenderingCapability::ScissorTest:           return GL_SCISSOR_TEST;
-		case gpu::RenderingCapability::StencilTest:           return GL_STENCIL_TEST;
-		case gpu::RenderingCapability::Multisample:           return GL_MULTISAMPLE;
-		default: std::unreachable();
-		}
-	}
-	//=============================================================================
-	inline GLenum EnumToValue(gpu::RasterizationMode mode) noexcept
+	inline GLenum EnumToValue(RasterizationMode mode) noexcept
 	{
 		switch (mode) {
-		case gpu::RasterizationMode::Point: return GL_POINT;
-		case gpu::RasterizationMode::Line:  return GL_LINE;
-		case gpu::RasterizationMode::Fill:  return GL_FILL;
+		case RasterizationMode::Point: return GL_POINT;
+		case RasterizationMode::Line:  return GL_LINE;
+		case RasterizationMode::Fill:  return GL_FILL;
 		default: std::unreachable();
 		}
 	}
+
+	inline GLenum EnumToValue(gpu::CullFace cull) noexcept
+	{
+		switch (cull) {
+		case gpu::CullFace::Front:        return GL_FRONT;
+		case gpu::CullFace::Back:         return GL_BACK;
+		case gpu::CullFace::FrontAndBack: return GL_FRONT_AND_BACK;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLenum EnumToValue(FrontFace face) noexcept
+	{
+		switch (face)
+		{
+		case FrontFace::ClockWise:        return GL_CW;
+		case FrontFace::CounterClockWise: return GL_CCW;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLenum EnumToValue(LogicOp op) noexcept
+	{
+		switch (op)
+		{
+		case LogicOp::Clear: return GL_CLEAR;
+		case LogicOp::Set: return GL_SET;
+		case LogicOp::Copy: return GL_COPY;
+		case LogicOp::CopyInverted: return GL_COPY_INVERTED;
+		case LogicOp::NoOp: return GL_NOOP;
+		case LogicOp::Invert: return GL_INVERT;
+		case LogicOp::And: return GL_AND;
+		case LogicOp::Nand: return GL_NAND;
+		case LogicOp::Or: return GL_OR;
+		case LogicOp::Nor: return GL_NOR;
+		case LogicOp::Xor: return GL_XOR;
+		case LogicOp::Equivalent: return GL_EQUIV;
+		case LogicOp::AndReverse: return GL_AND_REVERSE;
+		case LogicOp::OrReverse: return GL_OR_REVERSE;
+		case LogicOp::AndInverted: return GL_AND_INVERTED;
+		case LogicOp::OrInverted: return GL_OR_INVERTED;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLenum EnumToValue(BlendOp op) noexcept
+	{
+		switch (op)
+		{
+		case BlendOp::Add: return GL_FUNC_ADD;
+		case BlendOp::Subtract: return GL_FUNC_SUBTRACT;
+		case BlendOp::ReverseSubtract: return GL_FUNC_REVERSE_SUBTRACT;
+		case BlendOp::Min: return GL_MIN;
+		case BlendOp::Max: return GL_MAX;
+		default: std::unreachable();
+		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+	//=============================================================================
+
 	
 	//=============================================================================
 	inline GLenum EnumToValue(gpu::Operation op) noexcept
@@ -827,27 +871,9 @@ namespace gpu
 		}
 	}
 	//=============================================================================
-	inline GLenum EnumToValue(gpu::BlendEquation eq) noexcept
-	{
-		switch (eq) {
-		case gpu::BlendEquation::Add:             return GL_FUNC_ADD;
-		case gpu::BlendEquation::Subtract:        return GL_FUNC_SUBTRACT;
-		case gpu::BlendEquation::ReverseSubtract: return GL_FUNC_REVERSE_SUBTRACT;
-		case gpu::BlendEquation::Min:             return GL_MIN;
-		case gpu::BlendEquation::Max:             return GL_MAX;
-		default: std::unreachable();
-		}
-	}
+
 	//=============================================================================
-	inline GLenum EnumToValue(gpu::CullFace cull) noexcept
-	{
-		switch (cull) {
-		case gpu::CullFace::Front:        return GL_FRONT;
-		case gpu::CullFace::Back:         return GL_BACK;
-		case gpu::CullFace::FrontAndBack: return GL_FRONT_AND_BACK;
-		default: std::unreachable();
-		}
-	}
+
 	//=============================================================================
 	inline GLenum EnumToValue(gpu::PrimitiveTopology topology) noexcept
 	{

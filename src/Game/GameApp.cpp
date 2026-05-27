@@ -138,6 +138,8 @@ void main()
 	gpu::uniform::Uniform<glm::mat4> proj;
 	gpu::uniform::Uniform<glm::mat4> view;
 	gpu::uniform::Uniform<glm::mat4> model;
+
+	gpu::DepthState depthState;
 }
 //=============================================================================
 bool GameInit()
@@ -166,7 +168,7 @@ bool GameInit()
 	ss.addressModeV = gpu::AddressMode::Repeat;
 	sampler = gpu::texture::CreateSampler(ss);
 
-	gpu::SetCapability(gpu::RenderingCapability::DepthTest, true);
+	depthState.depthTestEnable = true;
 
 	return true;
 }
@@ -196,6 +198,7 @@ void GameFixedUpdate()
 void GameRender()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gpu::cmd::SetState(depthState);
 	gpu::cmd::BindShaderProgram(program);
 	gpu::cmd::BindSampledImage(0, texture, sampler);
 

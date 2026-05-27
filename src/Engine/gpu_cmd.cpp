@@ -3,6 +3,11 @@
 #include "_gpu_contextState.h"
 #include "_gpu_enumDesc.h"
 //=============================================================================
+inline void GLEnableOrDisable(GLenum state, GLboolean value)
+{
+	(value == GL_TRUE ? glEnable : glDisable)(state);
+}
+//=============================================================================
 inline void setViewportInternal(const gpu::Viewport& viewport, const gpu::Viewport& lastViewport, bool initViewport)
 {
 	if (initViewport || viewport.drawRect != lastViewport.drawRect)
@@ -309,7 +314,250 @@ void gpu::cmd::BindFramebufferNoAttachments(fbo::FramebufferPtr fbo, const fbo::
 //=============================================================================
 void gpu::cmd::SetTopology(PrimitiveTopology topology)
 {
-	context.currentTopology = topology;
+	context.inputAssemblyState.topology = topology;
+}
+//=============================================================================
+void gpu::cmd::SetState(const InputAssemblyState& ias)
+{
+	if (ias.primitiveRestartEnable != context.inputAssemblyState.primitiveRestartEnable)
+	{
+		GLEnableOrDisable(GL_PRIMITIVE_RESTART_FIXED_INDEX, ias.primitiveRestartEnable);
+		context.inputAssemblyState.primitiveRestartEnable = ias.primitiveRestartEnable;
+	}
+	context.inputAssemblyState.topology= ias.topology;
+}
+//=============================================================================
+void gpu::cmd::SetState(const TessellationState& ts)
+{
+	if (ts.patchControlPoints > 0)
+	{
+		if (ts.patchControlPoints != context.tessellationState.patchControlPoints)
+		{
+			glPatchParameteri(GL_PATCH_VERTICES, static_cast<GLint>(ts.patchControlPoints));
+			context.tessellationState.patchControlPoints = ts.patchControlPoints;
+		}
+	}
+}
+//=============================================================================
+void gpu::cmd::SetState(const RasterizationState& rs)
+{
+	if (rs.depthClampEnable != context.rasterizationState.depthClampEnable)
+	{
+		GLEnableOrDisable(GL_DEPTH_CLAMP, rs.depthClampEnable);
+		context.rasterizationState.depthClampEnable = rs.depthClampEnable;
+	}
+	
+	if (rs.polygonMode != context.rasterizationState.polygonMode)
+	{
+		glPolygonMode(GL_FRONT_AND_BACK, EnumToValue(rs.polygonMode));
+		context.rasterizationState.polygonMode = rs.polygonMode;
+	}
+
+	if (rs.cullMode != context.rasterizationState.cullMode)
+	{
+		GLEnableOrDisable(GL_CULL_FACE, rs.cullMode != CullFace::None);
+		if (rs.cullMode != CullFace::None)
+			glCullFace(EnumToValue(rs.cullMode));
+
+		context.rasterizationState.cullMode = rs.cullMode;
+	}
+
+	if (rs.frontFace != context.rasterizationState.frontFace)
+	{
+		glFrontFace(EnumToValue(rs.frontFace));
+		context.rasterizationState.frontFace = rs.frontFace;
+	}
+
+	if (rs.depthBiasEnable != context.rasterizationState.depthBiasEnable)
+	{
+		GLEnableOrDisable(GL_POLYGON_OFFSET_FILL, rs.depthBiasEnable);
+		GLEnableOrDisable(GL_POLYGON_OFFSET_LINE, rs.depthBiasEnable);
+		GLEnableOrDisable(GL_POLYGON_OFFSET_POINT, rs.depthBiasEnable);
+
+		context.rasterizationState.depthBiasEnable = rs.depthBiasEnable;
+	}
+
+	if (rs.depthBiasSlopeFactor != context.rasterizationState.depthBiasSlopeFactor || rs.depthBiasConstantFactor != context.rasterizationState.depthBiasConstantFactor)
+	{
+		glPolygonOffset(rs.depthBiasSlopeFactor, rs.depthBiasConstantFactor);
+		context.rasterizationState.depthBiasSlopeFactor = rs.depthBiasSlopeFactor;
+		context.rasterizationState.depthBiasConstantFactor = rs.depthBiasConstantFactor;
+	}
+
+	if (rs.lineWidth != context.rasterizationState.lineWidth)
+	{
+		glLineWidth(rs.lineWidth);
+		context.rasterizationState.lineWidth = rs.lineWidth;
+	}
+
+	if (rs.pointSize != context.rasterizationState.pointSize)
+	{
+		glPointSize(rs.pointSize);
+		context.rasterizationState.pointSize = rs.pointSize;
+	}
+}
+//=============================================================================
+void gpu::cmd::SetState(const MultisampleState& ms)
+{
+	if (ms.sampleShadingEnable != context.multisampleState.sampleShadingEnable)
+	{
+		GLEnableOrDisable(GL_SAMPLE_SHADING, ms.sampleShadingEnable);
+		context.multisampleState.sampleShadingEnable = ms.sampleShadingEnable;
+	}
+
+	if (ms.minSampleShading != context.multisampleState.minSampleShading)
+	{
+		glMinSampleShading(ms.minSampleShading);
+		context.multisampleState.minSampleShading = ms.minSampleShading;
+	}
+
+	if (ms.sampleMask != context.multisampleState.sampleMask)
+	{
+		GLEnableOrDisable(GL_SAMPLE_MASK, ms.sampleMask != 0xFFFFFFFF);
+		glSampleMaski(0, ms.sampleMask);
+		context.multisampleState.sampleMask = ms.sampleMask;
+	}
+
+	if (ms.alphaToCoverageEnable != context.multisampleState.alphaToCoverageEnable)
+	{
+		GLEnableOrDisable(GL_SAMPLE_ALPHA_TO_COVERAGE, ms.alphaToCoverageEnable);
+		context.multisampleState.alphaToCoverageEnable = ms.alphaToCoverageEnable;
+	}
+
+	if (ms.alphaToOneEnable != context.multisampleState.alphaToOneEnable)
+	{
+		GLEnableOrDisable(GL_SAMPLE_ALPHA_TO_ONE, ms.alphaToOneEnable);
+		context.multisampleState.alphaToOneEnable = ms.alphaToOneEnable;
+	}
+}
+//=============================================================================
+void gpu::cmd::SetState(const DepthState& ds)
+{
+	if (ds.depthTestEnable != context.depthState.depthTestEnable)
+	{
+		GLEnableOrDisable(GL_DEPTH_TEST, ds.depthTestEnable);
+		context.depthState.depthTestEnable = ds.depthTestEnable;
+	}
+
+	if (ds.depthWriteEnable != context.depthState.depthWriteEnable)
+	{
+		if (ds.depthWriteEnable != context.lastDepthMask)
+		{
+			glDepthMask(ds.depthWriteEnable);
+			context.lastDepthMask = ds.depthWriteEnable;
+		}
+		context.depthState.depthWriteEnable = ds.depthWriteEnable;
+	}
+
+	if (ds.depthCompareOp != context.depthState.depthCompareOp)
+	{
+		glDepthFunc(EnumToValue(ds.depthCompareOp));
+		context.depthState.depthCompareOp = ds.depthCompareOp;
+	}
+}
+//=============================================================================
+void gpu::cmd::SetState(const StencilState& ss)
+{
+	if (ss.stencilTestEnable != context.stencilState.stencilTestEnable)
+	{
+		GLEnableOrDisable(GL_STENCIL_TEST, ss.stencilTestEnable);
+		context.stencilState.stencilTestEnable = ss.stencilTestEnable;
+	}
+
+	// Stencil front
+	if (!context.stencilState.stencilTestEnable || ss.front != context.stencilState.front)
+	{
+		glStencilOpSeparate(GL_FRONT,
+			EnumToValue(ss.front.failOp),
+			EnumToValue(ss.front.depthFailOp),
+			EnumToValue(ss.front.passOp));
+		glStencilFuncSeparate(GL_FRONT, EnumToValue(ss.front.compareOp), ss.front.reference, ss.front.compareMask);
+		if (context.lastStencilMask[0] != ss.front.writeMask)
+		{
+			glStencilMaskSeparate(GL_FRONT, ss.front.writeMask);
+			context.lastStencilMask[0] = ss.front.writeMask;
+		}
+		context.stencilState.front = ss.front;
+	}
+
+	// Stencil back
+	if (!context.stencilState.stencilTestEnable || ss.back != context.stencilState.back)
+	{
+		glStencilOpSeparate(GL_BACK,
+			EnumToValue(ss.back.failOp),
+			EnumToValue(ss.back.depthFailOp),
+			EnumToValue(ss.back.passOp));
+		glStencilFuncSeparate(GL_BACK, EnumToValue(ss.back.compareOp), ss.back.reference, ss.back.compareMask);
+		if (context.lastStencilMask[1] != ss.back.writeMask)
+		{
+			glStencilMaskSeparate(GL_BACK, ss.back.writeMask);
+			context.lastStencilMask[1] = ss.back.writeMask;
+		}
+		context.stencilState.back = ss.back;
+	}
+}
+//=============================================================================
+void gpu::cmd::SetState(const ColorBlendState& cb)
+{
+	if (cb.logicOpEnable != context.colorBlendState.logicOpEnable)
+	{
+		GLEnableOrDisable(GL_COLOR_LOGIC_OP, cb.logicOpEnable);
+		context.colorBlendState.logicOpEnable = cb.logicOpEnable;
+		if (!context.colorBlendState.logicOpEnable || (cb.logicOpEnable && cb.logicOp != context.colorBlendState.logicOp))
+		{
+			glLogicOp(EnumToValue(cb.logicOp));
+			context.colorBlendState.logicOp = cb.logicOp;
+		}
+	}
+
+	if (std::memcmp(cb.blendConstants, context.colorBlendState.blendConstants, sizeof(cb.blendConstants)) != 0)
+	{
+		glBlendColor(cb.blendConstants[0], cb.blendConstants[1], cb.blendConstants[2], cb.blendConstants[3]);
+		context.colorBlendState.blendConstants[0] = cb.blendConstants[0];
+		context.colorBlendState.blendConstants[1] = cb.blendConstants[1];
+		context.colorBlendState.blendConstants[2] = cb.blendConstants[2];
+		context.colorBlendState.blendConstants[3] = cb.blendConstants[3];
+	}
+
+	if (cb.attachments.empty() != context.colorBlendState.attachments.empty())
+	{
+		GLEnableOrDisable(GL_BLEND, !cb.attachments.empty());
+	}
+
+	for (GLuint i = 0; i < static_cast<GLuint>(cb.attachments.size()); i++)
+	{
+		const auto& cba = cb.attachments[i];
+		if (i < context.colorBlendState.attachments.size() && cba == context.colorBlendState.attachments[i])
+		{
+			continue;
+		}
+
+		if (cba.blendEnable)
+		{
+			glBlendFuncSeparatei(i,
+				EnumToValue(cba.srcColorBlendFactor),
+				EnumToValue(cba.dstColorBlendFactor),
+				EnumToValue(cba.srcAlphaBlendFactor),
+				EnumToValue(cba.dstAlphaBlendFactor));
+			glBlendEquationSeparatei(i, EnumToValue(cba.colorBlendOp), EnumToValue(cba.alphaBlendOp));
+		}
+		else
+		{
+			// "no blending" blend state
+			glBlendFuncSeparatei(i, GL_SRC_COLOR, GL_ZERO, GL_SRC_ALPHA, GL_ZERO);
+			glBlendEquationSeparatei(i, GL_FUNC_ADD, GL_FUNC_ADD);
+		}
+
+		if (context.lastColorMask[i] != cba.colorWriteMask)
+		{
+			glColorMaski(i,
+				(cba.colorWriteMask & ColorComponentFlag::R_BIT) != ColorComponentFlag::NONE,
+				(cba.colorWriteMask & ColorComponentFlag::G_BIT) != ColorComponentFlag::NONE,
+				(cba.colorWriteMask & ColorComponentFlag::B_BIT) != ColorComponentFlag::NONE,
+				(cba.colorWriteMask & ColorComponentFlag::A_BIT) != ColorComponentFlag::NONE);
+			context.lastColorMask[i] = cba.colorWriteMask;
+		}
+	}
 }
 //=============================================================================
 void gpu::cmd::SetViewport(const Viewport& viewport)
@@ -397,7 +645,7 @@ void gpu::cmd::BindStorageBuffer(uint32_t index, buffer::BufferPtr buffer, uint6
 void gpu::cmd::Draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
 	assert(context.isRendering);
-	glDrawArraysInstancedBaseInstance(EnumToValue(context.currentTopology),
+	glDrawArraysInstancedBaseInstance(EnumToValue(context.inputAssemblyState.topology),
 		firstVertex,
 		vertexCount,
 		instanceCount,
@@ -411,7 +659,7 @@ void gpu::cmd::DrawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t
 
 	// double cast is needed to prevent compiler from complaining about 32->64 bit pointer cast
 	glDrawElementsInstancedBaseVertexBaseInstance(
-		EnumToValue(context.currentTopology),
+		EnumToValue(context.inputAssemblyState.topology),
 		indexCount,
 		EnumToValue(context.currentIndexType),
 		reinterpret_cast<void*>(static_cast<uintptr_t>(firstIndex * GetIndexSize(context.currentIndexType))),
@@ -425,7 +673,7 @@ void gpu::cmd::DrawIndirect(buffer::BufferPtr commandBuffer, uint64_t commandBuf
 	assert(context.isRendering);
 
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer::Handle(commandBuffer));
-	glMultiDrawArraysIndirect(EnumToValue(context.currentTopology),
+	glMultiDrawArraysIndirect(EnumToValue(context.inputAssemblyState.topology),
 		reinterpret_cast<void*>(static_cast<uintptr_t>(commandBufferOffset)),
 		drawCount,
 		stride);
@@ -437,7 +685,7 @@ void gpu::cmd::DrawIndirectCount(buffer::BufferPtr commandBuffer, uint64_t comma
 
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer::Handle(commandBuffer));
 	glBindBuffer(GL_PARAMETER_BUFFER, buffer::Handle(countBuffer));
-	glMultiDrawArraysIndirectCount(EnumToValue(context.currentTopology),
+	glMultiDrawArraysIndirectCount(EnumToValue(context.inputAssemblyState.topology),
 		reinterpret_cast<void*>(static_cast<uintptr_t>(commandBufferOffset)),
 		static_cast<GLintptr>(countBufferOffset),
 		maxDrawCount,
@@ -451,7 +699,7 @@ void gpu::cmd::DrawIndexedIndirect(buffer::BufferPtr commandBuffer, uint64_t com
 	assert(context.isIndexBufferBound);
 
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer::Handle(commandBuffer));
-	glMultiDrawElementsIndirect(EnumToValue(context.currentTopology),
+	glMultiDrawElementsIndirect(EnumToValue(context.inputAssemblyState.topology),
 		EnumToValue(context.currentIndexType),
 		reinterpret_cast<void*>(static_cast<uintptr_t>(commandBufferOffset)),
 		drawCount,
@@ -466,7 +714,7 @@ void gpu::cmd::DrawIndexedIndirectCount(buffer::BufferPtr commandBuffer, uint64_
 
 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, buffer::Handle(commandBuffer));
 	glBindBuffer(GL_PARAMETER_BUFFER, buffer::Handle(countBuffer));
-	glMultiDrawElementsIndirectCount(EnumToValue(context.currentTopology),
+	glMultiDrawElementsIndirectCount(EnumToValue(context.inputAssemblyState.topology),
 		EnumToValue(context.currentIndexType),
 		reinterpret_cast<void*>(static_cast<uintptr_t>(commandBufferOffset)),
 		static_cast<GLintptr>(countBufferOffset),

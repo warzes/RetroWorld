@@ -5,6 +5,7 @@
 #include "gpu_vao.h"
 #include "gpu_buffer.h"
 #include "gpu_framebuffer.h"
+#include "gpu_pipeline.h"
 
 namespace gpu::cmd
 {
@@ -31,6 +32,14 @@ namespace gpu::cmd
 	void BindFramebufferNoAttachments(fbo::FramebufferPtr fbo, const fbo::RenderNoAttachmentsInfo& info);
 
 	void SetTopology(PrimitiveTopology topology);
+	
+	void SetState(const InputAssemblyState& state);
+	void SetState(const TessellationState& state);
+	void SetState(const RasterizationState& state);
+	void SetState(const MultisampleState& state);
+	void SetState(const DepthState& state);
+	void SetState(const StencilState& state);
+	void SetState(const ColorBlendState& state);
 
 	void SetViewport(const Viewport& viewport);
 	void SetScissor(const Scissor& scissor);

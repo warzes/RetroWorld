@@ -295,23 +295,6 @@ namespace gpu
 	};
 	SE_DECLARE_FLAG_TYPE(MemoryBarrierBits, MemoryBarrierBit, uint32_t);
 
-
-
-
-	enum class RenderingCapability : uint8_t
-	{
-		Blend,
-		CullFace,
-		DepthTest,
-		Dither,
-		PolygonOffsetFill,
-		SampleAlphaToCoverage,
-		SampleCoverage,
-		ScissorTest,
-		StencilTest,
-		Multisample
-	};
-
 	enum class RasterizationMode : uint8_t
 	{
 		Point,
@@ -319,7 +302,19 @@ namespace gpu
 		Fill
 	};
 
+	enum class CullFace : uint8_t
+	{
+		None,
+		Front,
+		Back,
+		FrontAndBack
+	};
 
+	enum class FrontFace : uint8_t
+	{
+		ClockWise,
+		CounterClockWise,
+	};
 
 	enum class Operation : uint8_t
 	{
@@ -333,16 +328,7 @@ namespace gpu
 		Invert
 	};
 
-	// Face Culling Type
-	enum class CullFace : uint8_t
-	{
-		Front,
-		Back,
-		FrontAndBack
-	};
-
-	// Blend Equation Type
-	enum class BlendEquation : uint8_t
+	enum class BlendOp : uint8_t
 	{
 		Add,
 		Subtract,
@@ -351,7 +337,6 @@ namespace gpu
 		Max
 	};
 
-	// Blend Mode Type
 	enum class BlendFactor : uint8_t
 	{
 		Zero,
@@ -375,6 +360,32 @@ namespace gpu
 		Src1Alpha,
 		OneMinusSrc1Alpha
 	};
+
+	enum class LogicOp : uint8_t
+	{
+		Clear,
+		Set,
+		Copy,
+		CopyInverted,
+		NoOp,
+		Invert,
+		And,
+		Nand,
+		Or,
+		Nor,
+		Xor,
+		Equivalent,
+		AndReverse,
+		OrReverse,
+		AndInverted,
+		OrInverted,
+	};
+
+
+
+
+
+
 
 	// Uniform Type
 	enum class UniformType : uint8_t
