@@ -161,7 +161,7 @@ bool GameInit()
 	vbo = gpu::buffer::CreateBuffer(gCubeVertices);
 	ibo = gpu::buffer::CreateBuffer(gCubeIndices);
 
-	texture = gpu::texture::LoadTexture2D("data/textures/bluenoise32.png");
+	texture = gpu::texture::LoadTexture2D("data/textures/uv.png");
 
 	gpu::texture::SamplerState ss;
 	ss.minFilter = gpu::Filter::Nearest;

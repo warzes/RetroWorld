@@ -23,6 +23,9 @@ namespace gpu::buffer
 		TriviallyCopyableByteSpan(std::span<const T> t) : std::span<const std::byte>(std::as_bytes(t)) {}
 		template<typename T> requires std::is_trivially_copyable_v<T>
 		TriviallyCopyableByteSpan(std::span<T> t) : std::span<const std::byte>(std::as_bytes(t)) {}
+
+		template<typename T> requires std::is_trivially_copyable_v<T>
+		TriviallyCopyableByteSpan(const std::vector<T>& t) : std::span<const std::byte>(std::as_bytes(std::span{ t.data(), t.size()})) {}
 	};
 
 	BufferPtr CreateBuffer(size_t size, BufferStorageFlags storageFlags = BufferStorageFlag::None, std::string_view name = "");
