@@ -13,8 +13,8 @@ namespace gpu
 	void SetRasterizationLinesWidth(float width);
 	void SetRasterizationMode(RasterizationMode rasterizationMode);
 
-	void SetStencilAlgorithm(ComparisonFunc algorithm, int32_t reference, uint32_t mask);
-	void SetDepthAlgorithm(ComparisonFunc algorithm);
+	void SetStencilAlgorithm(CompareOp algorithm, int32_t reference, uint32_t mask);
+	void SetDepthAlgorithm(CompareOp algorithm);
 	void SetStencilMask(uint32_t mask);
 	void SetStencilOperations(Operation stencilFail, Operation depthFail, Operation bothPass);
 
@@ -33,8 +33,5 @@ namespace gpu
 	//void DrawArrays(PrimitiveMode primitiveMode, uint32_t vertexCount);
 	//void DrawArraysInstanced(PrimitiveMode primitiveMode, uint32_t vertexCount, uint32_t instances);
 
-	// Equivalent to glDrawArraysInstancedBaseInstance or vkCmdDraw
-	void Draw(PrimitiveTopology topology, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
-	// Equivalent to glDrawElementsInstancedBaseVertexBaseInstance or vkCmdDrawIndexed
-	void DrawIndexed(PrimitiveTopology topology, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
+
 } // namespace gpu

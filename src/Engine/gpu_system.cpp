@@ -7,128 +7,6 @@
 #include "app_window.h"
 #include "core_log.h"
 //=============================================================================
-inline GLenum EnumToValue(gpu::RenderingCapability c) noexcept
-{
-	switch (c)
-	{
-	case gpu::RenderingCapability::Blend:                 return GL_BLEND;
-	case gpu::RenderingCapability::CullFace:              return GL_CULL_FACE;
-	case gpu::RenderingCapability::DepthTest:             return GL_DEPTH_TEST;
-	case gpu::RenderingCapability::Dither:                return GL_DITHER;
-	case gpu::RenderingCapability::PolygonOffsetFill:     return GL_POLYGON_OFFSET_FILL;
-	case gpu::RenderingCapability::SampleAlphaToCoverage: return GL_SAMPLE_ALPHA_TO_COVERAGE;
-	case gpu::RenderingCapability::SampleCoverage:        return GL_SAMPLE_COVERAGE;
-	case gpu::RenderingCapability::ScissorTest:           return GL_SCISSOR_TEST;
-	case gpu::RenderingCapability::StencilTest:           return GL_STENCIL_TEST;
-	case gpu::RenderingCapability::Multisample:           return GL_MULTISAMPLE;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline GLenum EnumToValue(gpu::RasterizationMode mode) noexcept
-{
-	switch (mode) {
-	case gpu::RasterizationMode::Point: return GL_POINT;
-	case gpu::RasterizationMode::Line:  return GL_LINE;
-	case gpu::RasterizationMode::Fill:  return GL_FILL;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline GLenum EnumToValue(gpu::ComparisonFunc func) noexcept
-{
-	switch (func) {
-	case gpu::ComparisonFunc::Never:        return GL_NEVER;
-	case gpu::ComparisonFunc::Less:         return GL_LESS;
-	case gpu::ComparisonFunc::Equal:        return GL_EQUAL;
-	case gpu::ComparisonFunc::LessEqual:    return GL_LEQUAL;
-	case gpu::ComparisonFunc::Greater:      return GL_GREATER;
-	case gpu::ComparisonFunc::NotEqual:     return GL_NOTEQUAL;
-	case gpu::ComparisonFunc::GreaterEqual: return GL_GEQUAL;
-	case gpu::ComparisonFunc::Always:       return GL_ALWAYS;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline GLenum EnumToValue(gpu::Operation op) noexcept
-{
-	switch (op)
-	{
-	case gpu::Operation::Zero:          return GL_ZERO;
-	case gpu::Operation::Keep:          return GL_KEEP;
-	case gpu::Operation::Replace:       return GL_REPLACE;
-	case gpu::Operation::Increment:     return GL_INCR;
-	case gpu::Operation::IncrementWrap: return GL_INCR_WRAP;
-	case gpu::Operation::Decrement:     return GL_DECR;
-	case gpu::Operation::DecrementWrap: return GL_DECR_WRAP;
-	case gpu::Operation::Invert:        return GL_INVERT;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline GLenum EnumToValue(gpu::BlendFactor factor) noexcept
-{
-	switch (factor) {
-	case gpu::BlendFactor::Zero:                  return GL_ZERO;
-	case gpu::BlendFactor::One:                   return GL_ONE;
-	case gpu::BlendFactor::SrcColor:              return GL_SRC_COLOR;
-	case gpu::BlendFactor::OneMinusSrcColor:      return GL_ONE_MINUS_SRC_COLOR;
-	case gpu::BlendFactor::DstColor:              return GL_DST_COLOR;
-	case gpu::BlendFactor::OneMinusDstColor:      return GL_ONE_MINUS_DST_COLOR;
-	case gpu::BlendFactor::SrcAlpha:              return GL_SRC_ALPHA;
-	case gpu::BlendFactor::OneMinusSrcAlpha:      return GL_ONE_MINUS_SRC_ALPHA;
-	case gpu::BlendFactor::DstAlpha:              return GL_DST_ALPHA;
-	case gpu::BlendFactor::OneMinusDstAlpha:      return GL_ONE_MINUS_DST_ALPHA;
-	case gpu::BlendFactor::ConstantColor:         return GL_CONSTANT_COLOR;
-	case gpu::BlendFactor::OneMinusConstantColor: return GL_ONE_MINUS_CONSTANT_COLOR;
-	case gpu::BlendFactor::ConstantAlpha:         return GL_CONSTANT_ALPHA;
-	case gpu::BlendFactor::OneMinusConstantAlpha: return GL_ONE_MINUS_CONSTANT_ALPHA;
-	case gpu::BlendFactor::SrcAlphaSaturate:      return GL_SRC_ALPHA_SATURATE;
-	case gpu::BlendFactor::Src1Color:             return GL_SRC1_COLOR;
-	case gpu::BlendFactor::OneMinusSrc1Color:     return GL_ONE_MINUS_SRC1_COLOR;
-	case gpu::BlendFactor::Src1Alpha:             return GL_SRC1_ALPHA;
-	case gpu::BlendFactor::OneMinusSrc1Alpha:     return GL_ONE_MINUS_SRC1_ALPHA;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline GLenum EnumToValue(gpu::BlendEquation eq) noexcept
-{
-	switch (eq) {
-	case gpu::BlendEquation::Add:             return GL_FUNC_ADD;
-	case gpu::BlendEquation::Subtract:        return GL_FUNC_SUBTRACT;
-	case gpu::BlendEquation::ReverseSubtract: return GL_FUNC_REVERSE_SUBTRACT;
-	case gpu::BlendEquation::Min:             return GL_MIN;
-	case gpu::BlendEquation::Max:             return GL_MAX;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline GLenum EnumToValue(gpu::CullFace cull) noexcept
-{
-	switch (cull) {
-	case gpu::CullFace::Front:        return GL_FRONT;
-	case gpu::CullFace::Back:         return GL_BACK;
-	case gpu::CullFace::FrontAndBack: return GL_FRONT_AND_BACK;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline GLenum EnumToValue(gpu::PrimitiveTopology topology) noexcept
-{
-	switch (topology)
-	{
-	case  gpu::PrimitiveTopology::PointList:     return GL_POINTS;
-	case  gpu::PrimitiveTopology::LineList:      return GL_LINES;
-	case  gpu::PrimitiveTopology::LineStrip:     return GL_LINE_STRIP;
-	case  gpu::PrimitiveTopology::TriangleList:  return GL_TRIANGLES;
-	case  gpu::PrimitiveTopology::TriangleStrip: return GL_TRIANGLE_STRIP;
-	case  gpu::PrimitiveTopology::TriangleFan:   return GL_TRIANGLE_FAN;
-	case  gpu::PrimitiveTopology::PatchList:     return GL_PATCHES;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
 namespace
 {
 }
@@ -222,12 +100,12 @@ void gpu::SetRasterizationMode(RasterizationMode rasterizationMode)
 	glPolygonMode(GL_FRONT_AND_BACK, EnumToValue(rasterizationMode));
 }
 //=============================================================================
-void gpu::SetStencilAlgorithm(ComparisonFunc algorithm, int32_t reference, uint32_t mask)
+void gpu::SetStencilAlgorithm(CompareOp algorithm, int32_t reference, uint32_t mask)
 {
 	glStencilFunc(EnumToValue(algorithm), reference, mask);
 }
 //=============================================================================
-void gpu::SetDepthAlgorithm(ComparisonFunc algorithm)
+void gpu::SetDepthAlgorithm(CompareOp algorithm)
 {
 	glDepthFunc(EnumToValue(algorithm));
 }
@@ -291,30 +169,4 @@ void gpu::SetViewport(float x, float y, float width, float height)
 //{
 //	glDrawArraysInstanced(EnumToValue(primitiveMode), 0, vertexCount, instances);
 //}
-//=============================================================================
-void gpu::Draw(PrimitiveTopology topology, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
-{
-	assert(context.isRendering);
-	glDrawArraysInstancedBaseInstance(EnumToValue(topology),
-		firstVertex,
-		vertexCount,
-		instanceCount,
-		firstInstance);
-}
-//=============================================================================
-void gpu::DrawIndexed(PrimitiveTopology topology, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
-{
-	assert(context.isRendering);
-	assert(context.isIndexBufferBound);
-
-	// double cast is needed to prevent compiler from complaining about 32->64 bit pointer cast
-	glDrawElementsInstancedBaseVertexBaseInstance(
-		EnumToValue(topology),
-		indexCount,
-		EnumToValue(context.currentIndexType),
-		reinterpret_cast<void*>(static_cast<uintptr_t>(firstIndex * GetIndexSize(context.currentIndexType))),
-		instanceCount,
-		vertexOffset,
-		firstInstance);
-}
 //=============================================================================

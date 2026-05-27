@@ -172,9 +172,9 @@ struct gpu::program::ShaderProgram final
 		MetricsCurrent.programBindings++;
 	}
 
-	operator bool() const noexcept { return programID > 0; }
-	unsigned Handle() const noexcept { return programID; }
-	bool IsValid() const noexcept { return programID > 0; }
+	[[nodiscard]] operator bool() const noexcept { return programID > 0; }
+	[[nodiscard]] unsigned Handle() const noexcept { return programID; }
+	[[nodiscard]] bool IsValid() const noexcept { return programID > 0; }
 
 	unsigned programID{ 0 };
 };

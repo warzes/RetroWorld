@@ -34,14 +34,13 @@ layout(location = 0) in vec3 v_position;
 layout(location = 1) in vec3 v_normal;
 layout(location = 2) in vec2 v_uv;
 
-//layout(binding = 0) uniform sampler2D diffuseTex;
+layout(binding = 0) uniform sampler2D diffuseTex;
 
 layout(location = 0) out vec4 o_color;
 
 void main()
 {
-	//o_color = texture(diffuseTex, v_uv);
-	o_color = vec4(1.0, 0.7, 0.0, 1.0);
+	o_color = texture(diffuseTex, v_uv);
 }
 )";
 
@@ -133,6 +132,9 @@ void main()
 	gpu::buffer::BufferPtr vbo;
 	gpu::buffer::BufferPtr ibo;
 
+	gpu::texture::TexturePtr texture;
+	gpu::texture::SamplerPtr sampler;
+
 	gpu::uniform::Uniform<glm::mat4> proj;
 	gpu::uniform::Uniform<glm::mat4> view;
 	gpu::uniform::Uniform<glm::mat4> model;
@@ -154,6 +156,15 @@ bool GameInit()
 
 	vbo = gpu::buffer::CreateBuffer(gCubeVertices);
 	ibo = gpu::buffer::CreateBuffer(gCubeIndices);
+
+	texture = gpu::texture::LoadTexture2D("data/textures/bluenoise32.png");
+
+	gpu::texture::SamplerState ss;
+	ss.minFilter = gpu::Filter::Nearest;
+	ss.magFilter = gpu::Filter::Nearest;
+	ss.addressModeU = gpu::AddressMode::Repeat;
+	ss.addressModeV = gpu::AddressMode::Repeat;
+	sampler = gpu::texture::CreateSampler(ss);
 
 	gpu::SetCapability(gpu::RenderingCapability::DepthTest, true);
 
@@ -185,11 +196,13 @@ void GameFixedUpdate()
 void GameRender()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	gpu::program::BindShaderProgram(program);
-	gpu::vao::BindVertexArray(vao);
-	gpu::vao::BindVertexBuffer(vao, 0, vbo, 0, sizeof(VertexPNT));
-	gpu::vao::BindIndexBuffer(vao, ibo, gpu::IndexType::UnsignedInt);
-	gpu::DrawIndexed(gpu::PrimitiveTopology::TriangleList, static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);
+	gpu::cmd::BindShaderProgram(program);
+	gpu::cmd::BindSampledImage(0, texture, sampler);
+
+	gpu::cmd::BindVertexArray(vao);
+	gpu::cmd::BindVertexBuffer(vao, 0, vbo, 0, sizeof(VertexPNT));
+	gpu::cmd::BindIndexBuffer(vao, ibo, gpu::IndexType::UnsignedInt);
+	gpu::cmd::DrawIndexed(static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);
 }
 //=============================================================================
 void GameRenderUI()

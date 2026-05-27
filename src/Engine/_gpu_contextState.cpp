@@ -19,7 +19,8 @@ void gpu::ContextState::EndFrame()
 void gpu::ContextState::Clear()
 {
 	vertexArrayCache.clear();
+	samplerCache.clear();
 
-	*this = { 0 };
+	*this = {};
 }
 //=============================================================================

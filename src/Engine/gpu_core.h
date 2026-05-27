@@ -1,12 +1,17 @@
 ﻿#pragma once
 
 #include "core_flags.h"
+#include "core_baseTypes.h"
+
+#ifndef SE_DEFAULT_CLIP_DEPTH_RANGE_ZERO_TO_ONE
+#	define SE_DEFAULT_CLIP_DEPTH_RANGE_NEGATIVE_ONE_TO_ONE
+#endif
 
 namespace gpu
 {
 	constexpr inline uint64_t WHOLE_BUFFER = static_cast<uint64_t>(-1);
 
-	enum class Format : uint32_t
+	enum class Format : uint8_t
 	{
 		UNDEFINED,
 
@@ -119,18 +124,137 @@ namespace gpu
 	};
 	SE_DECLARE_FLAG_TYPE(BufferStorageFlags, BufferStorageFlag, uint32_t);
 
-	enum class IndexType : uint32_t
+	enum class IndexType : uint8_t
 	{
 		UnsignedByte,
 		UnsignedShort,
 		UnsignedInt,
 	};
 
+	enum class ImageType : uint8_t
+	{
+		Texture1D,
+		Texture2D,
+		Texture3D,
+		Texture1DArray,
+		Texture2DArray,
+		TextureCubemap,
+		TextureCubemapArray,
+		Texture2DMultisample,
+		Texture2DMultisampleArray
+	};
 
+	enum class SampleCount : uint8_t
+	{
+		Samples1 = 1,
+		Samples2 = 2,
+		Samples4 = 4,
+		Samples8 = 8,
+		Samples16 = 16,
+		Samples32 = 32,
+	};
 
+	enum class UploadFormat : uint8_t
+	{
+		UNDEFINED,
+		R,
+		RG,
+		RGB,
+		BGR,
+		RGBA,
+		BGRA,
+		R_INTEGER,
+		RG_INTEGER,
+		RGB_INTEGER,
+		BGR_INTEGER,
+		RGBA_INTEGER,
+		BGRA_INTEGER,
+		DEPTH_COMPONENT,
+		STENCIL_INDEX,
+		DEPTH_STENCIL,
 
+		/// @brief For CopyTextureToBuffer and CopyBufferToTexture
+		INFER_FORMAT,
+	};
 
+	enum class UploadType : uint8_t
+	{
+		UNDEFINED,
+		UBYTE,
+		SBYTE,
+		USHORT,
+		SSHORT,
+		UINT,
+		SINT,
+		FLOAT,
+		UBYTE_3_3_2,
+		UBYTE_2_3_3_REV,
+		USHORT_5_6_5,
+		USHORT_5_6_5_REV,
+		USHORT_4_4_4_4,
+		USHORT_4_4_4_4_REV,
+		USHORT_5_5_5_1,
+		USHORT_1_5_5_5_REV,
+		UINT_8_8_8_8,
+		UINT_8_8_8_8_REV,
+		UINT_10_10_10_2,
+		UINT_2_10_10_10_REV,
 
+		// For CopyTextureToBuffer and CopyBufferToTexture
+		INFER_TYPE,
+	};
+
+	enum class ComponentSwizzle : uint8_t
+	{
+		ZERO,
+		ONE,
+		R,
+		G,
+		B,
+		A
+	};
+
+	enum class Filter : uint8_t
+	{
+		None,
+		Nearest,
+		Linear,
+		NearestMipmapNearest,
+		LinearMipmapNearest,
+		NearestMipmapLinear,
+		LinearMipmapLinear
+	};
+
+	enum class AddressMode : uint8_t
+	{
+		Repeat,
+		MirroredRepeat,
+		ClampToEdge,
+		ClampToBorder,
+		MirrorClampToEdge
+	};
+
+	enum class BorderColor : uint8_t
+	{
+		FloatTransparentBlack,
+		IntTransparentBlack,
+		FloatOpaqueBlack,
+		IntOpaqueBlack,
+		FloatOpaqueWhite,
+		IntOpaqueWhite,
+	};
+
+	enum class CompareOp : uint8_t
+	{
+		Never,
+		Less,
+		Equal,
+		LessEqual,
+		Greater,
+		NotEqual,
+		GreaterEqual,
+		Always
+	};
 
 
 
@@ -157,17 +281,7 @@ namespace gpu
 		Fill
 	};
 
-	enum class ComparisonFunc : uint8_t
-	{
-		Never,
-		Less,
-		Equal,
-		LessEqual,
-		Greater,
-		NotEqual,
-		GreaterEqual,
-		Always
-	};
+
 
 	enum class Operation : uint8_t
 	{
@@ -254,14 +368,6 @@ namespace gpu
 		PatchList,
 	};
 
-	enum class TextureTarget : uint8_t
-	{
-		Texture1D,
-		Texture2D,
-		Texture3D,
-		TextureCube
-	};
-
 	enum class TextureFormat : uint8_t
 	{
 		RGBA8,
@@ -284,22 +390,33 @@ namespace gpu
 		Stencil8,
 	};
 
-	enum class TextureWrapMode : uint8_t
+	enum class ClipDepthRange : uint8_t
 	{
-		Repeat,
-		MirroredRepeat,
-		ClampToEdge,
-		ClampToBorder
+		NegativeOneToOne, // OpenGL default
+		ZeroToOne         // D3D and Vulkan
 	};
 
-	enum class TextureFilter : uint8_t
+	struct Viewport final
 	{
-		Nearest,
-		Linear,
-		NearestMipmapNearest,
-		LinearMipmapNearest,
-		NearestMipmapLinear,
-		LinearMipmapLinear
+		bool operator==(const Viewport&) const noexcept = default;
+
+		core::Rect2D drawRect = {}; // glViewport
+		float minDepth = 0.0f;      // glDepthRangef
+		float maxDepth = 1.0f;      // glDepthRangef
+		ClipDepthRange depthRange = // glClipControl
+#ifdef SE_DEFAULT_CLIP_DEPTH_RANGE_NEGATIVE_ONE_TO_ONE
+			ClipDepthRange::NegativeOneToOne;
+#else
+			ClipDepthRange::ZeroToOne;
+#endif
+	};
+
+	struct Scissor final
+	{
+		bool operator==(const Scissor&) const = default;
+
+		glm::vec2 position = { 0.0f, 0.0f };
+		glm::vec2 size = { 0.0f, 0.0f };
 	};
 
 	struct Metrics final

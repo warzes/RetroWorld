@@ -80,11 +80,17 @@
     <ClInclude Include="_gpu_contextState.h">
       <Filter>gpu\private</Filter>
     </ClInclude>
-    <ClInclude Include="gpu_textures.h">
+    <ClInclude Include="gpu_texture.h">
       <Filter>gpu</Filter>
     </ClInclude>
     <ClInclude Include="_gpu_enumDesc.h">
       <Filter>gpu\private</Filter>
+    </ClInclude>
+    <ClInclude Include="core_baseTypes.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="gpu_cmd.h">
+      <Filter>gpu</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -137,7 +143,10 @@
     <ClCompile Include="_gpu_contextState.cpp">
       <Filter>gpu\private</Filter>
     </ClCompile>
-    <ClCompile Include="gpu_textures.cpp">
+    <ClCompile Include="gpu_texture.cpp">
+      <Filter>gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_cmd.cpp">
       <Filter>gpu</Filter>
     </ClCompile>
   </ItemGroup>

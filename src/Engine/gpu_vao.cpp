@@ -8,7 +8,7 @@
 //=============================================================================
 struct gpu::vao::VertexArray final
 {
-	VertexArray()
+	VertexArray() noexcept
 	{
 		core::Debug("Created vertex array with handle " + std::to_string(id));
 		glCreateVertexArrays(1, &id);
@@ -38,9 +38,9 @@ struct gpu::vao::VertexArray final
 		MetricsCurrent.vertexBindings++;
 	}
 
-	operator bool() const noexcept { return id > 0; }
-	unsigned Handle() const noexcept { return id; }
-	bool IsValid() const noexcept { return id > 0; }
+	[[nodiscard]] operator bool() const noexcept { return id > 0; }
+	[[nodiscard]] unsigned Handle() const noexcept { return id; }
+	[[nodiscard]] bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t id{ 0 };
 };
@@ -106,20 +106,5 @@ void gpu::vao::BindVertexArray(VertexArrayPtr vao)
 		vao ? vao->Bind() : glBindVertexArray(0);
 	}
 }
-//=============================================================================
-void gpu::vao::BindVertexBuffer(VertexArrayPtr vao, uint32_t bindingIndex, gpu::buffer::BufferPtr buffer, uint64_t offset, uint64_t stride)
-{
-	glVertexArrayVertexBuffer(vao->id,
-		bindingIndex,
-		gpu::buffer::Handle(buffer),
-		static_cast<GLintptr>(offset),
-		static_cast<GLsizei>(stride));
-}
-//=============================================================================
-void gpu::vao::BindIndexBuffer(VertexArrayPtr vao, gpu::buffer::BufferPtr buffer, IndexType indexType)
-{
-	context.isIndexBufferBound = true;
-	context.currentIndexType = indexType;
-	glVertexArrayElementBuffer(vao->id, gpu::buffer::Handle(buffer));
-}
+
 //=============================================================================

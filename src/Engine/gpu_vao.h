@@ -28,7 +28,4 @@ namespace gpu::vao
 
 	void BindVertexArray(VertexArrayPtr vao);
 
-	void BindVertexBuffer(VertexArrayPtr vao, uint32_t bindingIndex, gpu::buffer::BufferPtr buffer, uint64_t offset, uint64_t stride);
-	void BindIndexBuffer(VertexArrayPtr vao, gpu::buffer::BufferPtr buffer, IndexType indexType);
-
 } // namespace gpu::vao

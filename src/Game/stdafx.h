@@ -32,6 +32,8 @@
 #include <gpu_uniform.h>
 #include <gpu_buffer.h>
 #include <gpu_vao.h>
+#include <gpu_texture.h>
+#include <gpu_cmd.h>
 #include <gpu_system.h>
 
 #include <app.h>
