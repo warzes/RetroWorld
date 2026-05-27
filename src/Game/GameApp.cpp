@@ -140,6 +140,8 @@ void main()
 	gpu::uniform::Uniform<glm::mat4> model;
 
 	gpu::DepthState depthState;
+
+	gr::Camera camera(glm::vec3(0.0f, 1.2f, -3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 //=============================================================================
 bool GameInit()
@@ -182,8 +184,47 @@ void GameClose()
 //=============================================================================
 void GameUpdate()
 {
-	proj = glm::perspective(glm::radians(65.f), window::GetAspectRatio(), 0.1f, 5.f);
-	view = glm::lookAt(glm::vec3(0.0f, 1.2f, -3.0f), glm::vec3(0.0f), glm::vec3(0, 1, 0));
+	// Input
+	const float speed = 10.0f * app::GetDeltaTime();
+	if (input::IsKeyDown(KeyboardType::KEY_W)) camera.Move(gr::Movement::Forward, speed);
+	if (input::IsKeyDown(KeyboardType::KEY_S)) camera.Move(gr::Movement::Backward, speed);
+	if (input::IsKeyDown(KeyboardType::KEY_A)) camera.Move(gr::Movement::Left, speed);
+	if (input::IsKeyDown(KeyboardType::KEY_D)) camera.Move(gr::Movement::Right, speed);
+	if (input::IsKeyDown(KeyboardType::KEY_Q)) camera.Move(gr::Movement::Down, speed);
+	if (input::IsKeyDown(KeyboardType::KEY_E)) camera.Move(gr::Movement::Up, speed);
+
+	static math::point2 prevMouse;
+	static bool mouseCapture = false;
+
+	if (input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
+	{
+		if (!mouseCapture)
+		{
+			prevMouse = input::GetMousePosition();
+			mouseCapture = true;
+			input::SetCursorVisible(false);
+		}
+	}
+	else
+	{
+		if (mouseCapture)
+		{
+			input::SetCursorVisible(true);
+			mouseCapture = false;
+		}
+	}
+
+	if (mouseCapture)
+	{
+		math::point2 delta = input::GetMousePosition() - prevMouse;
+		camera.Rotate(-delta.y * 0.1f, delta.x * 0.1f, 0.0f);
+
+		input::SetMousePosition(window::GetWidth() / 2, window::GetHeight() / 2);
+		prevMouse = { window::GetWidth() / 2, window::GetHeight() / 2 };
+	}
+
+	proj = glm::perspective(glm::radians(65.f), window::GetAspectRatio(), 0.1f, 1000.f);
+	view = camera.GetViewMatrix();
 	model = glm::mat4(1.0f);
 
 	gpu::uniform::BindUniform(proj);

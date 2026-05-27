@@ -60,6 +60,11 @@ bool window::GetWindowMinimized() noexcept
 	return windowMinimized;
 }
 //=============================================================================
+HWND window::GetHwnd()
+{
+	return hwnd;
+}
+//=============================================================================
 // Main message handler for the sample.
 static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) noexcept
 {

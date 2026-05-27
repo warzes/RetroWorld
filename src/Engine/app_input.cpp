@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "app_input.h"
 #include "_app_input.h"
+#include "_app_window.h"
 #include "app_messageHandler.h"
 //=============================================================================
 namespace
@@ -204,6 +205,20 @@ float input::GetMouseDelta()
 bool input::IsMouseMoving()
 {
 	return IsMouseMoveing;
+}
+//=============================================================================
+void input::SetCursorVisible(bool visible)
+{
+	::ShowCursor(visible ? TRUE : FALSE);
+}
+//=============================================================================
+bool input::SetMousePosition(int x, int y)
+{
+	POINT pt = { x, y };
+	ClientToScreen(window::GetHwnd(), &pt);  // Преобразовать координаты окна в экранные
+	//MouseLocation = { pt.x, pt.y };
+	BOOL result = SetCursorPos(pt.x, pt.y);   // Установить позицию курсора
+	return result != 0; // Возвращает true, если успешно
 }
 //=============================================================================
 void input::OnKeyDown(KeyboardType key)

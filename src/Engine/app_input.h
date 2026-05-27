@@ -14,4 +14,7 @@ namespace input
 	float GetMouseDelta();
 	bool IsMouseMoving();
 
+	void SetCursorVisible(bool visible);
+	bool SetMousePosition(int x, int y);
+
 } // namespace input

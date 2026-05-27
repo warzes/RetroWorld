@@ -1,4 +1,13 @@
-﻿// в этом видео по дагеру https://www.youtube.com/watch?v=4Lz5d-g4tik
+﻿https://www.youtube.com/watch?v=XpG3YqUkCTY
+	генерация острова
+	https://www.youtube.com/watch?v=Nn2qAkpRTCg
+		строительство от негго же
+
+или
+https://www.youtube.com/watch?v=DBjd7NHMgOE
+
+
+// в этом видео по дагеру https://www.youtube.com/watch?v=4Lz5d-g4tik
 // визуальный стиль замка в первом отрывке - вот мне надо такую графикую
 // визуальный стиль https://gruno-kromer.itch.io/snake3d-hakodate-city
 //мир строится из блоков.пример редактора - halftimber

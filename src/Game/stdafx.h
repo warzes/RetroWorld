@@ -36,6 +36,11 @@
 #include <gpu_framebuffer.h>
 #include <gpu_cmd.h>
 #include <gpu_system.h>
+#include <gpu_pipeline.h>
+#include <gpu_timer.h>
+#include <gpu_fence.h>
+
+#include <gr_camera.h>
 
 #include <app.h>
 
