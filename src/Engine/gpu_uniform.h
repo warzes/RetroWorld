@@ -18,7 +18,7 @@ namespace gpu::uniform
 			return *this;
 		}
 
-		bool isValid() const { return location >= 0; }
+		bool IsValid() const { return location >= 0; }
 
 		std::string name;
 		T value = {};
@@ -32,13 +32,13 @@ namespace gpu::uniform
 		uniform.name = name;
 		uniform.program = program;
 		uniform.location = gpu::program::GetUniformLocation(program, name);
-		return uniform.isValid();
+		return uniform.IsValid();
 	}
 
 	template<typename T>
 	bool BindUniform(const Uniform<T>& uniform)
 	{
-		return gpu::program::Uniform(uniform.program, uniform.location, uniform.value);
+		return gpu::program::SetUniform(uniform.program, uniform.location, uniform.value);
 	}
 
 	template<typename T>

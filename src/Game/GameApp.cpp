@@ -114,7 +114,7 @@ void main()
 		{{-0.5, -0.5, 0.5}, {0, -1, 0}, {0, 1}},
 	};
 
-	static constexpr auto gCubeIndices = std::array<uint16_t, 36>{
+	static constexpr auto gCubeIndices = std::array<uint32_t, 36>{
 	  0,  1,  2,  2,  3,  0,
 
 	  4,  5,  6,  6,  7,  4,
@@ -188,7 +188,7 @@ void GameRender()
 	gpu::program::BindShaderProgram(program);
 	gpu::vao::BindVertexArray(vao);
 	gpu::vao::BindVertexBuffer(vao, 0, vbo, 0, sizeof(VertexPNT));
-	gpu::vao::BindIndexBuffer(vao, ibo, gpu::IndexType::UNSIGNED_SHORT);
+	gpu::vao::BindIndexBuffer(vao, ibo, gpu::IndexType::UnsignedInt);
 	gpu::DrawIndexed(gpu::PrimitiveTopology::TriangleList, static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);
 }
 //=============================================================================

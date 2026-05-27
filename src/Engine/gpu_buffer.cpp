@@ -8,11 +8,11 @@ inline size_t roundUp(size_t numberToRoundUp, size_t multipleOf)
 	return ((numberToRoundUp + multipleOf - 1) / multipleOf) * multipleOf;
 }
 //=============================================================================
-inline GLbitfield bufferStorageFlagsToGL(gpu::buffer::BufferStorageFlags flags)
+inline GLbitfield bufferStorageFlagsToGL(gpu::BufferStorageFlags flags)
 {
 	GLbitfield ret = 0;
-	ret |= flags & gpu::buffer::BufferStorageFlag::DynamicStorage ? GL_DYNAMIC_STORAGE_BIT : 0;
-	ret |= flags & gpu::buffer::BufferStorageFlag::ClientStorage ? GL_CLIENT_STORAGE_BIT : 0;
+	ret |= flags & gpu::BufferStorageFlag::DynamicStorage ? GL_DYNAMIC_STORAGE_BIT : 0;
+	ret |= flags & gpu::BufferStorageFlag::ClientStorage ? GL_CLIENT_STORAGE_BIT : 0;
 
 	// As far as I can tell, there is no perf hit to having both MAP_WRITE and MAP_READ all the time.
 	// Additionally, desktop platforms (the ones we care about) do not have incoherent host-visible 
@@ -21,7 +21,7 @@ inline GLbitfield bufferStorageFlagsToGL(gpu::buffer::BufferStorageFlags flags)
 	// https://basnieuwenhuizen.nl/the-catastrophe-of-reading-from-vram/
 	// https://asawicki.info/news_1740_vulkan_memory_types_on_pc_and_how_to_use_them
 	constexpr GLenum memMapFlags = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
-	ret |= flags & gpu::buffer::BufferStorageFlag::MapMemory ? memMapFlags : 0;
+	ret |= flags & gpu::BufferStorageFlag::MapMemory ? memMapFlags : 0;
 	return ret;
 }
 //=============================================================================
@@ -44,7 +44,7 @@ struct gpu::buffer::Buffer final
 	Buffer& operator=(Buffer&&) noexcept = default;
 
 	operator bool() const noexcept { return id > 0; }
-	unsigned GetId() const noexcept { return id; }
+	unsigned Handle() const noexcept { return id; }
 	bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t           id{ 0 };
@@ -52,6 +52,11 @@ struct gpu::buffer::Buffer final
 	BufferStorageFlags storageFlags{};
 	void*              mappedMemory{ nullptr };
 };
+//=============================================================================
+gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(size_t size, BufferStorageFlags storageFlags, std::string_view name)
+{
+	return CreateBuffer(nullptr, size, storageFlags, name);
+}
 //=============================================================================
 gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(TriviallyCopyableByteSpan data, BufferStorageFlags storageFlags, std::string_view name)
 {
@@ -100,14 +105,25 @@ size_t gpu::buffer::Size(BufferPtr buffer) noexcept
 //=============================================================================
 uint32_t gpu::buffer::Handle(BufferPtr buffer) noexcept
 {
-	assert(buffer);
-	return buffer->id;
+	return buffer ? buffer->Handle() : 0;
+}
+//=============================================================================
+bool gpu::buffer::IsValid(BufferPtr buffer) noexcept
+{
+	return buffer ? buffer->IsValid() : false;
 }
 //=============================================================================
 void gpu::buffer::Invalidate(BufferPtr buffer)
 {
 	assert(buffer);
 	glInvalidateBufferData(buffer->id);
+}
+//=============================================================================
+void gpu::buffer::FillData(BufferPtr buffer, const BufferFillInfo& clear)
+{
+	const auto actualSize = clear.size == WHOLE_BUFFER ? buffer->size : clear.size;
+	assert(actualSize % 4 == 0 && "Size must be a multiple of 4 bytes");
+	glClearNamedBufferSubData(buffer->id, GL_R32UI, clear.offset, actualSize, GL_RED_INTEGER, GL_UNSIGNED_INT, &clear.data);
 }
 //=============================================================================
 void gpu::buffer::UpdateData(BufferPtr buffer, TriviallyCopyableByteSpan data, size_t destOffsetBytes)
@@ -121,12 +137,5 @@ void gpu::buffer::UpdateData(BufferPtr buffer, const void* data, size_t size, si
 	assert((buffer->storageFlags & BufferStorageFlag::DynamicStorage) && "UpdateData can only be called on buffers created with the DYNAMIC_STORAGE flag");
 	assert(size + destOffsetBytes <= Size(buffer));
 	glNamedBufferSubData(buffer->id, static_cast<GLuint>(destOffsetBytes), static_cast<GLuint>(size), data);
-}
-//=============================================================================
-void gpu::buffer::FillData(BufferPtr buffer, const BufferFillInfo& clear)
-{
-	const auto actualSize = clear.size == WHOLE_BUFFER ? buffer->size : clear.size;
-	assert(actualSize % 4 == 0 && "Size must be a multiple of 4 bytes");
-	glClearNamedBufferSubData(buffer->id, GL_R32UI, clear.offset, actualSize, GL_RED_INTEGER, GL_UNSIGNED_INT, &clear.data);
 }
 //=============================================================================

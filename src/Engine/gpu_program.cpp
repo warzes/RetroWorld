@@ -1,6 +1,6 @@
 ﻿#include "stdafx.h"
 #include "gpu_program.h"
-#include "gpu_core.h"
+#include "_gpu_contextState.h"
 #include "core_log.h"
 //=============================================================================
 std::string loadShaderCode(const std::string& path, unsigned int level);
@@ -144,8 +144,6 @@ struct ShaderHandle final
 	GLuint handle = 0;
 };
 //=============================================================================
-gpu::program::ShaderProgramPtr currentShaderProgram{ nullptr };
-//=============================================================================
 struct gpu::program::ShaderProgram final
 {
 	ShaderProgram() noexcept { programID = glCreateProgram(); }
@@ -153,7 +151,8 @@ struct gpu::program::ShaderProgram final
 	{
 		if (programID)
 		{
-			if (currentShaderProgram->programID == programID) currentShaderProgram = nullptr;
+			if (context.currentShaderProgram && context.currentShaderProgram->programID == programID)
+				context.currentShaderProgram = nullptr;
 			core::Debug("Destroy shader program " + std::to_string(programID));
 			glDeleteProgram(programID);
 		}
@@ -174,7 +173,7 @@ struct gpu::program::ShaderProgram final
 	}
 
 	operator bool() const noexcept { return programID > 0; }
-	unsigned GetId() const noexcept { return programID; }
+	unsigned Handle() const noexcept { return programID; }
 	bool IsValid() const noexcept { return programID > 0; }
 
 	unsigned programID{ 0 };
@@ -303,33 +302,43 @@ gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const ComputePr
 	return program;
 }
 //=============================================================================
+uint32_t gpu::program::Handle(ShaderProgramPtr program) noexcept
+{
+	return program ? program->Handle() : 0;
+}
+//=============================================================================
+bool gpu::program::IsValid(ShaderProgramPtr program) noexcept
+{
+	return program ? program->IsValid() : false;
+}
+//=============================================================================
 void gpu::program::BindShaderProgram(ShaderProgramPtr program)
 {
-	if (currentShaderProgram != program) // TODO: не только биндить текущий ресурс, но и текущий номер кадра, чтобы в новом кадре все заново биндилось
+	if (context.currentShaderProgram != program)
 	{
-		currentShaderProgram = program;
+		context.currentShaderProgram = program;
 		program ? program->Bind() : glUseProgram(0);
 	}
 }
 //=============================================================================
 void gpu::program::BindFragDataLocation(ShaderProgramPtr program, const std::string& name, unsigned index)
 {
-	glBindFragDataLocation(program->GetId(), index, name.c_str());
+	glBindFragDataLocation(program->Handle(), index, name.c_str());
 }
 //=============================================================================
 void gpu::program::BindAttributeLocation(ShaderProgramPtr program, const std::string& name, unsigned index)
 {
-	glBindAttribLocation(program->GetId(), index, name.c_str());
+	glBindAttribLocation(program->Handle(), index, name.c_str());
 }
 //=============================================================================
 int gpu::program::GetFragDataLocation(ShaderProgramPtr program, const std::string& name)
 {
-	return glGetFragDataLocation(program->GetId(), name.c_str());
+	return glGetFragDataLocation(program->Handle(), name.c_str());
 }
 //=============================================================================
 int gpu::program::GetFragDataIndex(ShaderProgramPtr program, const std::string& name)
 {
-	return glGetFragDataIndex(program->GetId(), name.c_str());
+	return glGetFragDataIndex(program->Handle(), name.c_str());
 }
 //=============================================================================
 int gpu::program::GetAttributeLocation(ShaderProgramPtr program, const std::string& name)
@@ -339,7 +348,7 @@ int gpu::program::GetAttributeLocation(ShaderProgramPtr program, const std::stri
 		core::Error("Invalid shader program");
 		return -1;
 	}
-	return glGetAttribLocation(program->GetId(), name.c_str());
+	return glGetAttribLocation(program->Handle(), name.c_str());
 }
 //=============================================================================
 std::vector<int> gpu::program::GetAttributeLocations(ShaderProgramPtr program, const std::vector<std::string>& names)
@@ -357,12 +366,12 @@ std::vector<int> gpu::program::GetAttributeLocations(ShaderProgramPtr program, c
 //=============================================================================
 unsigned gpu::program::GetUniformBlockIndex(ShaderProgramPtr program, const std::string& name)
 {
-	return glGetUniformBlockIndex(program->GetId(), name.c_str());
+	return glGetUniformBlockIndex(program->Handle(), name.c_str());
 }
 //=============================================================================
 void gpu::program::GetActiveUniforms(ShaderProgramPtr program, const int uniformCount, const unsigned* uniformIndices, const unsigned pname, int* params)
 {
-	glGetActiveUniformsiv(program->GetId(), uniformCount, uniformIndices, pname, params);
+	glGetActiveUniformsiv(program->Handle(), uniformCount, uniformIndices, pname, params);
 }
 //=============================================================================
 std::vector<int> gpu::program::GetActiveUniforms(ShaderProgramPtr program, const std::vector<unsigned>& uniformIndices, const unsigned pname)
@@ -393,7 +402,7 @@ std::string gpu::program::GetActiveUniformName(ShaderProgramPtr program, const G
 	assert(length > 1); // Has to include at least 1 char and '\0'
 
 	std::vector<char> name(length);
-	glGetActiveUniformName(program->GetId(), uniformIndex, length, nullptr, name.data());
+	glGetActiveUniformName(program->Handle(), uniformIndex, length, nullptr, name.data());
 
 	// glGetActiveUniformName() insists we query '\0' as well, but it 
 	// shouldn't be passed to std::string(), otherwise std::string::size()
@@ -409,7 +418,7 @@ int gpu::program::GetUniformLocation(ShaderProgramPtr program, const std::string
 		core::Error("Invalid shader program");
 		return -1;
 	}
-	return glGetUniformLocation(program->GetId(), name.c_str());
+	return glGetUniformLocation(program->Handle(), name.c_str());
 }
 //=============================================================================
 std::vector<int> gpu::program::GetUniformLocations(ShaderProgramPtr program, const std::vector<std::string>& names)
@@ -425,441 +434,441 @@ std::vector<int> gpu::program::GetUniformLocations(ShaderProgramPtr program, con
 	return locations;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, float value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, float value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform1f(program->GetId(), location, value);
+		glProgramUniform1f(program->Handle(), location, value);
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, int value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, int value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform1i(program->GetId(), location, value);
+		glProgramUniform1i(program->Handle(), location, value);
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, unsigned int value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, unsigned int value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform1ui(program->GetId(), location, value);
+		glProgramUniform1ui(program->Handle(), location, value);
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, bool value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, bool value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform1i(program->GetId(), location, value ? 1 : 0);
+		glProgramUniform1i(program->Handle(), location, value ? 1 : 0);
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, unsigned __int64 value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, unsigned __int64 value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformHandleui64ARB(program->GetId(), location, value);
+		glProgramUniformHandleui64ARB(program->Handle(), location, value);
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<float>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<float>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform1fv(program->GetId(), location, static_cast<GLint>(value.size()), value.data());
+		glProgramUniform1fv(program->Handle(), location, static_cast<GLint>(value.size()), value.data());
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<int>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<int>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform1iv(program->GetId(), location, static_cast<GLint>(value.size()), value.data());
+		glProgramUniform1iv(program->Handle(), location, static_cast<GLint>(value.size()), value.data());
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<unsigned int>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<unsigned int>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform1uiv(program->GetId(), location, static_cast<GLint>(value.size()), value.data());
+		glProgramUniform1uiv(program->Handle(), location, static_cast<GLint>(value.size()), value.data());
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::vec2& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::vec2& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform2fv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform2fv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::vec3& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::vec3& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform3fv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform3fv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::vec4& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::vec4& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform4fv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform4fv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ivec2& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::ivec2& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform2iv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform2iv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ivec3& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::ivec3& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform3iv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform3iv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::ivec4& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::ivec4& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform4iv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform4iv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::uvec2& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::uvec2& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform2uiv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform2uiv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::uvec3& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::uvec3& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform3uiv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform3uiv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::uvec4& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::uvec4& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform4uiv(program->GetId(), location, 1, glm::value_ptr(value));
+		glProgramUniform4uiv(program->Handle(), location, 1, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat2& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat2& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix2fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix2fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat3& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat3& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix3fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix3fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat4& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat4& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix4fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix4fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat2x3& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat2x3& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix2x3fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix2x3fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat3x2& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat3x2& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix3x2fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix3x2fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat2x4& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat2x4& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix2x4fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix2x4fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat4x2& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat4x2& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix4x2fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix4x2fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat3x4& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat3x4& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix3x4fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix3x4fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const glm::mat4x3& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const glm::mat4x3& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix4x3fv(program->GetId(), location, 1, GL_FALSE, glm::value_ptr(value));
+		glProgramUniformMatrix4x3fv(program->Handle(), location, 1, GL_FALSE, glm::value_ptr(value));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::vec2>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::vec2>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform2fv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
+		glProgramUniform2fv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::vec3>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::vec3>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform3fv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
+		glProgramUniform3fv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::vec4>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::vec4>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform4fv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
+		glProgramUniform4fv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::ivec2>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::ivec2>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform2iv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
+		glProgramUniform2iv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::ivec3>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::ivec3>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform3iv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
+		glProgramUniform3iv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::ivec4>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::ivec4>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform4iv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
+		glProgramUniform4iv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const int*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::uvec2>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::uvec2>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform2uiv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
+		glProgramUniform2uiv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::uvec3>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::uvec3>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform3uiv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
+		glProgramUniform3uiv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::uvec4>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::uvec4>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniform4uiv(program->GetId(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
+		glProgramUniform4uiv(program->Handle(), location, static_cast<GLint>(value.size()), reinterpret_cast<const unsigned*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat2>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat2>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix2fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix2fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat3>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat3>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix3fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix3fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix4fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix4fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat2x3>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat2x3>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix2x3fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix2x3fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat3x2>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat3x2>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix3x2fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix3x2fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat2x4>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat2x4>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix2x4fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix2x4fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4x2>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4x2>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix4x2fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix4x2fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat3x4>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat3x4>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix3x4fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix3x4fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;
 }
 //=============================================================================
-bool gpu::program::Uniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4x3>& value)
+bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4x3>& value)
 {
 	if (location >= 0)
 	{
-		glProgramUniformMatrix4x3fv(program->GetId(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
+		glProgramUniformMatrix4x3fv(program->Handle(), location, static_cast<GLint>(value.size()), GL_FALSE, reinterpret_cast<const float*>(value.data()));
 		return true;
 	}
 	return false;

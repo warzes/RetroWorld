@@ -1,25 +1,12 @@
 ﻿#pragma once
 
 #include "gpu_core.h"
-#include "core_flags.h"
 
 namespace gpu::buffer
 {
 	struct Buffer;
 	using BufferPtr = std::shared_ptr<Buffer>;
-
-	enum class BufferStorageFlag : uint32_t
-	{
-		None = 0,
-		// Allows the user to update the buffer's contents with Buffer::UpdateData
-		DynamicStorage = 1 << 0,
-		// Hints to the implementation to place the buffer storage in host memory
-		ClientStorage = 1 << 1,
-		// Maps the buffer (persistently and coherently) upon creation
-		MapMemory = 1 << 2,
-	};
-	SE_DECLARE_FLAG_TYPE(BufferStorageFlags, BufferStorageFlag, uint32_t);
-
+	
 	struct BufferFillInfo final
 	{
 		uint64_t offset = 0;
@@ -38,6 +25,7 @@ namespace gpu::buffer
 		TriviallyCopyableByteSpan(std::span<T> t) : std::span<const std::byte>(std::as_bytes(t)) {}
 	};
 
+	BufferPtr CreateBuffer(size_t size, BufferStorageFlags storageFlags = BufferStorageFlag::None, std::string_view name = "");
 	BufferPtr CreateBuffer(TriviallyCopyableByteSpan data, BufferStorageFlags storageFlags = BufferStorageFlag::None, std::string_view name = "");
 	BufferPtr CreateBuffer(const void* data, size_t size, BufferStorageFlags storageFlags = BufferStorageFlag::None, std::string_view name = "");
 
@@ -47,13 +35,25 @@ namespace gpu::buffer
 	[[nodiscard]] bool IsMapped(BufferPtr buffer) noexcept;
 	[[nodiscard]] size_t Size(BufferPtr buffer) noexcept;
 	[[nodiscard]] uint32_t Handle(BufferPtr buffer) noexcept;
+	[[nodiscard]] bool IsValid(BufferPtr buffer) noexcept;
 
 	// Invalidates the content of the buffer's data store
 	// This call can be used to optimize driver synchronization in certain cases.
 	void Invalidate(BufferPtr buffer);
 
+	void FillData(BufferPtr buffer, const BufferFillInfo& clear = {});
 	void UpdateData(BufferPtr buffer, TriviallyCopyableByteSpan data, size_t destOffsetBytes = 0);
 	void UpdateData(BufferPtr buffer, const void* data, size_t size, size_t destOffsetBytes = 0);
-	void FillData(BufferPtr buffer, const BufferFillInfo& clear = {});
+
+	template<class T> requires(std::is_trivially_copyable_v<T>)
+	void UpdateData(BufferPtr buffer, const T& data, size_t startIndex = 0)
+	{
+		UpdateData(buffer, data, sizeof(T) * startIndex);
+	}
+	template<class T> requires(std::is_trivially_copyable_v<T>)
+	void UpdateData(BufferPtr buffer, std::span<const T> data, size_t startIndex = 0)
+	{
+		UpdateData(buffer, data, sizeof(T) * startIndex);
+	}
 
 } // namespace gpu::buffer

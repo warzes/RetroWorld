@@ -3,6 +3,7 @@
 #include "gpu_program.h"
 #include "gpu_vao.h"
 #include "_gpu_contextState.h"
+#include "_gpu_enumDesc.h"
 #include "app_window.h"
 #include "core_log.h"
 //=============================================================================
@@ -97,8 +98,8 @@ inline GLenum EnumToValue(gpu::BlendEquation eq) noexcept
 	case gpu::BlendEquation::Add:             return GL_FUNC_ADD;
 	case gpu::BlendEquation::Subtract:        return GL_FUNC_SUBTRACT;
 	case gpu::BlendEquation::ReverseSubtract: return GL_FUNC_REVERSE_SUBTRACT;
-	case gpu::BlendEquation::Min:                 return GL_MIN;
-	case gpu::BlendEquation::Max:                 return GL_MAX;
+	case gpu::BlendEquation::Min:             return GL_MIN;
+	case gpu::BlendEquation::Max:             return GL_MAX;
 	default: std::unreachable();
 	}
 }
@@ -128,38 +129,14 @@ inline GLenum EnumToValue(gpu::PrimitiveTopology topology) noexcept
 	}
 }
 //=============================================================================
-inline GLenum EnumToValue(gpu::IndexType type)
-{
-	switch (type)
-	{
-	case gpu::IndexType::UNSIGNED_BYTE:  return GL_UNSIGNED_BYTE;
-	case gpu::IndexType::UNSIGNED_SHORT: return GL_UNSIGNED_SHORT;
-	case gpu::IndexType::UNSIGNED_INT:   return GL_UNSIGNED_INT;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-inline size_t GetIndexSize(gpu::IndexType indexType)
-{
-	switch (indexType)
-	{
-	case gpu::IndexType::UNSIGNED_BYTE:  return 1;
-	case gpu::IndexType::UNSIGNED_SHORT: return 2;
-	case gpu::IndexType::UNSIGNED_INT:   return 4;
-	default: std::unreachable();
-	}
-}
-//=============================================================================
-extern std::unordered_map<size_t, gpu::vao::VertexArrayPtr> vertexArrayCache;
-//=============================================================================
 namespace
 {
 }
 //=============================================================================
 bool gpu::Init()
 {
-	//windowSize.width = window::GetWidth();
-	//windowSize.height = window::GetHeight();
+	context.contextWidth  = window::GetWidth();
+	context.contextHeight = window::GetHeight();
 
 	const char* vendor = (const char*)glGetString(GL_VENDOR);
 	const char* renderer = (const char*)glGetString(GL_RENDERER);
@@ -180,7 +157,7 @@ bool gpu::Init()
 //=============================================================================
 void gpu::Close()
 {
-	vertexArrayCache.clear();
+	context.Clear();
 }
 //=============================================================================
 bool gpu::BeginFrame()
@@ -188,11 +165,13 @@ bool gpu::BeginFrame()
 	if (window::GetWindowMinimized())
 		return false;
 
-	//if (windowSize.width != window::GetWidth() || windowSize.height != window::GetHeight())
-	//{
-	//	windowSize.width = window::GetWidth();
-	//	windowSize.height = window::GetHeight();
-	//}
+	context.BeginFrame();
+	if (context.contextWidth != window::GetWidth() || context.contextHeight != window::GetHeight())
+	{
+		context.contextWidth = window::GetWidth();
+		context.contextHeight = window::GetHeight();
+		context.isContextResize = true;
+	}
 
 	MetricsPrevious = MetricsCurrent;
 	MetricsCurrent = { 0 };
@@ -202,8 +181,7 @@ bool gpu::BeginFrame()
 //=============================================================================
 void gpu::EndFrame()
 {
-	context.isRendering = false;
-	context.isIndexBufferBound = false;
+	context.EndFrame();
 }
 //=============================================================================
 void gpu::SetClearColor(float red, float green, float blue, float alpha)
@@ -317,7 +295,6 @@ void gpu::SetViewport(float x, float y, float width, float height)
 void gpu::Draw(PrimitiveTopology topology, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
 	assert(context.isRendering);
-
 	glDrawArraysInstancedBaseInstance(EnumToValue(topology),
 		firstVertex,
 		vertexCount,
@@ -327,7 +304,7 @@ void gpu::Draw(PrimitiveTopology topology, uint32_t vertexCount, uint32_t instan
 //=============================================================================
 void gpu::DrawIndexed(PrimitiveTopology topology, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
 {
-	//assert(context.isRendering);
+	assert(context.isRendering);
 	assert(context.isIndexBufferBound);
 
 	// double cast is needed to prevent compiler from complaining about 32->64 bit pointer cast

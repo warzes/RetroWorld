@@ -1,22 +1,10 @@
 ﻿#pragma once
 
+#include "core_flags.h"
+
 namespace gpu
 {
 	constexpr inline uint64_t WHOLE_BUFFER = static_cast<uint64_t>(-1);
-
-	enum class IndexType : uint32_t
-	{
-		UNSIGNED_BYTE,
-		UNSIGNED_SHORT,
-		UNSIGNED_INT,
-	};
-
-	enum class GlFormatClass
-	{
-		FLOAT,
-		INT,
-		LONG
-	};
 
 	enum class Format : uint32_t
 	{
@@ -118,10 +106,35 @@ namespace gpu
 
 		// TODO: 64-bits-per-component formats
 	};
-	GLenum FormatToTypeGL(Format format);
-	GLint FormatToSizeGL(Format format);
-	GLboolean IsFormatNormalizedGL(Format format);
-	GlFormatClass FormatToFormatClass(Format format);
+
+	enum class BufferStorageFlag : uint32_t
+	{
+		None = 0,
+		// Allows the user to update the buffer's contents with Buffer::UpdateData
+		DynamicStorage = 1 << 0,
+		// Hints to the implementation to place the buffer storage in host memory
+		ClientStorage = 1 << 1,
+		// Maps the buffer (persistently and coherently) upon creation
+		MapMemory = 1 << 2,
+	};
+	SE_DECLARE_FLAG_TYPE(BufferStorageFlags, BufferStorageFlag, uint32_t);
+
+	enum class IndexType : uint32_t
+	{
+		UnsignedByte,
+		UnsignedShort,
+		UnsignedInt,
+	};
+
+
+
+
+
+
+
+
+
+
 
 	enum class RenderingCapability : uint8_t
 	{
@@ -291,18 +304,18 @@ namespace gpu
 
 	struct Metrics final
 	{
-		unsigned long drawCalls = 0; //< Mesh draw call.
-		unsigned long quadCalls = 0; // Full screen quad.
-		unsigned long stateChanges = 0; // State changes.
-		unsigned long textureBindings = 0; // Number of texture bindings.
+		unsigned long drawCalls = 0;           //< Mesh draw call.
+		unsigned long quadCalls = 0;           // Full screen quad.
+		unsigned long stateChanges = 0;        // State changes.
+		unsigned long textureBindings = 0;     // Number of texture bindings.
 		unsigned long framebufferBindings = 0; // Number of framebuffer bindings.
-		unsigned long bufferBindings = 0; // Number of data buffer bindings.
-		unsigned long vertexBindings = 0; // Number of vertex array bindings.
-		unsigned long programBindings = 0; // Number of shade program bindings.
-		unsigned long clearAndBlits = 0; // Framebuffer clearing and blitting operations.
-		unsigned long uploads = 0; // Data upload to the GPU.
-		unsigned long downloads = 0; // Data download from the GPU.
-		unsigned long uniforms = 0; // Uniform update.
+		unsigned long bufferBindings = 0;      // Number of data buffer bindings.
+		unsigned long vertexBindings = 0;      // Number of vertex array bindings.
+		unsigned long programBindings = 0;     // Number of shade program bindings.
+		unsigned long clearAndBlits = 0;       // Framebuffer clearing and blitting operations.
+		unsigned long uploads = 0;             // Data upload to the GPU.
+		unsigned long downloads = 0;           // Data download from the GPU.
+		unsigned long uniforms = 0;            // Uniform update.
 	};
 	inline Metrics MetricsCurrent;
 	inline Metrics MetricsPrevious;

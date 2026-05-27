@@ -1,7 +1,12 @@
 ﻿#pragma once
 
 #include "gpu_core.h"
-#include "gpu_buffer.h"
+
+namespace gpu::buffer
+{
+	struct Buffer;
+	using BufferPtr = std::shared_ptr<Buffer>;
+} // namespace gpu::buffer
 
 namespace gpu::vao
 {
@@ -18,7 +23,11 @@ namespace gpu::vao
 
 	VertexArrayPtr CreateVertexArray(const std::vector<VertexInputBindingDescription>& vertexInputState);
 
+	[[nodiscard]] uint32_t Handle(VertexArrayPtr vao) noexcept;
+	[[nodiscard]] bool IsValid(VertexArrayPtr vao) noexcept;
+
 	void BindVertexArray(VertexArrayPtr vao);
+
 	void BindVertexBuffer(VertexArrayPtr vao, uint32_t bindingIndex, gpu::buffer::BufferPtr buffer, uint64_t offset, uint64_t stride);
 	void BindIndexBuffer(VertexArrayPtr vao, gpu::buffer::BufferPtr buffer, IndexType indexType);
 

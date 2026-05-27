@@ -80,6 +80,12 @@
     <ClInclude Include="_gpu_contextState.h">
       <Filter>gpu\private</Filter>
     </ClInclude>
+    <ClInclude Include="gpu_textures.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="_gpu_enumDesc.h">
+      <Filter>gpu\private</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -130,6 +136,9 @@
     </ClCompile>
     <ClCompile Include="_gpu_contextState.cpp">
       <Filter>gpu\private</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_textures.cpp">
+      <Filter>gpu</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
