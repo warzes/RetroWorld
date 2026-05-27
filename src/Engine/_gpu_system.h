@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "gpu_system.h"
+#include "gpu_deviceInfo.h"
 
 namespace gpu
 {
@@ -9,5 +10,7 @@ namespace gpu
 
 	bool BeginFrame();
 	void EndFrame();
+
+	void QueryGlDeviceProperties(DeviceProperties& properties);
 
 } // namespace gpu

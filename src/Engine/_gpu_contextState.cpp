@@ -37,6 +37,8 @@ void gpu::ContextState::Init(uint16_t width, uint16_t height)
 	context.contextWidth = width;
 	context.contextHeight = height;
 
+	InvalidatePipelineState();
+
 	void GLEnableOrDisable(GLenum state, GLboolean value) noexcept;
 
 	GLEnableOrDisable(GL_PRIMITIVE_RESTART_FIXED_INDEX, inputAssemblyState.primitiveRestartEnable);
@@ -101,5 +103,32 @@ void gpu::ContextState::Clear()
 	framebufferCacheValue.clear();
 
 	*this = {};
+}
+//=============================================================================
+void gpu::InvalidatePipelineState()
+{
+
+	for (int i = 0; i < gpu::MAX_COLOR_ATTACHMENTS; i++)
+	{
+		ColorComponentFlags& flags = context.lastColorMask[i];
+		flags = ColorComponentFlag::RGBA_BITS;
+		glColorMaski(i, true, true, true, true);
+	}
+
+	context.lastDepthMask = false;
+	glDepthMask(false);
+
+	context.lastStencilMask[0] = 0;
+	context.lastStencilMask[1] = 0;
+	glStencilMask(false);
+
+	context.initViewport = true;
+	context.lastScissor = {};
+
+#if USE_SRGB
+	glEnable(GL_FRAMEBUFFER_SRGB);
+#endif
+	glDisable(GL_DITHER);
+	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 }
 //=============================================================================

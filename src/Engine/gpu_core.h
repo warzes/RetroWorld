@@ -485,4 +485,12 @@ namespace gpu
 	};
 	inline Metrics MetricsCurrent;
 	inline Metrics MetricsPrevious;
+
+	class ScopedDebugMarker final
+	{
+	public:
+		ScopedDebugMarker(const char* message);
+		ScopedDebugMarker(const ScopedDebugMarker&) = delete;
+		~ScopedDebugMarker();
+	};
 } // namespace gpu

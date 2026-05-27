@@ -22,6 +22,13 @@ namespace gpu::program
 		std::string tessellationEvaluationShaderCode{};
 	};
 
+	struct ProgramReflect final
+	{
+		std::vector<std::pair<std::string, uint32_t>> uniformBlocks;
+		std::vector<std::pair<std::string, uint32_t>> storageBlocks;
+		std::vector<std::pair<std::string, uint32_t>> samplersAndImages;
+	};
+
 	std::string LoadShaderCode(const std::string& filename, const std::vector<std::string>& defines = {});
 
 	ShaderProgramPtr CreateShaderProgram(const GraphicsProgramCreateInfo& createInfo);
@@ -94,5 +101,8 @@ namespace gpu::program
 	bool SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4x2>& value);
 	bool SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat3x4>& value);
 	bool SetUniform(ShaderProgramPtr program, int location, const std::vector<glm::mat4x3>& value);
+
+
+	ProgramReflect ReflectProgram(ShaderProgramPtr program);
 
 } // namespace gpu::program

@@ -100,4 +100,6 @@ namespace gpu
 		std::vector<detail::RenderAttachments> framebufferCacheKey;
 		std::vector<fbo::FramebufferPtr> framebufferCacheValue;
 	} inline context;
+
+	void InvalidatePipelineState();
 } // namespace gpu

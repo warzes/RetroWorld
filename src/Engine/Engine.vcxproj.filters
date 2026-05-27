@@ -101,6 +101,15 @@
     <ClInclude Include="gpu_pipeline.h">
       <Filter>gpu</Filter>
     </ClInclude>
+    <ClInclude Include="gpu_deviceInfo.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="gpu_timer.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="gpu_fence.h">
+      <Filter>gpu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -165,6 +174,12 @@
       <Filter>gpu</Filter>
     </ClCompile>
     <ClCompile Include="gpu_pipeline.cpp">
+      <Filter>gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_timer.cpp">
+      <Filter>gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu_fence.cpp">
       <Filter>gpu</Filter>
     </ClCompile>
   </ItemGroup>

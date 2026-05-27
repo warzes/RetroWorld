@@ -135,6 +135,63 @@ inline std::string loadShaderCode(const std::string& path, unsigned int level)
 	return shader;
 }
 //=============================================================================
+inline std::vector<std::pair<std::string, uint32_t>> reflectProgram(GLuint program, GLenum interface)
+{
+	GLint numActiveResources{};
+	glGetProgramInterfaceiv(program, interface, GL_ACTIVE_RESOURCES, &numActiveResources);
+
+	GLint maxNameLength{};
+	glGetProgramInterfaceiv(program, interface, GL_MAX_NAME_LENGTH, &maxNameLength);
+
+	auto reflected = std::vector<std::pair<std::string, uint32_t>>(numActiveResources, { std::string(maxNameLength, '\0'), 0 });
+
+	for (GLint i = 0; i < numActiveResources; i++)
+	{
+		// Reflect the name of the resource
+		glGetProgramResourceName(program,
+			interface,
+			i,
+			static_cast<GLsizei>(reflected[i].first.size()),
+			nullptr,
+			reflected[i].first.data());
+
+		// Reflect the value or binding of the resource (for samplers and images, these are essentially bindings as well)
+		if (interface == GL_UNIFORM)
+		{
+			auto location = glGetProgramResourceLocation(program, interface, reflected[i].first.c_str());
+
+			// Variables inside uniform blocks will also be iterated here. Their location will be -1, so we can skip them this way.
+			if (location != -1)
+			{
+				// Wrong if the uniform isn't an integer (e.g., sampler or image). OK, default-block uniforms are not supported otherwise.
+				GLint binding{ -1 };
+				glGetUniformiv(program, location, &binding);
+				reflected[i].second = static_cast<uint32_t>(binding);
+			}
+			else
+			{
+				reflected[i].first = "";
+			}
+		}
+		else if (interface == GL_UNIFORM_BLOCK || interface == GL_SHADER_STORAGE_BLOCK)
+		{
+			GLint binding{ -1 };
+			constexpr GLenum property = GL_BUFFER_BINDING;
+			glGetProgramResourceiv(program, interface, i, 1, &property, 1, nullptr, &binding);
+			reflected[i].second = static_cast<uint32_t>(binding);
+		}
+		else
+		{
+			std::unreachable();
+		}
+	}
+
+	auto it = std::remove_if(reflected.begin(), reflected.end(), [](const auto& pair) { return pair.first.empty(); });
+	reflected.erase(it, reflected.end());
+
+	return reflected;
+}
+//=============================================================================
 struct ShaderHandle final
 {
 	ShaderHandle() noexcept = default;
@@ -872,5 +929,16 @@ bool gpu::program::SetUniform(ShaderProgramPtr program, int location, const std:
 		return true;
 	}
 	return false;
+}
+//=============================================================================
+gpu::program::ProgramReflect gpu::program::ReflectProgram(ShaderProgramPtr program)
+{
+	ProgramReflect info;
+
+	info.uniformBlocks = reflectProgram(program->programID, GL_UNIFORM_BLOCK);
+	info.storageBlocks = reflectProgram(program->programID, GL_SHADER_STORAGE_BLOCK);
+	info.samplersAndImages = reflectProgram(program->programID, GL_UNIFORM);
+
+	return info;
 }
 //=============================================================================
