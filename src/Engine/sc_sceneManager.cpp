@@ -158,6 +158,7 @@ gr::RenderQueue scene::SceneManager::BuildRenderQueue(const math::Frustum& frust
 				item.distanceToCamera = dist;
 				item.materialId = reinterpret_cast<uintptr_t>(modelNode->material.get());
 				item.isInstanced = true;
+				item.instanceTransforms = modelNode->instanceTransforms; // copy — node owns originals
 
 				bool isTransparent = modelNode->material->IsTransparent();
 				queue.Submit(item, isTransparent);
@@ -212,15 +213,13 @@ gr::RenderQueue scene::SceneManager::BuildRenderQueue(const math::Frustum& frust
 		}
 		else
 		{
-			// Use the first node to represent the group, store transforms in its instanceTransforms
-			group.firstNode->instanceTransforms = std::move(group.transforms);
-
 			// Average distance
-			float avgDist = group.distance / static_cast<float>(group.firstNode->instanceTransforms.size());
+			float avgDist = group.distance / static_cast<float>(group.transforms.size());
 
 			gr::RenderItem item;
 			item.node = group.firstNode;
-			item.worldTransform = group.firstNode->instanceTransforms[0];
+			item.instanceTransforms = std::move(group.transforms); // queue owns the data now
+			item.worldTransform = item.instanceTransforms[0];
 			item.distanceToCamera = avgDist;
 			item.materialId = reinterpret_cast<uintptr_t>(group.firstNode->material.get());
 			item.isInstanced = true;
@@ -365,7 +364,7 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 
 			if (item.isInstanced)
 			{
-				const auto& transforms = item.node->instanceTransforms;
+				const auto& transforms = item.instanceTransforms;
 				if (transforms.empty()) return;
 
 				uint32_t count = static_cast<uint32_t>(transforms.size());
@@ -385,6 +384,7 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 				gpu::program::SetUniform(depthShader, locInst, true);
 
 				mesh.DrawInstanced(count);
+				item.node->instanceTransforms.clear(); // clean up manual instancing only; auto never touched node
 				++lastFrameStats.instancedBatches;
 				++lastFrameStats.drawCalls;
 			}
@@ -432,12 +432,6 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 		for (auto& item : queue.opaqueItems) drawShadowItem(item);
 		for (auto& item : queue.transparentItems) drawShadowItem(item);
 	}
-	// Clear instance transforms from all queue items so next BuildRenderQueue
-	// doesn't misinterpret stale data as "manual instancing" (instanceTransforms.empty() check)
-	for (auto& item : queue.opaqueItems)
-		if (item.node) item.node->instanceTransforms.clear();
-	for (auto& item : queue.transparentItems)
-		if (item.node) item.node->instanceTransforms.clear();
 	// Point light cubemap shadow would render 6 times with different face matrices
 }
 //=============================================================================
@@ -698,8 +692,7 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 
 	if (item.isInstanced)
 	{
-		// Use node's instance transforms
-		const auto& transforms = item.node->instanceTransforms;
+		const auto& transforms = item.instanceTransforms;
 		if (transforms.empty()) return;
 		uint32_t count = static_cast<uint32_t>(transforms.size());
 

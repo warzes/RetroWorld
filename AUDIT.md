@@ -8,31 +8,6 @@
 
 ## 1. КРИТИЧЕСКИЕ БАГИ (Crash / Data Corruption)
 
-### 1.1 Каскадные тени + instancing — transforms очищаются после первой каскады
-
-**Файл:** `src/Engine/sc_sceneManager.cpp:420-421`
-**Проблема:**
-```cpp
-for (int c = 0; c < cascadeCount; ++c)
-{
-    // ...
-    for (auto& item : queue.opaqueItems) drawShadowItem(item);
-    for (auto& item : queue.transparentItems) drawShadowItem(item);
-}
-```
-**Причина:** `drawShadowItem()` (строка 388) вызывает `item.node->instanceTransforms.clear()` после первого каскада. Второй проход цикла видит пустой вектор и ничего не рисует.
-**Исправление:** не очищать transforms внутри `drawShadowItem` — перенести очистку в caller после цикла по каскадам, либо копировать transforms перед циклом.
-
-### 1.2 `BuildRenderQueue` мутирует scene node-ы (auto-instancing)
-
-**Файл:** `src/Engine/sc_sceneManager.cpp:216`
-```cpp
-group.firstNode->instanceTransforms = std::move(group.transforms);
-```
-**Проблема:** `BuildRenderQueue` — константная по замыслу операция (построение очереди рендера), но она записывает в `ModelNode::instanceTransforms`. Если очередь используется повторно (например, shadow + opaque), данные уже перемещены.
-**В данном коде** каждая очередь билдится заново, но это хрупкое допущение.
-**Рекомендация:** хранить instance-трансформы внутри `RenderItem`, а не записывать их обратно в scene node.
-
 ### 1.3 `GetCreateInfo(nullptr)` возвращает ссылку на временный объект
 
 **Файл:** `src/Engine/gpu_texture.cpp:508`
@@ -188,11 +163,6 @@ virtual ~SceneNode() = default;
 ```
 **Замечание:** по правилам проекта виртуальные функции запрещены в hot-path. Деструктор не в hot-path, так что это ок. Однако если не планируется наследование за пределами 4-х известных типов, можно заменить на `protected` non-virtual деструктор и явный `type`-based deleter.
 
-### 3.7 Нет PCH для Engine проекта
-
-**Файл:** `src/Engine/stdafx.h` — есть.
-**Проверка:** `Engine.vcxproj` включает PCH. Всё в порядке.
-
 ### 3.8 `ShadowMapManager` — не очищается при смене light-нод
 
 **Файл:** `gr_shadowMapManager.cpp` (требуется проверка)
@@ -201,11 +171,6 @@ virtual ~SceneNode() = default;
 ---
 
 ## 4. OPENGL SPECIFIC
-
-### 4.1 Нет `glGetError()` / `glDebugMessageCallback`
-
-**Весь проект:** не вызывается `glDebugMessageCallback`. Ошибки OpenGL (неверный enum, неполный framebuffer) молча игнорируются. GL 4.5 core profile предоставляет отличный debug output.
-**Рекомендация:** включить `GL_DEBUG_OUTPUT` в debug сборке.
 
 ### 4.2 `glClipControl(GL_LOWER_LEFT, ...)` — в `setViewportInternal`
 
@@ -219,11 +184,6 @@ glClipControl(GL_LOWER_LEFT, gpu::EnumToValue(viewport.depthRange));
 
 **Файл:** `gpu_buffer.cpp:137`
 Уже описано в 1.5. Дополнительно: не проверяется наличие `GL_ARB_direct_state_access` через `GL_EXT_direct_state_access`. Для 4.5 core DSA — обязателен.
-
-### 4.4 `glCreateTextures` vs `glGenTextures`
-
-**Файл:** `gpu_texture.cpp:176` и `gpu_texture.cpp:270`
-Используется корректно: DSA (`glCreateTextures`) для новых текстур, `glGenTextures` для `glTextureView` (т.к. `glCreateTextures` не работает с views).
 
 ### 4.5 Непроверяемый вызов `glTextureView` с несовместимым форматом
 

@@ -435,7 +435,7 @@ bool GameInit()
 	auto sharedMesh = std::make_shared<gr::Mesh>(gr::Mesh::CreateCube());
 	auto sharedMat = std::make_shared<gr::Material>();
 	sharedMat->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
-	sharedMat->albedoColor = glm::vec3(0.8f, 0.2f, 0.2f);
+	sharedMat->albedoColor = glm::vec3(1.0f);
 	sharedMat->specularColor = glm::vec3(1.0f);
 	sharedMat->ambientColor = glm::vec3(0.08f);
 	sharedMat->shininess = 32.0f;
@@ -456,7 +456,7 @@ bool GameInit()
 	sphere.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreateSphere(32,32));
 	sphere.material = std::make_shared<gr::Material>();
 	sphere.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
-	sphere.material->albedoColor = glm::vec3(0.8f, 0.2f, 0.2f);
+	sphere.material->albedoColor = glm::vec3(0.8f, 0.2f, 0.8f);
 	sphere.material->specularColor = glm::vec3(1.0f);
 	sphere.material->ambientColor = glm::vec3(0.08f);
 	sphere.material->shininess = 32.0f;
@@ -467,7 +467,7 @@ bool GameInit()
 	auto& plane = root.AddChild<scene::ModelNode>("ground");
 	plane.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreatePlane(20.0f));
 	plane.material = std::make_shared<gr::Material>();
-	plane.material->albedoColor = glm::vec3(0.25f, 0.30f, 0.22f);
+	plane.material->albedoColor = glm::vec3(0.25f, 0.80f, 0.22f);
 	plane.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
 	plane.material->specularColor = glm::vec3(0.1f);
 	plane.material->ambientColor = glm::vec3(0.04f);
@@ -532,7 +532,7 @@ void GameUpdate()
 		g_scene->activeCamera->aspectRatio = window::GetAspectRatio();
 
 	// Animate: spin cube slowly
-	auto* cube = g_scene->root->FindChild("cube");
+	//auto* cube = g_scene->root->FindChild("cube");
 	/*if (cube)
 		cube->transform.rotation *= glm::angleAxis(app::GetDeltaTime() * 5.5f, glm::vec3(0, 1, 0));*/
 
@@ -575,6 +575,7 @@ void GameRender()
 	
 	// 5. Render opaque objects (shadow map is bound inside renderOpaquePass)
 	g_scene->RenderOpaquePass(queue, program);
+	g_scene->RenderTransparentPass(queue, program);
 }
 //=============================================================================
 void GameRenderUI()
