@@ -26,6 +26,9 @@ namespace gr
 		// Get or create shadow map for a given light
 		ShadowMap& GetOrCreate(scene::LightNode* light);
 
+		// Get existing shadow map (nullptr if not created yet)
+		ShadowMap* Get(scene::LightNode* light);
+
 		// Release resources
 		void Clear();
 

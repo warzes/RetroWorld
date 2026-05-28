@@ -60,6 +60,12 @@ gr::ShadowMap& gr::ShadowMapManager::GetOrCreate(scene::LightNode* light)
 	return newIt->second;
 }
 //=============================================================================
+gr::ShadowMap* gr::ShadowMapManager::Get(scene::LightNode* light)
+{
+	auto it = m_maps.find(light);
+	return it != m_maps.end() ? &it->second : nullptr;
+}
+//=============================================================================
 void gr::ShadowMapManager::Clear()
 {
 	m_maps.clear();

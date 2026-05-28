@@ -212,9 +212,59 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 		glm::vec3 camPos = GetActiveCameraPosition();
 		glm::vec3 up = std::abs(worldDir.y) < 0.99f
 			? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-		lightView = glm::lookAt(camPos - worldDir * 200.0f, camPos, up);
-		float s = 100.0f;
-		lightProj = glm::ortho(-s, s, -s, s, -200.0f, 200.0f);
+		
+		glm::vec3 eye = camPos - worldDir * 200.0f;
+		lightView = glm::lookAt(eye, camPos, up);
+		float s = light.shadowSettings.orthoSize;
+
+		// Compute tight z bounds from all render items
+		float minZ = std::numeric_limits<float>::max();
+		float maxZ = -std::numeric_limits<float>::max();
+		auto computeZBounds = [&](const std::vector<gr::RenderItem>& items)
+			{
+				for (auto& item : items)
+				{
+					if (!item.node || !item.node->mesh) continue;
+					math::AABB worldAABB = item.node->mesh->aabb.Transform(item.worldTransform);
+					const glm::vec3 corners[8] = {
+						{worldAABB.min.x, worldAABB.min.y, worldAABB.min.z},
+						{worldAABB.min.x, worldAABB.min.y, worldAABB.max.z},
+						{worldAABB.min.x, worldAABB.max.y, worldAABB.min.z},
+						{worldAABB.min.x, worldAABB.max.y, worldAABB.max.z},
+						{worldAABB.max.x, worldAABB.min.y, worldAABB.min.z},
+						{worldAABB.max.x, worldAABB.min.y, worldAABB.max.z},
+						{worldAABB.max.x, worldAABB.max.y, worldAABB.min.z},
+						{worldAABB.max.x, worldAABB.max.y, worldAABB.max.z},
+					};
+					for (auto& c : corners)
+					{
+						float z = -glm::dot(c - eye, worldDir);
+						minZ = std::min(minZ, z);
+						maxZ = std::max(maxZ, z);
+					}
+				}
+			};
+		computeZBounds(queue.opaqueItems);
+		computeZBounds(queue.transparentItems);
+
+		float margin = 20.0f;
+		if (minZ == std::numeric_limits<float>::max())
+		{
+			minZ = -500.0f;
+			maxZ = 500.0f;
+		}
+		else
+		{
+			minZ -= margin;
+			maxZ += margin;
+		}
+
+		// nearDist is the closer clip distance (farthest scene point from light)
+		// farDist is the farther clip distance (closest scene point to light)
+		float nearDist = -maxZ;
+		float farDist = -minZ;
+		lightProj = glm::ortho(-s, s, -s, s, nearDist, farDist);
+
 		sm.lightSpaceMatrix = lightProj * lightView;
 
 		// CSM cascades
@@ -228,7 +278,7 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 			// Simplified cascade: tighten orthographic bounds based on cascade distance
 			float d = light.shadowSettings.cascadeDistance[c];
 			float cs = d * 0.5f;
-			glm::mat4 cascadeProj = glm::ortho(-cs, cs, -cs, cs, -200.0f, 200.0f);
+			glm::mat4 cascadeProj = glm::ortho(-cs, cs, -cs, cs, -500.0f, 500.0f);
 			sm.cascadeMatrices[c] = cascadeProj * lightView;
 		}
 	}
@@ -434,7 +484,7 @@ void scene::SceneManager::UploadLights(const gpu::program::ShaderProgramPtr& sha
 
 	for (size_t i = 0; i < lights.size() && i < MAX_LIGHTS; ++i)
 	{
-		const auto* light = lights[i];
+		auto* light = lights[i];
 		std::string prefix = std::format("u_lights[{}].", i);
 
 		LightData data;
@@ -455,14 +505,20 @@ void scene::SceneManager::UploadLights(const gpu::program::ShaderProgramPtr& sha
 			data.outerCutoff = 0.0f;
 			data.castShadow = light->castShadow ? 1 : 0;
 
-			// Compute light space matrix for directional light
-			glm::vec3 camPos = GetActiveCameraPosition();
-			glm::vec3 up = std::abs(worldDir.y) < 0.99f
-				? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-			glm::mat4 lightView = glm::lookAt(camPos - worldDir * 200.0f, camPos, up);
-			float s = 100.0f;
-			glm::mat4 lightProj = glm::ortho(-s, s, -s, s, -200.0f, 200.0f);
-			data.lightSpaceMatrix = lightProj * lightView;
+			// Use precomputed light space matrix from shadow pass if available
+			auto* sm = shadowMaps.Get(light);
+			if (sm)
+				data.lightSpaceMatrix = sm->lightSpaceMatrix;
+			else
+			{
+				glm::vec3 camPos = GetActiveCameraPosition();
+				glm::vec3 up = std::abs(worldDir.y) < 0.99f
+					? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+				glm::mat4 lightView = glm::lookAt(camPos - worldDir * 200.0f, camPos, up);
+				float s = light->shadowSettings.orthoSize;
+				glm::mat4 lightProj = glm::ortho(-s, s, -s, s, -500.0f, 500.0f);
+				data.lightSpaceMatrix = lightProj * lightView;
+			}
 			break;
 		}
 		case LightNode::LightType::Point:

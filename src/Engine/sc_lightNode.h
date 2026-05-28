@@ -10,6 +10,7 @@ namespace scene
 		int     resolution = 1024;
 		float   bias = 0.005f;
 		float   normalBias = 0.02f;
+		float   orthoSize = 100.0f;  // half-extent for directional light ortho projection
 		float   cascadeDistance[4] = { 10.0f, 30.0f, 60.0f, 100.0f };
 	};
 

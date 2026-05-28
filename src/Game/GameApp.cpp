@@ -168,6 +168,17 @@ vec3 CalcSpotLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, v
 
 void main()
 {
+    //// DEBUG: show shadow map UV / depth on the plane
+    //if (u_lightCount > 0 && u_lights[0].castShadow)
+    //{
+    //    vec4 lsp = u_lights[0].lightSpaceMatrix * vec4(v_worldPos, 1.0);
+    //    vec3 p = lsp.xyz / lsp.w;
+    //    p = p * 0.5 + 0.5;
+    //    float sm = texture(u_shadowMap, p.xy).r;
+    //    o_color = vec4(p.xy, sm, 1.0);
+    //    return;
+    //}
+
 	vec3 albedo   = u_albedoColor;
 	vec3 specular = u_specularColor;
 	vec3 ambient  = u_ambientColor;
@@ -237,13 +248,6 @@ void main() {}
 	gr::Material material;
 
 	std::unique_ptr<scene::SceneManager> g_scene;
-
-	gpu::uniform::Uniform<glm::mat4> model;
-	gpu::uniform::Uniform<glm::mat4> view;
-	gpu::uniform::Uniform<glm::mat4> proj;
-	gpu::uniform::Uniform<glm::mat3> normalMatrix;
-
-	gpu::DepthState depthState;
 
 	gr::Camera camera(glm::vec3(0.4f, 1.2f, -2.4f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
@@ -365,9 +369,6 @@ static MouseLook g_mouseLook;
 //=============================================================================
 bool GameInit()
 {
-	depthState.depthTestEnable = true;
-	depthState.depthWriteEnable = true;
-
 	{
 		gpu::program::GraphicsProgramCreateInfo createInfo{
 		.name = "BlinnPhong",
@@ -393,11 +394,6 @@ bool GameInit()
 			return false;
 		}
 	}
-
-	/*gpu::uniform::InitUniform(model, program, "u_model");
-	gpu::uniform::InitUniform(view, program, "u_view");
-	gpu::uniform::InitUniform(proj, program, "u_projection");
-	gpu::uniform::InitUniform(normalMatrix, program, "u_normalMatrix");*/
 
 	mesh = gr::Mesh::CreateCube();
 	material.albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
@@ -428,6 +424,7 @@ bool GameInit()
 	cube.material->shininess = 32.0f;
 	// Cube spins a little
 	cube.transform.rotation = glm::angleAxis(glm::radians(25.0f), glm::vec3(0, 1, 0));
+	cube.transform.position = glm::vec3(0.0f, 0.1f, 0.0f);
 
 	// --- Sphere ---
 	auto& sphere = root.AddChild<scene::ModelNode>("sphere");
@@ -439,18 +436,19 @@ bool GameInit()
 	sphere.material->ambientColor = glm::vec3(0.08f);
 	sphere.material->shininess = 32.0f;
 
-	sphere.transform.position = glm::vec3(5.0f, 0.0f, 0.0f);
+	sphere.transform.position = glm::vec3(3.0f, 0.0f, 0.0f);
 
 	// --- Ground plane ---
 	auto& plane = root.AddChild<scene::ModelNode>("ground");
 	plane.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreatePlane(12.0f));
 	plane.material = std::make_shared<gr::Material>();
 	plane.material->albedoColor = glm::vec3(0.25f, 0.30f, 0.22f);
+	plane.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
 	plane.material->specularColor = glm::vec3(0.1f);
 	plane.material->ambientColor = glm::vec3(0.04f);
 	plane.material->shininess = 8.0f;
 	plane.transform.position = glm::vec3(0.0f, -0.5f, 0.0f);
-
+	//plane.castShadow = false;
 
 	// --- Directional light (shines along local -Y: (0,-1,0) by default) ---
 	auto& sun = root.AddChild<scene::LightNode>("sun");
@@ -458,6 +456,7 @@ bool GameInit()
 	sun.color = glm::vec3(1.0f, 0.95f, 0.85f);
 	sun.intensity = 1.2f;
 	sun.castShadow = true;
+	sun.shadowSettings.orthoSize = 15.0f;
 	// Disable cascade splitting so the shadow pass uses a single ortho matrix
 	sun.shadowSettings.cascadeDistance[0] = -1.0f;
 	sun.shadowSettings.cascadeDistance[1] = -1.0f;
@@ -503,16 +502,6 @@ void GameUpdate()
 		g_mouseLook.OnRightUp();
 	g_mouseLook.Update(camera);
 
-	proj = glm::perspective(glm::radians(65.f), window::GetAspectRatio(), 0.1f, 1000.f);
-	view = camera.GetViewMatrix();
-	model = glm::mat4(1.0f);
-	normalMatrix = glm::mat4(1.0f);
-
-	gpu::uniform::BindUniform(model);
-	gpu::uniform::BindUniform(view);
-	gpu::uniform::BindUniform(proj);
-	gpu::uniform::BindUniform(normalMatrix);
-
 	// Update camera aspect ratio
 	if (g_scene->activeCamera)
 		g_scene->activeCamera->aspectRatio = window::GetAspectRatio();
@@ -533,8 +522,6 @@ void GameFixedUpdate()
 //=============================================================================
 void GameRender()
 {
-	gpu::cmd::SetState(depthState);
-
 	math::Frustum frustum;
 	if (g_scene->activeCamera)
 		frustum = g_scene->activeCamera->ExtractFrustum();
