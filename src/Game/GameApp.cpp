@@ -2,7 +2,7 @@
 //=============================================================================
 namespace
 {
-	const char* vertexSource = R"(
+	const char* blinnPhongVert = R"(
 #version 460 core
 
 layout(location = 0) in vec3 a_position;
@@ -29,7 +29,7 @@ void main()
 }
 )";
 
-	const char* fragmentSource = R"(
+	const char* blinnPhongFrag = R"(
 #version 460 core
 
 #define MAX_LIGHTS 16
@@ -76,8 +76,30 @@ layout(binding = 3) uniform sampler2D u_emissiveMap;
 
 // Shadow
 uniform bool       u_receiveShadow;
+uniform sampler2D  u_shadowMap;
+uniform float      u_shadowMapSize;
 
 layout(location = 0) out vec4 o_color;
+
+float ShadowCalculation(vec4 lightSpacePos, float bias)
+{
+	vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+	projCoords = projCoords * 0.5 + 0.5;
+	float currentDepth = projCoords.z - bias;
+	if (currentDepth > 1.0) return 1.0;
+
+	float shadow = 0.0;
+	float texelSize = 1.0 / u_shadowMapSize;
+	for (int x = -1; x <= 1; ++x)
+	{
+		for (int y = -1; y <= 1; ++y)
+		{
+			float pcfDepth = texture(u_shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+			shadow += currentDepth < pcfDepth ? 1.0 : 0.0;
+		}
+	}
+	return shadow / 9.0;
+}
 
 vec3 CalcDirectionalLight(LightData light, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
 {
@@ -87,10 +109,17 @@ vec3 CalcDirectionalLight(LightData light, vec3 N, vec3 V, vec3 albedo, vec3 spe
 	float NdotL = max(dot(N, L), 0.0);
 	float NdotH = max(dot(N, H), 0.0);
 
+	float shadow = 1.0;
+	if (light.castShadow && u_receiveShadow)
+	{
+		vec4 lightSpacePos = light.lightSpaceMatrix * vec4(v_worldPos, 1.0);
+		shadow = ShadowCalculation(lightSpacePos, light.shadowBias);
+	}
+
 	vec3 diffuse  = light.color * albedo * NdotL;
 	vec3 spec     = light.color * specular * pow(NdotH, shininess);
 
-	return (ambient + diffuse + spec) * light.intensity;
+	return (ambient + (diffuse + spec) * shadow) * light.intensity;
 }
 
 vec3 CalcPointLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
@@ -184,7 +213,26 @@ void main()
 }
 )";
 
+		const char* shadowDepthVert = R"(
+#version 460 core
+layout(location = 0) in vec3 a_position;
+uniform mat4 u_lightVP;
+uniform mat4 u_model;
+void main()
+{
+    gl_Position = u_lightVP * u_model * vec4(a_position, 1.0);
+}
+)";
+
+		const char* shadowDepthFrag = R"(
+#version 460 core
+void main() {}
+)";
+
 	gpu::program::ShaderProgramPtr program;
+	gpu::program::ShaderProgramPtr g_depthShader;
+	scene::LightNode* g_sun = nullptr;
+
 	gr::Mesh mesh;
 	gr::Material material;
 
@@ -320,16 +368,36 @@ bool GameInit()
 	depthState.depthTestEnable = true;
 	depthState.depthWriteEnable = true;
 
-	gpu::program::GraphicsProgramCreateInfo createInfo{
-		.name               = "Program",
-		.vertexShaderCode   = vertexSource,
-		.fragmentShaderCode = fragmentSource };
-	program = gpu::program::CreateShaderProgram(createInfo);
+	{
+		gpu::program::GraphicsProgramCreateInfo createInfo{
+		.name = "BlinnPhong",
+		.vertexShaderCode = blinnPhongVert,
+		.fragmentShaderCode = blinnPhongFrag };
+		program = gpu::program::CreateShaderProgram(createInfo);
+		if (!gpu::program::IsValid(program))
+		{
+			core::Error("SceneExample: failed to compile BlinnPhong shader");
+			return false;
+		}
+	}
+	{
+		gpu::program::GraphicsProgramCreateInfo info{
+			.name = "ShadowDepth",
+			.vertexShaderCode = shadowDepthVert,
+			.fragmentShaderCode = shadowDepthFrag,
+		};
+		g_depthShader = gpu::program::CreateShaderProgram(info);
+		if (!gpu::program::IsValid(g_depthShader))
+		{
+			core::Error("SceneExample: failed to compile ShadowDepth shader");
+			return false;
+		}
+	}
 
-	gpu::uniform::InitUniform(model, program, "u_model");
+	/*gpu::uniform::InitUniform(model, program, "u_model");
 	gpu::uniform::InitUniform(view, program, "u_view");
 	gpu::uniform::InitUniform(proj, program, "u_projection");
-	gpu::uniform::InitUniform(normalMatrix, program, "u_normalMatrix");
+	gpu::uniform::InitUniform(normalMatrix, program, "u_normalMatrix");*/
 
 	mesh = gr::Mesh::CreateCube();
 	material.albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
@@ -389,12 +457,18 @@ bool GameInit()
 	sun.lightType = scene::LightNode::LightType::Directional;
 	sun.color = glm::vec3(1.0f, 0.95f, 0.85f);
 	sun.intensity = 1.2f;
-	sun.castShadow = false;
+	sun.castShadow = true;
+	// Disable cascade splitting so the shadow pass uses a single ortho matrix
+	sun.shadowSettings.cascadeDistance[0] = -1.0f;
+	sun.shadowSettings.cascadeDistance[1] = -1.0f;
+	sun.shadowSettings.cascadeDistance[2] = -1.0f;
+	sun.shadowSettings.cascadeDistance[3] = -1.0f;
 	// Rotate so light comes from upper-right (local (0,-1,0) → world normalize(1,-1,0))
 	sun.transform.rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(0, 0, 1));
+	g_sun = &sun;
 
 	// Disable shadows / instancing for the minimal example
-	g_scene->enableShadows = false;
+	//g_scene->enableShadows = false;
 	g_scene->enableInstancing = false;
 
 	return true;
@@ -402,6 +476,7 @@ bool GameInit()
 //=============================================================================
 void GameClose()
 {
+	g_depthShader.reset();
 	g_scene.reset();
 	g_mouseLook.Reset();
 	program.reset();
@@ -460,26 +535,33 @@ void GameRender()
 {
 	gpu::cmd::SetState(depthState);
 
-	// 1. Clear
+	math::Frustum frustum;
+	if (g_scene->activeCamera)
+		frustum = g_scene->activeCamera->ExtractFrustum();
+
+	// 1. Shadow pass
+	if (g_scene->enableShadows && g_sun && g_sun->castShadow)
+	{
+		auto shadowQueue = g_scene->BuildRenderQueue(frustum, scene::RenderPassType::Shadow);
+		g_scene->RenderShadowPass(shadowQueue, *g_sun, g_depthShader);
+		// Restore default framebuffer after shadow pass
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
+	// 2. Clear main framebuffer
 	glClearColor(0.12f, 0.32f, 0.88f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	// 2. Viewport for the main framebuffer
+	// 3. Viewport for the main framebuffer
 	gpu::Viewport vp;
 	vp.drawRect.offset = { 0, 0 };
 	vp.drawRect.extent = { window::GetWidth(), window::GetHeight() };
 	gpu::cmd::SetViewport(vp);
 
-	// 3. Build render queue (no frustum culling for simplicity)
-	//g_scene->enableFrustumCulling = false;
-	//math::Frustum dummy; // unused when culling is disabled
-	//auto queue = g_scene->BuildRenderQueue(dummy, scene::RenderPassType::Opaque);
-
-	math::Frustum frustum;
-	if (g_scene->activeCamera)
-		frustum = g_scene->activeCamera->ExtractFrustum();
+	// 4. Build render queue with frustum culling from active camera
+	g_scene->enableFrustumCulling = true;
 	auto queue = g_scene->BuildRenderQueue(frustum, scene::RenderPassType::Opaque);
 	
-	// 4. Render opaque objects
+	// 5. Render opaque objects (shadow map is bound inside renderOpaquePass)
 	g_scene->RenderOpaquePass(queue, program);
 }
 //=============================================================================

@@ -66,6 +66,7 @@ namespace scene
 		void UploadLights(const gpu::program::ShaderProgramPtr& shader);
 		void UploadCamera(const gpu::program::ShaderProgramPtr& shader);
 		void UploadModel(const gpu::program::ShaderProgramPtr& shader, const glm::mat4& model, const glm::mat3& normalMatrix);
+		void UploadShadowMap(const gpu::program::ShaderProgramPtr& shader);
 
 		// === Helpers ===
 		glm::vec3 GetActiveCameraPosition() const;
@@ -93,5 +94,8 @@ namespace scene
 		// Rasterization state for wireframe
 		gpu::RasterizationState m_wireframeState;
 		gpu::RasterizationState m_fillState;
+
+		gpu::texture::SamplerPtr m_shadowSampler;
+		static constexpr uint32_t SHADOW_TEX_UNIT = 5;
 	};
 } //namespace scene

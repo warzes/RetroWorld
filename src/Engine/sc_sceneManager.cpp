@@ -37,6 +37,14 @@ scene::SceneManager::SceneManager()
 	m_fillState.polygonMode = gpu::RasterizationMode::Fill;
 	m_fillState.cullMode = gpu::CullFace::Back;
 	m_fillState.frontFace = gpu::FrontFace::CounterClockWise;
+
+	gpu::texture::SamplerState ss;
+	ss.minFilter = gpu::Filter::Linear;
+	ss.magFilter = gpu::Filter::Linear;
+	ss.addressModeU = gpu::AddressMode::ClampToEdge;
+	ss.addressModeV = gpu::AddressMode::ClampToEdge;
+	ss.compareEnable = false;
+	m_shadowSampler = gpu::texture::CreateSampler(ss);
 }
 //=============================================================================
 void scene::SceneManager::Update()
@@ -350,6 +358,7 @@ void scene::SceneManager::RenderOpaquePass(gr::RenderQueue& queue, const gpu::pr
 	// Upload camera and lights
 	UploadCamera(blinnPhongShader);
 	UploadLights(blinnPhongShader);
+	UploadShadowMap(blinnPhongShader);
 
 	for (auto& item : queue.opaqueItems)
 	{
@@ -535,6 +544,39 @@ void scene::SceneManager::UploadModel(const gpu::program::ShaderProgramPtr& shad
 	int locNormal = gpu::program::GetUniformLocation(shader, "u_normalMatrix");
 	gpu::program::SetUniform(shader, locModel, model);
 	gpu::program::SetUniform(shader, locNormal, normalMatrix);
+}
+//=============================================================================
+// Upload shadow map texture + metadata
+void scene::SceneManager::UploadShadowMap(const gpu::program::ShaderProgramPtr& shader)
+{
+	// Find the first shadow-casting light
+	LightNode* shadowLight = nullptr;
+	for (auto* light : lights)
+	{
+		if (light->castShadow)
+		{
+			shadowLight = light;
+			break;
+		}
+	}
+	if (!shadowLight) return;
+
+	auto& sm = shadowMaps.GetOrCreate(shadowLight);
+	if (!sm.depthTexture) return;
+
+	gpu::cmd::BindSampledImage(SHADOW_TEX_UNIT, sm.depthTexture, m_shadowSampler);
+
+	auto setInt = [&](const char* name, int val) {
+		int loc = gpu::program::GetUniformLocation(shader, name);
+		gpu::program::SetUniform(shader, loc, val);
+		};
+	auto setFloat = [&](const char* name, float val) {
+		int loc = gpu::program::GetUniformLocation(shader, name);
+		gpu::program::SetUniform(shader, loc, val);
+		};
+
+	setInt("u_shadowMap", static_cast<int>(SHADOW_TEX_UNIT));
+	setFloat("u_shadowMapSize", static_cast<float>(sm.resolution));
 }
 //=============================================================================
 glm::vec3 scene::SceneManager::GetActiveCameraPosition() const
