@@ -9,10 +9,15 @@ layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec3 a_normal;
 layout(location = 2) in vec2 a_texcoord;
 
-uniform mat4 u_model;
-uniform mat4 u_view;
-uniform mat4 u_projection;
-uniform mat3 u_normalMatrix;
+layout(std430, binding = 6) readonly buffer InstanceBuffer {
+	mat4 models[];
+} u_instanceData;
+
+uniform bool  u_isInstanced;
+uniform mat4  u_model;
+uniform mat4  u_view;
+uniform mat4  u_projection;
+uniform mat3  u_normalMatrix;
 
 layout(location = 0) out vec3 v_worldPos;
 layout(location = 1) out vec3 v_worldNormal;
@@ -20,9 +25,12 @@ layout(location = 2) out vec2 v_texcoord;
 
 void main()
 {
-	vec4 worldPos = u_model * vec4(a_position, 1.0);
+	mat4 model = u_isInstanced ? u_instanceData.models[gl_InstanceID] : u_model;
+	mat3 normalMatrix = u_isInstanced ? transpose(inverse(mat3(model))) : u_normalMatrix;
+
+	vec4 worldPos = model * vec4(a_position, 1.0);
 	v_worldPos    = worldPos.xyz;
-	v_worldNormal = normalize(u_normalMatrix * a_normal);
+	v_worldNormal = normalize(normalMatrix * a_normal);
 	v_texcoord    = a_texcoord;
 
 	gl_Position = u_projection * u_view * worldPos;
@@ -53,8 +61,10 @@ layout(location = 0) in vec3 v_worldPos;
 layout(location = 1) in vec3 v_worldNormal;
 layout(location = 2) in vec2 v_texcoord;
 
-uniform LightData  u_lights[MAX_LIGHTS];
-uniform int        u_lightCount;
+layout(std140, binding = 4) uniform LightBlock {
+	int        u_lightCount;
+	LightData  u_lights[MAX_LIGHTS];
+};
 uniform vec3       u_cameraPos;
 
 // Material uniforms
@@ -227,11 +237,19 @@ void main()
 		const char* shadowDepthVert = R"(
 #version 460 core
 layout(location = 0) in vec3 a_position;
-uniform mat4 u_lightVP;
-uniform mat4 u_model;
+
+layout(std430, binding = 6) readonly buffer InstanceBuffer {
+	mat4 models[];
+} u_instanceData;
+
+uniform bool  u_isInstanced;
+uniform mat4  u_lightVP;
+uniform mat4  u_model;
+
 void main()
 {
-    gl_Position = u_lightVP * u_model * vec4(a_position, 1.0);
+	mat4 model = u_isInstanced ? u_instanceData.models[gl_InstanceID] : u_model;
+	gl_Position = u_lightVP * model * vec4(a_position, 1.0);
 }
 )";
 
@@ -413,18 +431,25 @@ bool GameInit()
 
 	g_scene->SetActiveCamera(cam);
 
-	// --- Cube ---
-	auto& cube = root.AddChild<scene::ModelNode>("cube");
-	cube.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreateCube());
-	cube.material = std::make_shared<gr::Material>();
-	cube.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
-	cube.material->albedoColor = glm::vec3(0.8f, 0.2f, 0.2f);
-	cube.material->specularColor = glm::vec3(1.0f);
-	cube.material->ambientColor = glm::vec3(0.08f);
-	cube.material->shininess = 32.0f;
-	// Cube spins a little
-	cube.transform.rotation = glm::angleAxis(glm::radians(25.0f), glm::vec3(0, 1, 0));
-	cube.transform.position = glm::vec3(0.0f, 0.1f, 0.0f);
+	// --- Instanced cubes ---
+	auto sharedMesh = std::make_shared<gr::Mesh>(gr::Mesh::CreateCube());
+	auto sharedMat = std::make_shared<gr::Material>();
+	sharedMat->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
+	sharedMat->albedoColor = glm::vec3(0.8f, 0.2f, 0.2f);
+	sharedMat->specularColor = glm::vec3(1.0f);
+	sharedMat->ambientColor = glm::vec3(0.08f);
+	sharedMat->shininess = 32.0f;
+
+	for (int i = 0; i < 9; ++i)
+	{
+		auto& node = root.AddChild<scene::ModelNode>("cube_" + std::to_string(i));
+		node.mesh = sharedMesh;
+		node.material = sharedMat;
+		float x = static_cast<float>(i % 3) * 2.5f - 2.5f;
+		float z = static_cast<float>(i / 3) * 2.5f - 2.5f;
+		node.transform.position = glm::vec3(x, 0.1f, z);
+		node.transform.rotation = glm::angleAxis(glm::radians(25.0f * (i + 1)), glm::vec3(0, 1, 0));
+	}
 
 	// --- Sphere ---
 	auto& sphere = root.AddChild<scene::ModelNode>("sphere");
@@ -436,11 +461,11 @@ bool GameInit()
 	sphere.material->ambientColor = glm::vec3(0.08f);
 	sphere.material->shininess = 32.0f;
 
-	sphere.transform.position = glm::vec3(3.0f, 0.0f, 0.0f);
+	sphere.transform.position = glm::vec3(4.0f, 1.0f, 0.0f);
 
 	// --- Ground plane ---
 	auto& plane = root.AddChild<scene::ModelNode>("ground");
-	plane.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreatePlane(12.0f));
+	plane.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreatePlane(20.0f));
 	plane.material = std::make_shared<gr::Material>();
 	plane.material->albedoColor = glm::vec3(0.25f, 0.30f, 0.22f);
 	plane.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
@@ -467,8 +492,8 @@ bool GameInit()
 	g_sun = &sun;
 
 	// Disable shadows / instancing for the minimal example
-	//g_scene->enableShadows = false;
-	g_scene->enableInstancing = false;
+	g_scene->enableShadows = true;
+	g_scene->enableInstancing = true;
 
 	return true;
 }

@@ -48,15 +48,15 @@ namespace gpu::buffer
 	void UpdateData(BufferPtr buffer, TriviallyCopyableByteSpan data, size_t destOffsetBytes = 0);
 	void UpdateData(BufferPtr buffer, const void* data, size_t size, size_t destOffsetBytes = 0);
 
-	template<class T> requires(std::is_trivially_copyable_v<T>)
-	void UpdateData(BufferPtr buffer, const T& data, size_t startIndex = 0)
+	template<class T> requires(std::is_trivially_copyable_v<T> && !std::is_pointer_v<T>)
+		void UpdateData(BufferPtr buffer, const T& data, size_t startIndex = 0)
 	{
-		UpdateData(buffer, data, sizeof(T) * startIndex);
+		UpdateData(buffer, &data, sizeof(T), sizeof(T) * startIndex);
 	}
-	template<class T> requires(std::is_trivially_copyable_v<T>)
-	void UpdateData(BufferPtr buffer, std::span<const T> data, size_t startIndex = 0)
+	template<class T> requires(std::is_trivially_copyable_v<T> && !std::is_pointer_v<T>)
+		void UpdateData(BufferPtr buffer, std::span<const T> data, size_t startIndex = 0)
 	{
-		UpdateData(buffer, data, sizeof(T) * startIndex);
+		UpdateData(buffer, data.data(), data.size_bytes(), sizeof(T) * startIndex);
 	}
 
 } // namespace gpu::buffer

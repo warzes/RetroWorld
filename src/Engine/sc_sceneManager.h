@@ -97,5 +97,15 @@ namespace scene
 
 		gpu::texture::SamplerPtr m_shadowSampler;
 		static constexpr uint32_t SHADOW_TEX_UNIT = 5;
+
+		// SSBO for instance transforms (binding 6 in shaders)
+		gpu::buffer::BufferPtr m_instanceSSBO;
+		uint32_t m_instanceCapacity = 0;
+		static constexpr uint32_t INSTANCE_SSBO_BINDING = 6;
+		static constexpr uint32_t INITIAL_INSTANCE_CAPACITY = 1024;
+
+		// UBO for lights (binding 4)
+		gpu::buffer::BufferPtr m_lightUBO;
+		static constexpr uint32_t LIGHT_UBO_BINDING = 4;
 	};
 } //namespace scene

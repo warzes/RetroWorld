@@ -5,6 +5,33 @@
 #include "gpu_cmd.h"
 //=============================================================================
 // Helper: pair of raw pointers used as key for auto-instancing
+// Must match GLSL std140 layout in blinnPhongFrag
+struct alignas(16) LightDataGPU
+{
+	glm::vec4 positionOrDirection; // 0
+	glm::vec3 color;               // 16
+	float     intensity;           // 28
+	glm::vec3 attenuation;         // 32
+	float     radius;              // 44
+	glm::vec3 spotDirection;       // 48
+	float     innerCutoff;         // 60
+	float     outerCutoff;         // 64
+	int32_t   type;                // 68
+	int32_t   castShadow;          // 72
+	float     shadowBias;          // 76
+	// implicit pad to 80 (16-aligned)
+	glm::mat4 lightSpaceMatrix;    // 80
+};
+static_assert(sizeof(LightDataGPU) == 144, "LightDataGPU std140 size mismatch");
+
+struct alignas(16) LightBlockUBO
+{
+	int32_t      lightCount;
+	uint8_t      _pad[12];
+	LightDataGPU lights[16];
+};
+static_assert(sizeof(LightBlockUBO) == 4 + 12 + 144 * 16, "LightBlockUBO std140 size mismatch");
+
 struct MeshMaterialPair
 {
 	const gr::Mesh* mesh;
@@ -45,6 +72,17 @@ scene::SceneManager::SceneManager()
 	ss.addressModeV = gpu::AddressMode::ClampToEdge;
 	ss.compareEnable = false;
 	m_shadowSampler = gpu::texture::CreateSampler(ss);
+
+	m_instanceCapacity = INITIAL_INSTANCE_CAPACITY;
+	m_instanceSSBO = gpu::buffer::CreateBuffer(
+		m_instanceCapacity * sizeof(glm::mat4),
+		gpu::BufferStorageFlag::DynamicStorage,
+		"instance_ssbo");
+
+	m_lightUBO = gpu::buffer::CreateBuffer(
+		sizeof(LightBlockUBO),
+		gpu::BufferStorageFlag::DynamicStorage,
+		"light_ubo");
 }
 //=============================================================================
 void scene::SceneManager::Update()
@@ -316,6 +354,48 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 	// Set light VP uniform
 	int locLightVP = gpu::program::GetUniformLocation(depthShader, "u_lightVP");
 	int locModel = gpu::program::GetUniformLocation(depthShader, "u_model");
+	int locInst = gpu::program::GetUniformLocation(depthShader, "u_isInstanced");
+
+	// Lambda to draw a single render item (handles instancing via SSBO)
+	auto drawShadowItem = [&](const gr::RenderItem& item)
+		{
+			if (!item.node || !item.node->mesh) return;
+			const auto& mesh = *item.node->mesh;
+			mesh.Bind();
+
+			if (item.isInstanced)
+			{
+				const auto& transforms = item.node->instanceTransforms;
+				if (transforms.empty()) return;
+
+				uint32_t count = static_cast<uint32_t>(transforms.size());
+				if (count > m_instanceCapacity)
+				{
+					m_instanceCapacity = (std::max)(count, m_instanceCapacity * 2u);
+					m_instanceSSBO = gpu::buffer::CreateBuffer(
+						m_instanceCapacity * sizeof(glm::mat4),
+						gpu::BufferStorageFlag::DynamicStorage,
+						"instance_ssbo");
+				}
+
+				gpu::buffer::UpdateData(m_instanceSSBO,
+					reinterpret_cast<const void*>(transforms.data()),
+					count * sizeof(glm::mat4));
+				gpu::cmd::BindStorageBuffer(INSTANCE_SSBO_BINDING, m_instanceSSBO);
+				gpu::program::SetUniform(depthShader, locInst, true);
+
+				mesh.DrawInstanced(count);
+				++lastFrameStats.instancedBatches;
+				++lastFrameStats.drawCalls;
+			}
+			else
+			{
+				gpu::program::SetUniform(depthShader, locModel, item.worldTransform);
+				gpu::program::SetUniform(depthShader, locInst, false);
+				mesh.Draw();
+				++lastFrameStats.drawCalls;
+			}
+		};
 
 	if (light.lightType == LightNode::LightType::Directional)
 	{
@@ -336,24 +416,8 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 			vp.drawRect.extent = { static_cast<uint32_t>(res), static_cast<uint32_t>(res) };
 			gpu::cmd::SetViewport(vp);
 
-			for (auto& item : queue.opaqueItems)
-			{
-				if (!item.node || !item.node->mesh) continue;
-				const auto& mesh = *item.node->mesh;
-				gpu::program::SetUniform(depthShader, locModel, item.worldTransform);
-				mesh.Bind();
-				mesh.Draw();
-				++lastFrameStats.drawCalls;
-			}
-			for (auto& item : queue.transparentItems)
-			{
-				if (!item.node || !item.node->mesh) continue;
-				const auto& mesh = *item.node->mesh;
-				gpu::program::SetUniform(depthShader, locModel, item.worldTransform);
-				mesh.Bind();
-				mesh.Draw();
-				++lastFrameStats.drawCalls;
-			}
+			for (auto& item : queue.opaqueItems) drawShadowItem(item);
+			for (auto& item : queue.transparentItems) drawShadowItem(item);
 		}
 	}
 	else if (light.lightType == LightNode::LightType::Spot)
@@ -365,24 +429,8 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 		vp.drawRect.extent = { static_cast<uint32_t>(res), static_cast<uint32_t>(res) };
 		gpu::cmd::SetViewport(vp);
 
-		for (auto& item : queue.opaqueItems)
-		{
-			if (!item.node || !item.node->mesh) continue;
-			const auto& mesh = *item.node->mesh;
-			gpu::program::SetUniform(depthShader, locModel, item.worldTransform);
-			mesh.Bind();
-			mesh.Draw();
-			++lastFrameStats.drawCalls;
-		}
-		for (auto& item : queue.transparentItems)
-		{
-			if (!item.node || !item.node->mesh) continue;
-			const auto& mesh = *item.node->mesh;
-			gpu::program::SetUniform(depthShader, locModel, item.worldTransform);
-			mesh.Bind();
-			mesh.Draw();
-			++lastFrameStats.drawCalls;
-		}
+		for (auto& item : queue.opaqueItems) drawShadowItem(item);
+		for (auto& item : queue.transparentItems) drawShadowItem(item);
 	}
 	// Point light cubemap shadow would render 6 times with different face matrices
 }
@@ -390,6 +438,8 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 void scene::SceneManager::RenderOpaquePass(gr::RenderQueue& queue, const gpu::program::ShaderProgramPtr& blinnPhongShader)
 {
 	if (!blinnPhongShader) return;
+
+	queue.Sort();
 
 	gpu::DepthState depthState;
 	depthState.depthTestEnable = true;
@@ -424,6 +474,8 @@ void scene::SceneManager::RenderOpaquePass(gr::RenderQueue& queue, const gpu::pr
 void scene::SceneManager::RenderTransparentPass(gr::RenderQueue& queue, const gpu::program::ShaderProgramPtr& blinnPhongShader)
 {
 	if (!blinnPhongShader || queue.transparentItems.empty()) return;
+
+	queue.Sort();
 
 	gpu::DepthState depthState;
 	depthState.depthTestEnable = true;
@@ -479,15 +531,16 @@ void scene::SceneManager::RenderReflectionPass(ReflectionProbeNode& probe, const
 //=============================================================================
 void scene::SceneManager::UploadLights(const gpu::program::ShaderProgramPtr& shader)
 {
-	int locLightCount = gpu::program::GetUniformLocation(shader, "u_lightCount");
-	gpu::program::SetUniform(shader, locLightCount, static_cast<int>(lights.size()));
+	if (!m_lightUBO) return;
+
+	LightBlockUBO block{};
+	block.lightCount = static_cast<int32_t>((std::min)(lights.size(), (size_t)MAX_LIGHTS));
 
 	for (size_t i = 0; i < lights.size() && i < MAX_LIGHTS; ++i)
 	{
 		auto* light = lights[i];
-		std::string prefix = std::format("u_lights[{}].", i);
+		auto& data = block.lights[i];
 
-		LightData data;
 		data.color = light->color;
 		data.intensity = light->intensity;
 		data.shadowBias = light->shadowSettings.bias;
@@ -551,34 +604,10 @@ void scene::SceneManager::UploadLights(const gpu::program::ShaderProgramPtr& sha
 			break;
 		}
 		}
-
-		// Upload all fields individually
-		auto set = [&](const char* field, auto&& val) {
-			int loc = gpu::program::GetUniformLocation(shader, (prefix + field).c_str());
-			gpu::program::SetUniform(shader, loc, val);
-			};
-		auto setFloat = [&](const char* field, float val) {
-			int loc = gpu::program::GetUniformLocation(shader, (prefix + field).c_str());
-			gpu::program::SetUniform(shader, loc, val);
-			};
-		auto setInt = [&](const char* field, int val) {
-			int loc = gpu::program::GetUniformLocation(shader, (prefix + field).c_str());
-			gpu::program::SetUniform(shader, loc, val);
-			};
-
-		set("positionOrDirection", data.positionOrDirection);
-		set("color", data.color);
-		setFloat("intensity", data.intensity);
-		set("attenuation", data.attenuation);
-		setFloat("radius", data.radius);
-		set("spotDirection", data.spotDirection);
-		setFloat("innerCutoff", data.innerCutoff);
-		setFloat("outerCutoff", data.outerCutoff);
-		setInt("type", data.type);
-		setInt("castShadow", data.castShadow);
-		setFloat("shadowBias", data.shadowBias);
-		set("lightSpaceMatrix", data.lightSpaceMatrix);
 	}
+
+	gpu::buffer::UpdateData(m_lightUBO, static_cast<const void*>(&block), sizeof(LightBlockUBO));
+	gpu::cmd::BindUniformBuffer(LIGHT_UBO_BINDING, m_lightUBO, 0, sizeof(LightBlockUBO));
 }
 //=============================================================================
 void scene::SceneManager::UploadCamera(const gpu::program::ShaderProgramPtr& shader)
@@ -648,10 +677,6 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 	const auto& mesh = *item.node->mesh;
 	auto& material = *item.node->material;
 
-	// Upload model matrix
-	glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(item.worldTransform)));
-	UploadModel(shader, item.worldTransform, normalMatrix);
-
 	// Upload receiveShadow uniform
 	if (receiveShadowUniform)
 	{
@@ -669,25 +694,44 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 	{
 		// Use node's instance transforms
 		const auto& transforms = item.node->instanceTransforms;
-		if (!transforms.empty())
+		if (transforms.empty()) return;
+		uint32_t count = static_cast<uint32_t>(transforms.size());
+
+		// Grow SSBO if needed
+		if (count > m_instanceCapacity)
 		{
-			// We need to upload all instance matrices for instanced drawing.
-			// For simplicity and compatibility, draw each instance individually.
-			// A more optimized version would use glDrawElementsInstanced with
-			// a SSBO of instance matrices and gl_InstanceID in the shader.
-			mesh.Draw();
-			for (size_t i = 1; i < transforms.size(); ++i)
-			{
-				UploadModel(shader, transforms[i],
-					glm::transpose(glm::inverse(glm::mat3(transforms[i]))));
-				mesh.Draw();
-				++lastFrameStats.drawCalls;
-			}
-			++lastFrameStats.drawCalls;
+			m_instanceCapacity = (std::max)(count, m_instanceCapacity * 2u);
+			m_instanceSSBO = gpu::buffer::CreateBuffer(
+				m_instanceCapacity * sizeof(glm::mat4),
+				gpu::BufferStorageFlag::DynamicStorage,
+				"instance_ssbo");
 		}
+
+		// Upload all instance matrices to SSBO
+		gpu::buffer::UpdateData(m_instanceSSBO,
+			reinterpret_cast<const void*>(transforms.data()),
+			count * sizeof(glm::mat4));
+
+		// Bind SSBO and set instancing flag
+		gpu::cmd::BindStorageBuffer(INSTANCE_SSBO_BINDING, m_instanceSSBO);
+
+		int locInst = gpu::program::GetUniformLocation(shader, "u_isInstanced");
+		gpu::program::SetUniform(shader, locInst, true);
+
+		// Single draw call for all instances
+		mesh.DrawInstanced(count);
+		++lastFrameStats.instancedBatches;
+		++lastFrameStats.drawCalls;
 	}
 	else
 	{
+		// Upload model matrix for single instance
+		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(item.worldTransform)));
+		UploadModel(shader, item.worldTransform, normalMatrix);
+
+		int locInst = gpu::program::GetUniformLocation(shader, "u_isInstanced");
+		gpu::program::SetUniform(shader, locInst, false);
+
 		mesh.Draw();
 		++lastFrameStats.drawCalls;
 	}
