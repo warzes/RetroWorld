@@ -593,7 +593,7 @@ bool GameInit()
 	// --- Point light (warm, with shadow) ---
 	auto& pointLight = root.AddChild<scene::LightNode>("point_light");
 	pointLight.lightType = scene::LightNode::LightType::Point;
-	pointLight.color = glm::vec3(1.0f, 0.2f, 0.3f);
+	pointLight.color = glm::vec3(0.4f, 0.2f, 0.3f);
 	pointLight.intensity = 6.0f;
 	pointLight.radius = 8.0f;
 	pointLight.attenuation = glm::vec3(1.0f, 0.09f, 0.032f);
@@ -601,7 +601,65 @@ bool GameInit()
 	pointLight.shadowSettings.resolution = 256;
 	pointLight.transform.position = glm::vec3(2.0f, 2.5f, 1.0f);
 
-	// Disable shadows / instancing for the minimal example
+	// --- Stress test: 13 more lights to reach MAX_LIGHTS (16) ---
+	auto addPoint = [&](std::string name, glm::vec3 pos, glm::vec3 color,
+		float intensity, float radius, bool shadow)
+		{
+			auto& l = root.AddChild<scene::LightNode>(name);
+			l.lightType = scene::LightNode::LightType::Point;
+			l.transform.position = pos;
+			l.color = color;
+			l.intensity = intensity;
+			l.radius = radius;
+			l.attenuation = glm::vec3(1.0f, 0.09f, 0.032f);
+			l.castShadow = shadow;
+			l.shadowSettings.resolution = 256;
+		};
+
+	addPoint("p_r", glm::vec3(-2.5f, 1.5f, -2.5f), glm::vec3(1, 0, 0), 3.0f, 6.0f, true);
+	addPoint("p_g", glm::vec3(2.5f, 1.5f, -2.5f), glm::vec3(0, 1, 0), 3.0f, 6.0f, true);
+	addPoint("p_b", glm::vec3(0.0f, 1.5f, 2.5f), glm::vec3(0, 0, 1), 3.0f, 6.0f, true);
+	addPoint("p_y", glm::vec3(-2.0f, 0.8f, 1.5f), glm::vec3(1, 1, 0), 2.5f, 5.0f, true);
+	addPoint("p_c", glm::vec3(3.0f, 0.8f, 0.5f), glm::vec3(0, 1, 1), 2.5f, 5.0f, true);
+	addPoint("p_m", glm::vec3(0.5f, 0.8f, -3.0f), glm::vec3(1, 0, 1), 2.5f, 5.0f, true);
+	addPoint("p_w", glm::vec3(-3.5f, 2.0f, 3.5f), glm::vec3(1, 1, 1), 4.0f, 7.0f, true);
+	addPoint("p_o", glm::vec3(3.5f, 2.0f, 3.0f), glm::vec3(1, 0.5, 0), 3.5f, 6.0f, true);
+
+	auto addSpot = [&](std::string name, glm::vec3 pos, glm::vec3 target,
+		glm::vec3 color, float intensity, float radius, float angle, bool shadow)
+		{
+			auto& l = root.AddChild<scene::LightNode>(name);
+			l.lightType = scene::LightNode::LightType::Spot;
+			l.transform.position = pos;
+			l.color = color;
+			l.intensity = intensity;
+			l.radius = radius;
+			l.attenuation = glm::vec3(1.0f, 0.07f, 0.017f);
+			l.castShadow = shadow;
+			l.innerAngle = angle * 0.8f;
+			l.outerAngle = angle;
+			l.shadowSettings.resolution = 256;
+			l.transform.rotation = [&]() {
+				glm::vec3 dir = glm::normalize(target - pos);
+				glm::quat q = glm::quatLookAt(dir, glm::vec3(0, 1, 0));
+				return q;
+			}();
+		};
+
+	addSpot("s1", glm::vec3(-3.0f, 3.0f, 0.0f), glm::vec3(2, 0, 0),
+		glm::vec3(0.9f, 0.2f, 0.1f), 5.0f, 7.0f, glm::radians(30.0f), true);
+	addSpot("s2", glm::vec3(3.5f, 3.0f, -3.0f), glm::vec3(-1, 0, 1),
+		glm::vec3(0.1f, 0.3f, 0.9f), 5.0f, 7.0f, glm::radians(25.0f), true);
+	addSpot("s3", glm::vec3(-1.0f, 3.5f, 3.5f), glm::vec3(0, 0, -1),
+		glm::vec3(0.2f, 0.8f, 0.2f), 4.0f, 6.0f, glm::radians(35.0f), true);
+	addSpot("s4", glm::vec3(4.0f, 2.5f, 2.0f), glm::vec3(0, 0, 0),
+		glm::vec3(0.8f, 0.8f, 0.1f), 4.5f, 6.5f, glm::radians(28.0f), true);
+	addSpot("s5", glm::vec3(-4.0f, 2.0f, -3.0f), glm::vec3(2, 0, 2),
+		glm::vec3(0.9f, 0.2f, 0.7f), 3.5f, 6.0f, glm::radians(32.0f), true);
+
+	// 16-й: dim warm fill from below
+	addPoint("p_fill", glm::vec3(0.0f, -0.4f, 0.0f), glm::vec3(0.6f, 0.3f, 0.1f), 1.5f, 4.0f, true);
+
 	g_scene->enableShadows = true;
 	g_scene->enableInstancing = true;
 
