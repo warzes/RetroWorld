@@ -345,6 +345,8 @@ bool GameInit()
 		glm::vec3(0.0f, 0.0f, 0.0f),  // target
 		glm::vec3(0.0f, 1.0f, 0.0f)); // up
 	cam.aspectRatio = window::GetAspectRatio();
+	cam.externalCamera = &camera;
+
 	g_scene->SetActiveCamera(cam);
 
 	// --- Cube ---
@@ -356,9 +358,21 @@ bool GameInit()
 	cube.material->specularColor = glm::vec3(1.0f);
 	cube.material->ambientColor = glm::vec3(0.05f);
 	cube.material->shininess = 32.0f;
-
 	// Cube spins a little
 	cube.transform.rotation = glm::angleAxis(glm::radians(25.0f), glm::vec3(0, 1, 0));
+
+	// --- Sphere ---
+	auto& sphere = root.AddChild<scene::ModelNode>("sphere");
+	sphere.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreateSphere(32,32));
+	sphere.material = std::make_shared<gr::Material>();
+	sphere.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
+	sphere.material->albedoColor = glm::vec3(0.8f, 0.2f, 0.2f);
+	sphere.material->specularColor = glm::vec3(1.0f);
+	sphere.material->ambientColor = glm::vec3(0.05f);
+	sphere.material->shininess = 32.0f;
+
+	sphere.transform.position = glm::vec3(5.0f, 0.0f, 0.0f);
+
 
 	// --- Directional light (shines along local -Y: (0,-1,0) by default) ---
 	auto& sun = root.AddChild<scene::LightNode>("sun");
@@ -446,12 +460,17 @@ void GameRender()
 	gpu::cmd::SetViewport(vp);
 
 	// 3. Build render queue (no frustum culling for simplicity)
-	g_scene->enableFrustumCulling = false;
-	math::Frustum dummy; // unused when culling is disabled
-	auto queue = g_scene->BuildRenderQueue(dummy, scene::RenderPassType::Opaque);
+	//g_scene->enableFrustumCulling = false;
+	//math::Frustum dummy; // unused when culling is disabled
+	//auto queue = g_scene->BuildRenderQueue(dummy, scene::RenderPassType::Opaque);
 
+	math::Frustum frustum;
+	if (g_scene->activeCamera)
+		frustum = g_scene->activeCamera->ExtractFrustum();
+	auto queue = g_scene->BuildRenderQueue(frustum, scene::RenderPassType::Opaque);
+	
 	// 4. Render opaque objects
-	g_scene->RenderTransparentPass(queue, program);
+	g_scene->RenderOpaquePass(queue, program);
 
 
 	//gpu::cmd::BindShaderProgram(program);

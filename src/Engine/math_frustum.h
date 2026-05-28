@@ -7,7 +7,7 @@ namespace math
 {
 	struct Frustum final
 	{
-		std::array<Plane, 6> planes; // left, right, top, bottom, near, far
+		std::array<Plane, 6> planes; // left, right, bottom, top, near, far
 	};
 
 	// Extract frustum from view-projection matrix (Gribb/Hartmann method)
@@ -51,23 +51,24 @@ namespace math
 		// Transform AABB to world space
 		AABB worldBox = box.Transform(worldTransform);
 
-		// Test each plane with p-vertex / n-vertex optimization
+		// Test each plane with p-vertex / n-vertex optimisation.
+		// Plane normals point inward. If even the "most inside"
+		// corner (p-vertex, max dot product) is outside → whole AABB is outside.
 		for (const auto& plane : f.planes)
 		{
-			glm::vec3 n(plane.equation);
+			const glm::vec3 n(plane.equation);          // inward-pointing normal
 
-			// n-vertex: corner with minimum dot product with plane normal
-			glm::vec3 nVertex = worldBox.min;
-			if (n.x >= 0.0f) nVertex.x = worldBox.max.x;
-			if (n.y >= 0.0f) nVertex.y = worldBox.max.y;
-			if (n.z >= 0.0f) nVertex.z = worldBox.max.z;
+			// p-vertex: corner with the maximum dot(n, corner)
+			glm::vec3 pVertex = worldBox.max;
+			if (n.x < 0.0f) pVertex.x = worldBox.min.x;
+			if (n.y < 0.0f) pVertex.y = worldBox.min.y;
+			if (n.z < 0.0f) pVertex.z = worldBox.min.z;
 
-			// If n-vertex is outside this plane, the whole AABB is outside
-			if (glm::dot(n, nVertex) + plane.equation.w < 0.0f)
-				return false;
+			if (glm::dot(n, pVertex) + plane.equation.w < 0.0f)
+				return false;                           // entirely outside this plane
 		}
 
-		return true;
+		return true;                                    // at least partially inside
 	}
 
 	// Test sphere against frustum

@@ -14,7 +14,7 @@ namespace gr
 		void Bind(const gpu::program::ShaderProgramPtr& shader);
 
 		// Derived: true if opacity < 1 or albedoMap has alpha
-		bool IsTransparent() const { return opacity < 1.0f || albedoMap != nullptr; }
+		bool IsTransparent() const { return opacity < 1.0f; }
 
 		glm::vec3 albedoColor = glm::vec3(1.0f);
 		glm::vec3 specularColor = glm::vec3(1.0f);

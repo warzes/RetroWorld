@@ -94,8 +94,6 @@ gr::RenderQueue scene::SceneManager::BuildRenderQueue(const math::Frustum& frust
 			// Frustum culling (skip for shadow pass where we want all casters)
 			if (enableFrustumCulling && passType != RenderPassType::Shadow)
 			{
-				// World-space AABB
-				math::AABB worldAABB = modelNode->mesh->aabb.Transform(world);
 				if (!math::TestAABB(frustum, modelNode->mesh->aabb, world))
 				{
 					++lastFrameStats.culledObjects;
@@ -542,7 +540,7 @@ void scene::SceneManager::UploadModel(const gpu::program::ShaderProgramPtr& shad
 glm::vec3 scene::SceneManager::GetActiveCameraPosition() const
 {
 	if (!activeCamera) return glm::vec3(0.0f);
-	return glm::vec3(activeCamera->cachedWorldMatrix[3]);
+	return activeCamera->GetPosition();
 }
 //=============================================================================
 void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::program::ShaderProgramPtr& shader, bool receiveShadowUniform)
