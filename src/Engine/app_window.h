@@ -18,4 +18,5 @@ namespace window
 	uint16_t GetHeight() noexcept;
 	float GetAspectRatio() noexcept;
 	bool GetWindowMinimized() noexcept;
+	bool GetWindowActive() noexcept;
 } // namespace app::window

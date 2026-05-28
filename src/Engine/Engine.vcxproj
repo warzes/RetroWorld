@@ -107,6 +107,7 @@
     <ClInclude Include="core_log.h" />
     <ClInclude Include="core_utils.h" />
     <ClInclude Include="EngineConfig.h" />
+    <ClInclude Include="GLTFLoader.h" />
     <ClInclude Include="gpu_cmd.h" />
     <ClInclude Include="gpu_buffer.h" />
     <ClInclude Include="gpu_copy.h" />
@@ -142,6 +143,7 @@
     <ClCompile Include="core_image.cpp" />
     <ClCompile Include="core_log.cpp" />
     <ClCompile Include="core_utils.cpp" />
+    <ClCompile Include="GLTFLoader.cpp" />
     <ClCompile Include="gpu_buffer.cpp" />
     <ClCompile Include="gpu_cmd.cpp" />
     <ClCompile Include="gpu_copy.cpp" />

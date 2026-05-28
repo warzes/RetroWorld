@@ -90,6 +90,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="cgltf\cgltf.c" />
     <ClCompile Include="glad\gl.c" />
     <ClCompile Include="glad\wgl.c" />
     <ClCompile Include="glm\detail\glm.cpp" />

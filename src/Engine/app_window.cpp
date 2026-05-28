@@ -24,6 +24,7 @@ namespace
 	uint16_t  windowWidth{ 0 };
 	uint16_t  windowHeight{ 0 };
 	float     windowAspect{ 1.0f };
+	bool      windowActive{ true }; // Starts active
 
 	bool      resizing{ false };
 	bool      windowMinimized{ false };
@@ -58,6 +59,11 @@ float window::GetAspectRatio() noexcept
 bool window::GetWindowMinimized() noexcept
 {
 	return windowMinimized;
+}
+//=============================================================================
+bool window::GetWindowActive() noexcept
+{
+	return windowActive;
 }
 //=============================================================================
 HWND window::GetHwnd()
@@ -106,6 +112,15 @@ static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARA
 				if (userMessageHandler) userMessageHandler->OnSizeChanged(width, height);
 			}
 		}
+		return 0;
+	case WM_ACTIVATE:
+		windowActive = (wParam != WA_INACTIVE);
+		return 0;
+	case WM_KILLFOCUS:
+		windowActive = false;
+		return 0;
+	case WM_SETFOCUS:
+		windowActive = true;
 		return 0;
 	case WM_KEYDOWN:
 		{

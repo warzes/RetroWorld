@@ -7,6 +7,9 @@
 https://www.youtube.com/watch?v=DBjd7NHMgOE
 
 
+стиль Verho: Curse of Faces
+
+
 // в этом видео по дагеру https://www.youtube.com/watch?v=4Lz5d-g4tik
 // визуальный стиль замка в первом отрывке - вот мне надо такую графикую
 // визуальный стиль https://gruno-kromer.itch.io/snake3d-hakodate-city

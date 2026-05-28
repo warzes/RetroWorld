@@ -106,6 +106,8 @@
 
 #include <tiny_obj_loader/tiny_obj_loader.h>
 
+#include <cgltf/cgltf.h>
+
 #if defined(_MSC_VER)
 #	pragma warning(pop)
 #endif

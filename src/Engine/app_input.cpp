@@ -221,6 +221,26 @@ bool input::SetMousePosition(int x, int y)
 	return result != 0; // Возвращает true, если успешно
 }
 //=============================================================================
+void input::CaptureMause(bool capture)
+{
+	if (capture)
+	{
+		ShowCursor(FALSE);
+		SetCapture(window::GetHwnd());
+
+		RECT r;
+		GetClientRect(window::GetHwnd(), &r);
+		MapWindowPoints(window::GetHwnd(), nullptr, (POINT*)&r, 2);
+		ClipCursor(&r);
+	}
+	else
+	{
+		ShowCursor(TRUE);
+		ReleaseCapture();
+		ClipCursor(nullptr);
+	}
+}
+//=============================================================================
 void input::OnKeyDown(KeyboardType key)
 {
 	KeyActions[(int)key] = true;

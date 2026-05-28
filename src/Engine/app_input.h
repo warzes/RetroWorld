@@ -17,4 +17,6 @@ namespace input
 	void SetCursorVisible(bool visible);
 	bool SetMousePosition(int x, int y);
 
+	void CaptureMause(bool capture);
+
 } // namespace input

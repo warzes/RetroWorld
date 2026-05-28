@@ -110,6 +110,9 @@
     <ClInclude Include="gpu_fence.h">
       <Filter>gpu</Filter>
     </ClInclude>
+    <ClInclude Include="GLTFLoader.h">
+      <Filter>_temp</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -182,6 +185,9 @@
     <ClCompile Include="gpu_fence.cpp">
       <Filter>gpu</Filter>
     </ClCompile>
+    <ClCompile Include="GLTFLoader.cpp">
+      <Filter>_temp</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="core">
@@ -210,6 +216,9 @@
     </Filter>
     <Filter Include="graphics">
       <UniqueIdentifier>{f3c56fec-9bb6-4ebf-93c1-7c971b23202b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_temp">
+      <UniqueIdentifier>{0a6f5b4a-8ac2-4f1f-bd03-5105f497c050}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
