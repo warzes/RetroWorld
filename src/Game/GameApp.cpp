@@ -129,7 +129,7 @@ vec3 CalcDirectionalLight(LightData light, vec3 N, vec3 V, vec3 albedo, vec3 spe
 	vec3 diffuse  = light.color * albedo * NdotL;
 	vec3 spec     = light.color * specular * pow(NdotH, shininess);
 
-	return (ambient + (diffuse + spec) * shadow) * light.intensity;
+	return (ambient * albedo + (diffuse + spec) * shadow) * light.intensity;
 }
 
 vec3 CalcPointLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
@@ -149,7 +149,7 @@ vec3 CalcPointLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, 
 	vec3 diffuse  = light.color * albedo * NdotL;
 	vec3 spec     = light.color * specular * pow(NdotH, shininess);
 
-	return (ambient + diffuse + spec) * light.intensity * atten;
+	return (ambient * albedo + diffuse + spec) * light.intensity * atten;
 }
 
 vec3 CalcSpotLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
@@ -173,7 +173,7 @@ vec3 CalcSpotLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, v
 	vec3 diffuse  = light.color * albedo * NdotL;
 	vec3 spec     = light.color * specular * pow(NdotH, shininess);
 
-	return (ambient + diffuse + spec) * light.intensity * atten;
+	return (ambient * albedo + diffuse + spec) * light.intensity * atten;
 }
 
 void main()
