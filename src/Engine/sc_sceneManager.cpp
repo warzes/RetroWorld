@@ -385,7 +385,6 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 				gpu::program::SetUniform(depthShader, locInst, true);
 
 				mesh.DrawInstanced(count);
-				item.node->instanceTransforms.clear();
 				++lastFrameStats.instancedBatches;
 				++lastFrameStats.drawCalls;
 			}
@@ -433,6 +432,12 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 		for (auto& item : queue.opaqueItems) drawShadowItem(item);
 		for (auto& item : queue.transparentItems) drawShadowItem(item);
 	}
+	// Clear instance transforms from all queue items so next BuildRenderQueue
+	// doesn't misinterpret stale data as "manual instancing" (instanceTransforms.empty() check)
+	for (auto& item : queue.opaqueItems)
+		if (item.node) item.node->instanceTransforms.clear();
+	for (auto& item : queue.transparentItems)
+		if (item.node) item.node->instanceTransforms.clear();
 	// Point light cubemap shadow would render 6 times with different face matrices
 }
 //=============================================================================
