@@ -126,6 +126,34 @@ gr::Mesh gr::Mesh::CreateCube()
 	return mesh;
 }
 //=============================================================================
+gr::Mesh gr::Mesh::CreatePlane(float size)
+{
+	Mesh mesh;
+
+	const float h = size * 0.5f;
+	const std::array<MeshVertex, 4> vertices = { {
+		{.position = {-h, 0.0f, -h}, .normal = {0, 1, 0}, .uv = {0,      0} },
+		{.position = { h, 0.0f, -h}, .normal = {0, 1, 0}, .uv = {size,   0} },
+		{.position = { h, 0.0f,  h}, .normal = {0, 1, 0}, .uv = {size, size} },
+		{.position = {-h, 0.0f,  h}, .normal = {0, 1, 0}, .uv = {0,    size} },
+	} };
+	const std::array<uint32_t, 6> indices = { 1, 0, 3, 3, 2, 1 };
+
+	mesh.vao = gpu::vao::CreateVertexArray(MeshVertexBindingDescs);
+	mesh.vbo = gpu::buffer::CreateBuffer(vertices.data(), sizeof(vertices));
+	mesh.ibo = gpu::buffer::CreateBuffer(indices.data(), sizeof(indices));
+	mesh.vertexCount = static_cast<uint32_t>(vertices.size());
+	mesh.indexCount = static_cast<uint32_t>(indices.size());
+	mesh.isIndexed = true;
+
+	std::array<glm::vec3, 4> positions;
+	for (size_t i = 0; i < 4; ++i)
+		positions[i] = vertices[i].position;
+	mesh.ComputeAABB(positions);
+
+	return mesh;
+}
+//=============================================================================
 gr::Mesh gr::Mesh::CreateSphere(int rings, int sectors)
 {
 	Mesh mesh;

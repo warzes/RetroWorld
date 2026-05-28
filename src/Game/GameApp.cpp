@@ -356,7 +356,7 @@ bool GameInit()
 	cube.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
 	cube.material->albedoColor = glm::vec3(0.8f, 0.2f, 0.2f);
 	cube.material->specularColor = glm::vec3(1.0f);
-	cube.material->ambientColor = glm::vec3(0.05f);
+	cube.material->ambientColor = glm::vec3(0.08f);
 	cube.material->shininess = 32.0f;
 	// Cube spins a little
 	cube.transform.rotation = glm::angleAxis(glm::radians(25.0f), glm::vec3(0, 1, 0));
@@ -368,10 +368,20 @@ bool GameInit()
 	sphere.material->albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
 	sphere.material->albedoColor = glm::vec3(0.8f, 0.2f, 0.2f);
 	sphere.material->specularColor = glm::vec3(1.0f);
-	sphere.material->ambientColor = glm::vec3(0.05f);
+	sphere.material->ambientColor = glm::vec3(0.08f);
 	sphere.material->shininess = 32.0f;
 
 	sphere.transform.position = glm::vec3(5.0f, 0.0f, 0.0f);
+
+	// --- Ground plane ---
+	auto& plane = root.AddChild<scene::ModelNode>("ground");
+	plane.mesh = std::make_shared<gr::Mesh>(gr::Mesh::CreatePlane(12.0f));
+	plane.material = std::make_shared<gr::Material>();
+	plane.material->albedoColor = glm::vec3(0.25f, 0.30f, 0.22f);
+	plane.material->specularColor = glm::vec3(0.1f);
+	plane.material->ambientColor = glm::vec3(0.04f);
+	plane.material->shininess = 8.0f;
+	plane.transform.position = glm::vec3(0.0f, -0.5f, 0.0f);
 
 
 	// --- Directional light (shines along local -Y: (0,-1,0) by default) ---
@@ -451,7 +461,7 @@ void GameRender()
 	gpu::cmd::SetState(depthState);
 
 	// 1. Clear
-	glClearColor(0.12f, 0.12f, 0.15f, 1.0f);
+	glClearColor(0.12f, 0.32f, 0.88f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// 2. Viewport for the main framebuffer
 	gpu::Viewport vp;
@@ -471,18 +481,12 @@ void GameRender()
 	
 	// 4. Render opaque objects
 	g_scene->RenderOpaquePass(queue, program);
-
-
-	//gpu::cmd::BindShaderProgram(program);
-	//material.Bind(program);
-	//mesh.Bind();
-	//mesh.Draw();
 }
 //=============================================================================
 void GameRenderUI()
 {
 	ImGui::Begin("Hello, world!");
-	ImGui::Text("1 cube + 1 directional light");
+	ImGui::Text("Scene");
 	ImGui::Text("Draw calls: %u", g_scene->lastFrameStats.drawCalls);
 	ImGui::Text("Instanced:  %u", g_scene->lastFrameStats.instancedBatches);
 	ImGui::Text("Culled:     %u", g_scene->lastFrameStats.culledObjects);

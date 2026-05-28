@@ -48,6 +48,7 @@ namespace gr
 
 		static Mesh CreateQuad();
 		static Mesh CreateCube();
+		static Mesh CreatePlane(float size = 10.0f);
 		static Mesh CreateSphere(int rings, int sectors);
 
 		// Compute AABB from an array of positions (stores result in mesh.aabb)
