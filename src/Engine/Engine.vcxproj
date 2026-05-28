@@ -103,6 +103,7 @@
     <ClInclude Include="app_window.h" />
     <ClInclude Include="core_file.h" />
     <ClInclude Include="core_flags.h" />
+    <ClInclude Include="core_hash.h" />
     <ClInclude Include="core_image.h" />
     <ClInclude Include="core_log.h" />
     <ClInclude Include="core_utils.h" />

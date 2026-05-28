@@ -45,7 +45,7 @@ void gpu::ContextState::Init(uint16_t width, uint16_t height)
 	
 	GLEnableOrDisable(GL_DEPTH_CLAMP, rasterizationState.depthClampEnable);
 	glPolygonMode(GL_FRONT_AND_BACK, EnumToValue(rasterizationState.polygonMode));
-	GLEnableOrDisable(GL_CULL_FACE, rasterizationState.cullMode != CullFace::None);
+	GLEnableOrDisable(GL_CULL_FACE, rasterizationState.cullMode != CullMode::None);
 	glCullFace(EnumToValue(rasterizationState.cullMode));
 	glFrontFace(EnumToValue(rasterizationState.frontFace));
 	GLEnableOrDisable(GL_POLYGON_OFFSET_FILL, rasterizationState.depthBiasEnable);

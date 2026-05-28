@@ -6,7 +6,7 @@ namespace gpu
 	class Fence
 	{
 	public:
-		explicit Fence();
+		explicit Fence() noexcept = default;
 		Fence(Fence&& old) noexcept;
 		Fence& operator=(Fence&& old) noexcept;
 		Fence(const Fence&) = delete;
@@ -22,7 +22,7 @@ namespace gpu
 		uint64_t Wait();
 
 	private:
-		void DeleteSync();
+		void deleteSync();
 
 		void* m_sync{};
 	};

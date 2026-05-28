@@ -4,6 +4,57 @@
 
 namespace gpu
 {
+	inline GLint EnumToValue(ImageType imageType) noexcept
+	{
+		switch (imageType)
+		{
+		case ImageType::Texture1D:                 return GL_TEXTURE_1D;
+		case ImageType::Texture2D:                 return GL_TEXTURE_2D;
+		case ImageType::Texture3D:                 return GL_TEXTURE_3D;
+		case ImageType::Texture1DArray:            return GL_TEXTURE_1D_ARRAY;
+		case ImageType::Texture2DArray:            return GL_TEXTURE_2D_ARRAY;
+		case ImageType::TextureCubemap:            return GL_TEXTURE_CUBE_MAP;
+		case ImageType::TextureCubemapArray:       return GL_TEXTURE_CUBE_MAP_ARRAY;
+		case ImageType::Texture2DMultisample:      return GL_TEXTURE_2D_MULTISAMPLE;
+		case ImageType::Texture2DMultisampleArray: return GL_TEXTURE_2D_MULTISAMPLE_ARRAY;
+		default: std::unreachable();
+		}
+	}
+
+	inline int ImageTypeToDimension(ImageType imageType) noexcept
+	{
+		switch (imageType)
+		{
+		case ImageType::Texture1D:
+			return 1;
+		case ImageType::Texture2D:
+		case ImageType::Texture2DMultisample:
+		case ImageType::Texture1DArray:
+			return 2;
+		case ImageType::Texture3D:
+		case ImageType::Texture2DArray:
+		case ImageType::TextureCubemap:
+		case ImageType::TextureCubemapArray:
+		case ImageType::Texture2DMultisampleArray:
+			return 3;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLint EnumToValue(ComponentSwizzle swizzle) noexcept
+	{
+		switch (swizzle)
+		{
+		case ComponentSwizzle::ZERO: return GL_ZERO;
+		case ComponentSwizzle::ONE:  return GL_ONE;
+		case ComponentSwizzle::R:    return GL_RED;
+		case ComponentSwizzle::G:    return GL_GREEN;
+		case ComponentSwizzle::B:    return GL_BLUE;
+		case ComponentSwizzle::A:    return GL_ALPHA;
+		default: std::unreachable();
+		}
+	}
+
 	inline GLint EnumToValue(Format format) noexcept
 	{
 		switch (format)
@@ -98,427 +149,6 @@ namespace gpu
 		}
 	}
 
-	inline GLenum FormatToTypeGL(Format format) noexcept
-	{
-		switch (format)
-		{
-		case Format::R8_UNORM:
-		case Format::R8G8_UNORM:
-		case Format::R8G8B8_UNORM:
-		case Format::R8G8B8A8_UNORM:
-		case Format::R8_UINT:
-		case Format::R8G8_UINT:
-		case Format::R8G8B8_UINT:
-		case Format::R8G8B8A8_UINT:
-		case Format::R8G8B8A8_SRGB:
-		case Format::R8G8B8_SRGB:
-			return GL_UNSIGNED_BYTE;
-		case Format::R8_SNORM:
-		case Format::R8G8_SNORM:
-		case Format::R8G8B8_SNORM:
-		case Format::R8G8B8A8_SNORM:
-		case Format::R8_SINT:
-		case Format::R8G8_SINT:
-		case Format::R8G8B8_SINT:
-		case Format::R8G8B8A8_SINT:
-			return GL_BYTE;
-		case Format::R16_UNORM:
-		case Format::R16G16_UNORM:
-		case Format::R16G16B16A16_UNORM:
-		case Format::R16_UINT:
-		case Format::R16G16_UINT:
-		case Format::R16G16B16_UINT:
-		case Format::R16G16B16A16_UINT:
-			return GL_UNSIGNED_SHORT;
-		case Format::R16_SNORM:
-		case Format::R16G16_SNORM:
-		case Format::R16G16B16_SNORM:
-		case Format::R16G16B16A16_SNORM:
-		case Format::R16_SINT:
-		case Format::R16G16_SINT:
-		case Format::R16G16B16_SINT:
-		case Format::R16G16B16A16_SINT:
-			return GL_SHORT;
-		case Format::R16_FLOAT:
-		case Format::R16G16_FLOAT:
-		case Format::R16G16B16_FLOAT:
-		case Format::R16G16B16A16_FLOAT:
-			return GL_HALF_FLOAT;
-		case Format::R32_FLOAT:
-		case Format::R32G32_FLOAT:
-		case Format::R32G32B32_FLOAT:
-		case Format::R32G32B32A32_FLOAT:
-			return GL_FLOAT;
-		case Format::R32_SINT:
-		case Format::R32G32_SINT:
-		case Format::R32G32B32_SINT:
-		case Format::R32G32B32A32_SINT:
-			return GL_INT;
-		case Format::R32_UINT:
-		case Format::R32G32_UINT:
-		case Format::R32G32B32_UINT:
-		case Format::R32G32B32A32_UINT:
-			return GL_UNSIGNED_INT;
-		default: std::unreachable();
-		}
-	}
-	
-	inline GLint FormatToSizeGL(Format format) noexcept
-	{
-		switch (format)
-		{
-		case Format::R8_UNORM:
-		case Format::R8_SNORM:
-		case Format::R16_UNORM:
-		case Format::R16_SNORM:
-		case Format::R16_FLOAT:
-		case Format::R32_FLOAT:
-		case Format::R8_SINT:
-		case Format::R16_SINT:
-		case Format::R32_SINT:
-		case Format::R8_UINT:
-		case Format::R16_UINT:
-		case Format::R32_UINT:
-			return 1;
-		case Format::R8G8_UNORM:
-		case Format::R8G8_SNORM:
-		case Format::R16G16_FLOAT:
-		case Format::R16G16_UNORM:
-		case Format::R16G16_SNORM:
-		case Format::R32G32_FLOAT:
-		case Format::R8G8_SINT:
-		case Format::R16G16_SINT:
-		case Format::R32G32_SINT:
-		case Format::R8G8_UINT:
-		case Format::R16G16_UINT:
-		case Format::R32G32_UINT:
-			return 2;
-		case Format::R8G8B8_UNORM:
-		case Format::R8G8B8_SNORM:
-		case Format::R16G16B16_SNORM:
-		case Format::R16G16B16_FLOAT:
-		case Format::R32G32B32_FLOAT:
-		case Format::R8G8B8_SINT:
-		case Format::R16G16B16_SINT:
-		case Format::R32G32B32_SINT:
-		case Format::R8G8B8_UINT:
-		case Format::R16G16B16_UINT:
-		case Format::R32G32B32_UINT:
-			return 3;
-		case Format::R8G8B8A8_UNORM:
-		case Format::R8G8B8A8_SNORM:
-		case Format::R16G16B16A16_UNORM:
-		case Format::R16G16B16A16_SNORM:
-		case Format::R16G16B16A16_FLOAT:
-		case Format::R32G32B32A32_FLOAT:
-		case Format::R8G8B8A8_SINT:
-		case Format::R16G16B16A16_SINT:
-		case Format::R32G32B32A32_SINT:
-		case Format::R10G10B10A2_UINT:
-		case Format::R8G8B8A8_UINT:
-		case Format::R16G16B16A16_UINT:
-		case Format::R32G32B32A32_UINT:
-			return 4;
-		default: std::unreachable();
-		}
-	}
-	inline GLboolean IsFormatNormalizedGL(Format format) noexcept
-	{
-		switch (format)
-		{
-		case Format::R8_UNORM:
-		case Format::R8_SNORM:
-		case Format::R16_UNORM:
-		case Format::R16_SNORM:
-		case Format::R8G8_UNORM:
-		case Format::R8G8_SNORM:
-		case Format::R16G16_UNORM:
-		case Format::R16G16_SNORM:
-		case Format::R8G8B8_UNORM:
-		case Format::R8G8B8_SNORM:
-		case Format::R16G16B16_SNORM:
-		case Format::R8G8B8A8_UNORM:
-		case Format::R8G8B8A8_SNORM:
-		case Format::R16G16B16A16_UNORM:
-		case Format::R16G16B16A16_SNORM:
-			return GL_TRUE;
-		case Format::R16_FLOAT:
-		case Format::R32_FLOAT:
-		case Format::R8_SINT:
-		case Format::R16_SINT:
-		case Format::R32_SINT:
-		case Format::R8_UINT:
-		case Format::R16_UINT:
-		case Format::R32_UINT:
-		case Format::R16G16_FLOAT:
-		case Format::R32G32_FLOAT:
-		case Format::R8G8_SINT:
-		case Format::R16G16_SINT:
-		case Format::R32G32_SINT:
-		case Format::R8G8_UINT:
-		case Format::R16G16_UINT:
-		case Format::R32G32_UINT:
-		case Format::R16G16B16_FLOAT:
-		case Format::R32G32B32_FLOAT:
-		case Format::R8G8B8_SINT:
-		case Format::R16G16B16_SINT:
-		case Format::R32G32B32_SINT:
-		case Format::R8G8B8_UINT:
-		case Format::R16G16B16_UINT:
-		case Format::R32G32B32_UINT:
-		case Format::R16G16B16A16_FLOAT:
-		case Format::R32G32B32A32_FLOAT:
-		case Format::R8G8B8A8_SINT:
-		case Format::R16G16B16A16_SINT:
-		case Format::R32G32B32A32_SINT:
-		case Format::R10G10B10A2_UINT:
-		case Format::R8G8B8A8_UINT:
-		case Format::R16G16B16A16_UINT:
-		case Format::R32G32B32A32_UINT:
-			return GL_FALSE;
-		default: std::unreachable();
-		}
-	}
-
-	enum class GlFormatClass
-	{
-		FLOAT,
-		INT,
-		LONG
-	};
-
-	inline GlFormatClass FormatToFormatClass(Format format) noexcept
-	{
-		switch (format)
-		{
-		case Format::R8_UNORM:
-		case Format::R8_SNORM:
-		case Format::R16_UNORM:
-		case Format::R16_SNORM:
-		case Format::R8G8_UNORM:
-		case Format::R8G8_SNORM:
-		case Format::R16G16_UNORM:
-		case Format::R16G16_SNORM:
-		case Format::R8G8B8_UNORM:
-		case Format::R8G8B8_SNORM:
-		case Format::R16G16B16_SNORM:
-		case Format::R8G8B8A8_UNORM:
-		case Format::R8G8B8A8_SNORM:
-		case Format::R16G16B16A16_UNORM:
-		case Format::R16G16B16A16_SNORM:
-		case Format::R16_FLOAT:
-		case Format::R16G16_FLOAT:
-		case Format::R16G16B16_FLOAT:
-		case Format::R16G16B16A16_FLOAT:
-		case Format::R32_FLOAT:
-		case Format::R32G32_FLOAT:
-		case Format::R32G32B32_FLOAT:
-		case Format::R32G32B32A32_FLOAT:
-			return GlFormatClass::FLOAT;
-		case Format::R8_SINT:
-		case Format::R16_SINT:
-		case Format::R32_SINT:
-		case Format::R8G8_SINT:
-		case Format::R16G16_SINT:
-		case Format::R32G32_SINT:
-		case Format::R8G8B8_SINT:
-		case Format::R16G16B16_SINT:
-		case Format::R32G32B32_SINT:
-		case Format::R8G8B8A8_SINT:
-		case Format::R16G16B16A16_SINT:
-		case Format::R32G32B32A32_SINT:
-		case Format::R10G10B10A2_UINT:
-		case Format::R8_UINT:
-		case Format::R16_UINT:
-		case Format::R32_UINT:
-		case Format::R8G8_UINT:
-		case Format::R16G16_UINT:
-		case Format::R32G32_UINT:
-		case Format::R8G8B8_UINT:
-		case Format::R16G16B16_UINT:
-		case Format::R32G32B32_UINT:
-		case Format::R8G8B8A8_UINT:
-		case Format::R16G16B16A16_UINT:
-		case Format::R32G32B32A32_UINT:
-			return GlFormatClass::INT;
-		default: std::unreachable(); return GlFormatClass::LONG;
-		}
-	}
-
-	inline bool IsBlockCompressedFormat(Format format) noexcept
-	{
-		switch (format)
-		{
-		case Format::BC1_RGB_UNORM:
-		case Format::BC1_RGBA_UNORM:
-		case Format::BC1_RGB_SRGB:
-		case Format::BC1_RGBA_SRGB:
-		case Format::BC2_RGBA_UNORM:
-		case Format::BC2_RGBA_SRGB:
-		case Format::BC3_RGBA_UNORM:
-		case Format::BC3_RGBA_SRGB:
-		case Format::BC4_R_UNORM:
-		case Format::BC4_R_SNORM:
-		case Format::BC5_RG_UNORM:
-		case Format::BC5_RG_SNORM:
-		case Format::BC6H_RGB_UFLOAT:
-		case Format::BC6H_RGB_SFLOAT:
-		case Format::BC7_RGBA_UNORM:
-		case Format::BC7_RGBA_SRGB:
-			return true;
-		default: return false;
-		}
-	}
-
-	inline bool IsValidImageFormat(Format format)
-	{
-		switch (format)
-		{
-		case Format::R32G32B32A32_FLOAT:
-		case Format::R16G16B16A16_FLOAT:
-		case Format::R32G32_FLOAT:
-		case Format::R16G16_FLOAT:
-		case Format::R11G11B10_FLOAT:
-		case Format::R32_FLOAT:
-		case Format::R16_FLOAT:
-		case Format::R32G32B32A32_UINT:
-		case Format::R16G16B16A16_UINT:
-		case Format::R10G10B10A2_UINT:
-		case Format::R8G8B8A8_UINT:
-		case Format::R32G32_UINT:
-		case Format::R16G16_UINT:
-		case Format::R8G8_UINT:
-		case Format::R32_UINT:
-		case Format::R16_UINT:
-		case Format::R8_UINT:
-		case Format::R32G32B32_SINT:
-		case Format::R16G16B16A16_SINT:
-		case Format::R8G8B8A8_SINT:
-		case Format::R32G32_SINT:
-		case Format::R16G16_SINT:
-		case Format::R8G8_SINT:
-		case Format::R32_SINT:
-		case Format::R16_SINT:
-		case Format::R8_SINT:
-		case Format::R16G16B16A16_UNORM:
-		case Format::R10G10B10A2_UNORM:
-		case Format::R8G8B8A8_UNORM:
-		case Format::R16G16_UNORM:
-		case Format::R8G8_UNORM:
-		case Format::R16_UNORM:
-		case Format::R8_UNORM:
-		case Format::R16G16B16A16_SNORM:
-		case Format::R8G8B8A8_SNORM:
-		case Format::R16G16_SNORM:
-		case Format::R8G8_SNORM:
-		case Format::R16_SNORM:
-		case Format::R8_SNORM: return true;
-		default: return false;
-		}
-	}
-
-	inline bool IsDepthFormat(Format format) noexcept
-	{
-		switch (format)
-		{
-		case Format::D32_FLOAT:
-		case Format::D32_UNORM:
-		case Format::D24_UNORM:
-		case Format::D16_UNORM:
-		case Format::D32_FLOAT_S8_UINT:
-		case Format::D24_UNORM_S8_UINT: return true;
-		default: return false;
-		}
-	}
-
-	inline bool IsStencilFormat(Format format) noexcept
-	{
-		switch (format)
-		{
-		case Format::D32_FLOAT_S8_UINT:
-		case Format::D24_UNORM_S8_UINT: return true;
-		default: return false;
-		}
-	}
-
-	inline bool IsColorFormat(Format format) noexcept
-	{
-		return !IsDepthFormat(format) && !IsStencilFormat(format);
-	}
-
-	inline GLenum EnumToValue(IndexType type) noexcept
-	{
-		switch (type)
-		{
-		case IndexType::UnsignedByte:  return GL_UNSIGNED_BYTE;
-		case IndexType::UnsignedShort: return GL_UNSIGNED_SHORT;
-		case IndexType::UnsignedInt:   return GL_UNSIGNED_INT;
-		default: std::unreachable();
-		}
-	}
-
-	inline size_t GetIndexSize(IndexType indexType) noexcept
-	{
-		switch (indexType)
-		{
-		case IndexType::UnsignedByte:  return 1;
-		case IndexType::UnsignedShort: return 2;
-		case IndexType::UnsignedInt:   return 4;
-		default: std::unreachable();
-		}
-	}
-
-	inline GLint EnumToValue(ImageType imageType) noexcept
-	{
-		switch (imageType)
-		{
-		case ImageType::Texture1D:                 return GL_TEXTURE_1D;
-		case ImageType::Texture2D:                 return GL_TEXTURE_2D;
-		case ImageType::Texture3D:                 return GL_TEXTURE_3D;
-		case ImageType::Texture1DArray:            return GL_TEXTURE_1D_ARRAY;
-		case ImageType::Texture2DArray:            return GL_TEXTURE_2D_ARRAY;
-		case ImageType::TextureCubemap:            return GL_TEXTURE_CUBE_MAP;
-		case ImageType::TextureCubemapArray:       return GL_TEXTURE_CUBE_MAP_ARRAY;
-		case ImageType::Texture2DMultisample:      return GL_TEXTURE_2D_MULTISAMPLE;
-		case ImageType::Texture2DMultisampleArray: return GL_TEXTURE_2D_MULTISAMPLE_ARRAY;
-		default: std::unreachable();
-		}
-	}
-
-	inline int ImageTypeToDimension(ImageType imageType) noexcept
-	{
-		switch (imageType)
-		{
-		case ImageType::Texture1D:
-			return 1;
-		case ImageType::Texture2D:
-		case ImageType::Texture2DMultisample:
-		case ImageType::Texture1DArray:
-			return 2;
-		case ImageType::Texture3D:
-		case ImageType::Texture2DArray:
-		case ImageType::TextureCubemap:
-		case ImageType::TextureCubemapArray:
-		case ImageType::Texture2DMultisampleArray:
-			return 3;
-		default: std::unreachable();
-		}
-	}
-
-	inline GLsizei EnumToValue(SampleCount sampleCount) noexcept
-	{
-		switch (sampleCount)
-		{
-		case SampleCount::Samples1:  return 1;
-		case SampleCount::Samples2:  return 2;
-		case SampleCount::Samples4:  return 4;
-		case SampleCount::Samples8:  return 8;
-		case SampleCount::Samples16: return 16;
-		case SampleCount::Samples32: return 32;
-		default: std::unreachable();
-		}
-	}
-
 	inline UploadFormat FormatToUploadFormat(Format format) noexcept
 	{
 		switch (format)
@@ -607,6 +237,369 @@ namespace gpu
 		}
 	}
 
+	inline bool IsBlockCompressedFormat(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::BC1_RGB_UNORM:
+		case Format::BC1_RGBA_UNORM:
+		case Format::BC1_RGB_SRGB:
+		case Format::BC1_RGBA_SRGB:
+		case Format::BC2_RGBA_UNORM:
+		case Format::BC2_RGBA_SRGB:
+		case Format::BC3_RGBA_UNORM:
+		case Format::BC3_RGBA_SRGB:
+		case Format::BC4_R_UNORM:
+		case Format::BC4_R_SNORM:
+		case Format::BC5_RG_UNORM:
+		case Format::BC5_RG_SNORM:
+		case Format::BC6H_RGB_UFLOAT:
+		case Format::BC6H_RGB_SFLOAT:
+		case Format::BC7_RGBA_UNORM:
+		case Format::BC7_RGBA_SRGB:
+			return true;
+		default: return false;
+		}
+	}
+
+	inline GLenum FormatToTypeGL(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::R8_UNORM:
+		case Format::R8G8_UNORM:
+		case Format::R8G8B8_UNORM:
+		case Format::R8G8B8A8_UNORM:
+		case Format::R8_UINT:
+		case Format::R8G8_UINT:
+		case Format::R8G8B8_UINT:
+		case Format::R8G8B8A8_UINT:
+		case Format::R8G8B8A8_SRGB:
+		case Format::R8G8B8_SRGB:
+			return GL_UNSIGNED_BYTE;
+		case Format::R8_SNORM:
+		case Format::R8G8_SNORM:
+		case Format::R8G8B8_SNORM:
+		case Format::R8G8B8A8_SNORM:
+		case Format::R8_SINT:
+		case Format::R8G8_SINT:
+		case Format::R8G8B8_SINT:
+		case Format::R8G8B8A8_SINT:
+			return GL_BYTE;
+		case Format::R16_UNORM:
+		case Format::R16G16_UNORM:
+		case Format::R16G16B16A16_UNORM:
+		case Format::R16_UINT:
+		case Format::R16G16_UINT:
+		case Format::R16G16B16_UINT:
+		case Format::R16G16B16A16_UINT:
+			return GL_UNSIGNED_SHORT;
+		case Format::R16_SNORM:
+		case Format::R16G16_SNORM:
+		case Format::R16G16B16_SNORM:
+		case Format::R16G16B16A16_SNORM:
+		case Format::R16_SINT:
+		case Format::R16G16_SINT:
+		case Format::R16G16B16_SINT:
+		case Format::R16G16B16A16_SINT:
+			return GL_SHORT;
+		case Format::R16_FLOAT:
+		case Format::R16G16_FLOAT:
+		case Format::R16G16B16_FLOAT:
+		case Format::R16G16B16A16_FLOAT:
+			return GL_HALF_FLOAT;
+		case Format::R32_FLOAT:
+		case Format::R32G32_FLOAT:
+		case Format::R32G32B32_FLOAT:
+		case Format::R32G32B32A32_FLOAT:
+			return GL_FLOAT;
+		case Format::R32_SINT:
+		case Format::R32G32_SINT:
+		case Format::R32G32B32_SINT:
+		case Format::R32G32B32A32_SINT:
+			return GL_INT;
+		case Format::R32_UINT:
+		case Format::R32G32_UINT:
+		case Format::R32G32B32_UINT:
+		case Format::R32G32B32A32_UINT:
+			return GL_UNSIGNED_INT;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLint FormatToSizeGL(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::R8_UNORM:
+		case Format::R8_SNORM:
+		case Format::R16_UNORM:
+		case Format::R16_SNORM:
+		case Format::R16_FLOAT:
+		case Format::R32_FLOAT:
+		case Format::R8_SINT:
+		case Format::R16_SINT:
+		case Format::R32_SINT:
+		case Format::R8_UINT:
+		case Format::R16_UINT:
+		case Format::R32_UINT:
+			return 1;
+		case Format::R8G8_UNORM:
+		case Format::R8G8_SNORM:
+		case Format::R16G16_FLOAT:
+		case Format::R16G16_UNORM:
+		case Format::R16G16_SNORM:
+		case Format::R32G32_FLOAT:
+		case Format::R8G8_SINT:
+		case Format::R16G16_SINT:
+		case Format::R32G32_SINT:
+		case Format::R8G8_UINT:
+		case Format::R16G16_UINT:
+		case Format::R32G32_UINT:
+			return 2;
+		case Format::R8G8B8_UNORM:
+		case Format::R8G8B8_SNORM:
+		case Format::R16G16B16_SNORM:
+		case Format::R16G16B16_FLOAT:
+		case Format::R32G32B32_FLOAT:
+		case Format::R8G8B8_SINT:
+		case Format::R16G16B16_SINT:
+		case Format::R32G32B32_SINT:
+		case Format::R8G8B8_UINT:
+		case Format::R16G16B16_UINT:
+		case Format::R32G32B32_UINT:
+			return 3;
+		case Format::R8G8B8A8_UNORM:
+		case Format::R8G8B8A8_SNORM:
+		case Format::R16G16B16A16_UNORM:
+		case Format::R16G16B16A16_SNORM:
+		case Format::R16G16B16A16_FLOAT:
+		case Format::R32G32B32A32_FLOAT:
+		case Format::R8G8B8A8_SINT:
+		case Format::R16G16B16A16_SINT:
+		case Format::R32G32B32A32_SINT:
+		case Format::R10G10B10A2_UINT:
+		case Format::R8G8B8A8_UINT:
+		case Format::R16G16B16A16_UINT:
+		case Format::R32G32B32A32_UINT:
+			return 4;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLboolean IsFormatNormalizedGL(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::R8_UNORM:
+		case Format::R8_SNORM:
+		case Format::R16_UNORM:
+		case Format::R16_SNORM:
+		case Format::R8G8_UNORM:
+		case Format::R8G8_SNORM:
+		case Format::R16G16_UNORM:
+		case Format::R16G16_SNORM:
+		case Format::R8G8B8_UNORM:
+		case Format::R8G8B8_SNORM:
+		case Format::R16G16B16_SNORM:
+		case Format::R8G8B8A8_UNORM:
+		case Format::R8G8B8A8_SNORM:
+		case Format::R16G16B16A16_UNORM:
+		case Format::R16G16B16A16_SNORM:
+			return GL_TRUE;
+		case Format::R16_FLOAT:
+		case Format::R32_FLOAT:
+		case Format::R8_SINT:
+		case Format::R16_SINT:
+		case Format::R32_SINT:
+		case Format::R8_UINT:
+		case Format::R16_UINT:
+		case Format::R32_UINT:
+		case Format::R16G16_FLOAT:
+		case Format::R32G32_FLOAT:
+		case Format::R8G8_SINT:
+		case Format::R16G16_SINT:
+		case Format::R32G32_SINT:
+		case Format::R8G8_UINT:
+		case Format::R16G16_UINT:
+		case Format::R32G32_UINT:
+		case Format::R16G16B16_FLOAT:
+		case Format::R32G32B32_FLOAT:
+		case Format::R8G8B8_SINT:
+		case Format::R16G16B16_SINT:
+		case Format::R32G32B32_SINT:
+		case Format::R8G8B8_UINT:
+		case Format::R16G16B16_UINT:
+		case Format::R32G32B32_UINT:
+		case Format::R16G16B16A16_FLOAT:
+		case Format::R32G32B32A32_FLOAT:
+		case Format::R8G8B8A8_SINT:
+		case Format::R16G16B16A16_SINT:
+		case Format::R32G32B32A32_SINT:
+		case Format::R10G10B10A2_UINT:
+		case Format::R8G8B8A8_UINT:
+		case Format::R16G16B16A16_UINT:
+		case Format::R32G32B32A32_UINT:
+			return GL_FALSE;
+		default: std::unreachable();
+		}
+	}
+
+	enum class GlFormatClass : uint8_t
+	{
+		FLOAT,
+		INT,
+		LONG
+	};
+
+	inline GlFormatClass FormatToFormatClass(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::R8_UNORM:
+		case Format::R8_SNORM:
+		case Format::R16_UNORM:
+		case Format::R16_SNORM:
+		case Format::R8G8_UNORM:
+		case Format::R8G8_SNORM:
+		case Format::R16G16_UNORM:
+		case Format::R16G16_SNORM:
+		case Format::R8G8B8_UNORM:
+		case Format::R8G8B8_SNORM:
+		case Format::R16G16B16_SNORM:
+		case Format::R8G8B8A8_UNORM:
+		case Format::R8G8B8A8_SNORM:
+		case Format::R16G16B16A16_UNORM:
+		case Format::R16G16B16A16_SNORM:
+		case Format::R16_FLOAT:
+		case Format::R16G16_FLOAT:
+		case Format::R16G16B16_FLOAT:
+		case Format::R16G16B16A16_FLOAT:
+		case Format::R32_FLOAT:
+		case Format::R32G32_FLOAT:
+		case Format::R32G32B32_FLOAT:
+		case Format::R32G32B32A32_FLOAT:
+			return GlFormatClass::FLOAT;
+		case Format::R8_SINT:
+		case Format::R16_SINT:
+		case Format::R32_SINT:
+		case Format::R8G8_SINT:
+		case Format::R16G16_SINT:
+		case Format::R32G32_SINT:
+		case Format::R8G8B8_SINT:
+		case Format::R16G16B16_SINT:
+		case Format::R32G32B32_SINT:
+		case Format::R8G8B8A8_SINT:
+		case Format::R16G16B16A16_SINT:
+		case Format::R32G32B32A32_SINT:
+		case Format::R10G10B10A2_UINT:
+		case Format::R8_UINT:
+		case Format::R16_UINT:
+		case Format::R32_UINT:
+		case Format::R8G8_UINT:
+		case Format::R16G16_UINT:
+		case Format::R32G32_UINT:
+		case Format::R8G8B8_UINT:
+		case Format::R16G16B16_UINT:
+		case Format::R32G32B32_UINT:
+		case Format::R8G8B8A8_UINT:
+		case Format::R16G16B16A16_UINT:
+		case Format::R32G32B32A32_UINT:
+			return GlFormatClass::INT;
+		default: std::unreachable(); return GlFormatClass::LONG;
+		}
+	}
+
+	inline bool IsValidImageFormat(Format format)
+	{
+		switch (format)
+		{
+		case Format::R32G32B32A32_FLOAT:
+		case Format::R16G16B16A16_FLOAT:
+		case Format::R32G32_FLOAT:
+		case Format::R16G16_FLOAT:
+		case Format::R11G11B10_FLOAT:
+		case Format::R32_FLOAT:
+		case Format::R16_FLOAT:
+		case Format::R32G32B32A32_UINT:
+		case Format::R16G16B16A16_UINT:
+		case Format::R10G10B10A2_UINT:
+		case Format::R8G8B8A8_UINT:
+		case Format::R32G32_UINT:
+		case Format::R16G16_UINT:
+		case Format::R8G8_UINT:
+		case Format::R32_UINT:
+		case Format::R16_UINT:
+		case Format::R8_UINT:
+		case Format::R32G32B32_SINT:
+		case Format::R16G16B16A16_SINT:
+		case Format::R8G8B8A8_SINT:
+		case Format::R32G32_SINT:
+		case Format::R16G16_SINT:
+		case Format::R8G8_SINT:
+		case Format::R32_SINT:
+		case Format::R16_SINT:
+		case Format::R8_SINT:
+		case Format::R16G16B16A16_UNORM:
+		case Format::R10G10B10A2_UNORM:
+		case Format::R8G8B8A8_UNORM:
+		case Format::R16G16_UNORM:
+		case Format::R8G8_UNORM:
+		case Format::R16_UNORM:
+		case Format::R8_UNORM:
+		case Format::R16G16B16A16_SNORM:
+		case Format::R8G8B8A8_SNORM:
+		case Format::R16G16_SNORM:
+		case Format::R8G8_SNORM:
+		case Format::R16_SNORM:
+		case Format::R8_SNORM: return true;
+		default: return false;
+		}
+	}
+
+	inline bool IsDepthFormat(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::D32_FLOAT:
+		case Format::D32_UNORM:
+		case Format::D24_UNORM:
+		case Format::D16_UNORM:
+		case Format::D32_FLOAT_S8_UINT:
+		case Format::D24_UNORM_S8_UINT: return true;
+		default: return false;
+		}
+	}
+
+	inline bool IsStencilFormat(Format format) noexcept
+	{
+		switch (format)
+		{
+		case Format::D32_FLOAT_S8_UINT:
+		case Format::D24_UNORM_S8_UINT: return true;
+		default: return false;
+		}
+	}
+
+	inline bool IsColorFormat(Format format) noexcept
+	{
+		return !IsDepthFormat(format) && !IsStencilFormat(format);
+	}
+
+	inline GLsizei EnumToValue(SampleCount sampleCount) noexcept
+	{
+		switch (sampleCount)
+		{
+		case SampleCount::Samples1:  return 1;
+		case SampleCount::Samples2:  return 2;
+		case SampleCount::Samples4:  return 4;
+		case SampleCount::Samples8:  return 8;
+		case SampleCount::Samples16: return 16;
+		case SampleCount::Samples32: return 32;
+		default: std::unreachable();
+		}
+	}
+	
 	inline GLint EnumToValue(UploadFormat uploadFormat) noexcept
 	{
 		switch (uploadFormat)
@@ -657,16 +650,16 @@ namespace gpu
 		}
 	}
 
-	inline GLint EnumToValue(ComponentSwizzle swizzle) noexcept
+	inline GLenum EnumToValue(Filter filter) noexcept
 	{
-		switch (swizzle)
+		switch (filter)
 		{
-		case ComponentSwizzle::ZERO: return GL_ZERO;
-		case ComponentSwizzle::ONE:  return GL_ONE;
-		case ComponentSwizzle::R:    return GL_RED;
-		case ComponentSwizzle::G:    return GL_GREEN;
-		case ComponentSwizzle::B:    return GL_BLUE;
-		case ComponentSwizzle::A:    return GL_ALPHA;
+		case Filter::Nearest:              return GL_NEAREST;
+		case Filter::Linear:               return GL_LINEAR;
+		case Filter::NearestMipmapNearest: return GL_NEAREST_MIPMAP_NEAREST;
+		case Filter::NearestMipmapLinear:  return GL_NEAREST_MIPMAP_LINEAR;
+		case Filter::LinearMipmapNearest:  return GL_LINEAR_MIPMAP_NEAREST;
+		case Filter::LinearMipmapLinear:   return GL_LINEAR_MIPMAP_LINEAR;
 		default: std::unreachable();
 		}
 	}
@@ -684,6 +677,61 @@ namespace gpu
 		}
 	}
 
+	inline GLbitfield EnumToValue(AspectMask bits) noexcept
+	{
+		GLbitfield ret = 0;
+		ret |= bits & AspectMaskBit::COLOR_BUFFER_BIT ? GL_COLOR_BUFFER_BIT : 0;
+		ret |= bits & AspectMaskBit::DEPTH_BUFFER_BIT ? GL_DEPTH_BUFFER_BIT : 0;
+		ret |= bits & AspectMaskBit::STENCIL_BUFFER_BIT ? GL_STENCIL_BUFFER_BIT : 0;
+		return ret;
+	}
+	
+	inline GLenum EnumToValue(PrimitiveTopology topology) noexcept
+	{
+		switch (topology)
+		{
+		case PrimitiveTopology::PointList:     return GL_POINTS;
+		case PrimitiveTopology::LineList:      return GL_LINES;
+		case PrimitiveTopology::LineStrip:     return GL_LINE_STRIP;
+		case PrimitiveTopology::TriangleList:  return GL_TRIANGLES;
+		case PrimitiveTopology::TriangleStrip: return GL_TRIANGLE_STRIP;
+		case PrimitiveTopology::TriangleFan:   return GL_TRIANGLE_FAN;
+		case PrimitiveTopology::PatchList:     return GL_PATCHES;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLenum EnumToValue(PolygonMode mode) noexcept
+	{
+		switch (mode) {
+		case PolygonMode::Point: return GL_POINT;
+		case PolygonMode::Line:  return GL_LINE;
+		case PolygonMode::Fill:  return GL_FILL;
+		default: std::unreachable();
+		}
+	}
+
+	inline GLenum EnumToValue(CullMode cull) noexcept
+	{
+		switch (cull) {
+		case CullMode::None:         return 0;
+		case CullMode::Front:        return GL_FRONT;
+		case CullMode::Back:         return GL_BACK;
+		case CullMode::FrontAndBack: return GL_FRONT_AND_BACK;
+		default: std::unreachable();
+		}
+	}
+	
+	inline GLenum EnumToValue(FrontFace face) noexcept
+	{
+		switch (face)
+		{
+		case FrontFace::ClockWise:        return GL_CW;
+		case FrontFace::CounterClockWise: return GL_CCW;
+		default: std::unreachable();
+		}
+	}
+
 	inline GLenum EnumToValue(CompareOp func) noexcept
 	{
 		switch (func) {
@@ -695,84 +743,6 @@ namespace gpu
 		case CompareOp::NotEqual:     return GL_NOTEQUAL;
 		case CompareOp::GreaterEqual: return GL_GEQUAL;
 		case CompareOp::Always:       return GL_ALWAYS;
-		default: std::unreachable();
-		}
-	}
-
-	inline GLenum EnumToValue(ClipDepthRange depthRange) noexcept
-	{
-		if (depthRange == ClipDepthRange::NegativeOneToOne)
-			return GL_NEGATIVE_ONE_TO_ONE;
-		return GL_ZERO_TO_ONE;
-	}
-
-	inline GLbitfield EnumToValue(AspectMask bits) noexcept
-	{
-		GLbitfield ret = 0;
-		ret |= bits & AspectMaskBit::COLOR_BUFFER_BIT ? GL_COLOR_BUFFER_BIT : 0;
-		ret |= bits & AspectMaskBit::DEPTH_BUFFER_BIT ? GL_DEPTH_BUFFER_BIT : 0;
-		ret |= bits & AspectMaskBit::STENCIL_BUFFER_BIT ? GL_STENCIL_BUFFER_BIT : 0;
-		return ret;
-	}
-
-	inline GLenum EnumToValue(Filter filter) noexcept
-	{
-		switch (filter)
-		{
-		case Filter::Nearest:              return GL_NEAREST;
-		case Filter::Linear:               return GL_LINEAR;
-		case Filter::NearestMipmapNearest: return GL_NEAREST_MIPMAP_NEAREST;
-		case Filter::NearestMipmapLinear:  return GL_NEAREST_MIPMAP_LINEAR;
-		case Filter::LinearMipmapNearest:  return GL_LINEAR_MIPMAP_NEAREST;
-		case Filter::LinearMipmapLinear:   return GL_LINEAR_MIPMAP_LINEAR;
-		default: std::unreachable();
-		}
-	}
-
-	inline GLbitfield EnumToValue(MemoryBarrierBits bits) noexcept
-	{
-		GLbitfield ret = 0;
-		ret |= bits & MemoryBarrierBit::VERTEX_BUFFER_BIT ? GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::INDEX_BUFFER_BIT ? GL_ELEMENT_ARRAY_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::UNIFORM_BUFFER_BIT ? GL_UNIFORM_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::TEXTURE_FETCH_BIT ? GL_TEXTURE_FETCH_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::IMAGE_ACCESS_BIT ? GL_SHADER_IMAGE_ACCESS_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::COMMAND_BUFFER_BIT ? GL_COMMAND_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::TEXTURE_UPDATE_BIT ? GL_TEXTURE_UPDATE_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::BUFFER_UPDATE_BIT ? GL_BUFFER_UPDATE_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::MAPPED_BUFFER_BIT ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::FRAMEBUFFER_BIT ? GL_FRAMEBUFFER_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::SHADER_STORAGE_BIT ? GL_SHADER_STORAGE_BARRIER_BIT : 0;
-		ret |= bits & MemoryBarrierBit::QUERY_COUNTER_BIT ? GL_QUERY_BUFFER_BARRIER_BIT : 0;
-		return ret;
-	}
-
-	inline GLenum EnumToValue(RasterizationMode mode) noexcept
-	{
-		switch (mode) {
-		case RasterizationMode::Point: return GL_POINT;
-		case RasterizationMode::Line:  return GL_LINE;
-		case RasterizationMode::Fill:  return GL_FILL;
-		default: std::unreachable();
-		}
-	}
-
-	inline GLenum EnumToValue(gpu::CullFace cull) noexcept
-	{
-		switch (cull) {
-		case gpu::CullFace::Front:        return GL_FRONT;
-		case gpu::CullFace::Back:         return GL_BACK;
-		case gpu::CullFace::FrontAndBack: return GL_FRONT_AND_BACK;
-		default: std::unreachable();
-		}
-	}
-
-	inline GLenum EnumToValue(FrontFace face) noexcept
-	{
-		switch (face)
-		{
-		case FrontFace::ClockWise:        return GL_CW;
-		case FrontFace::CounterClockWise: return GL_CCW;
 		default: std::unreachable();
 		}
 	}
@@ -801,6 +771,32 @@ namespace gpu
 		}
 	}
 
+	inline GLenum EnumToValue(BlendFactor factor) noexcept
+	{
+		switch (factor) {
+		case BlendFactor::Zero:                  return GL_ZERO;
+		case BlendFactor::One:                   return GL_ONE;
+		case BlendFactor::SrcColor:              return GL_SRC_COLOR;
+		case BlendFactor::OneMinusSrcColor:      return GL_ONE_MINUS_SRC_COLOR;
+		case BlendFactor::DstColor:              return GL_DST_COLOR;
+		case BlendFactor::OneMinusDstColor:      return GL_ONE_MINUS_DST_COLOR;
+		case BlendFactor::SrcAlpha:              return GL_SRC_ALPHA;
+		case BlendFactor::OneMinusSrcAlpha:      return GL_ONE_MINUS_SRC_ALPHA;
+		case BlendFactor::DstAlpha:              return GL_DST_ALPHA;
+		case BlendFactor::OneMinusDstAlpha:      return GL_ONE_MINUS_DST_ALPHA;
+		case BlendFactor::ConstantColor:         return GL_CONSTANT_COLOR;
+		case BlendFactor::OneMinusConstantColor: return GL_ONE_MINUS_CONSTANT_COLOR;
+		case BlendFactor::ConstantAlpha:         return GL_CONSTANT_ALPHA;
+		case BlendFactor::OneMinusConstantAlpha: return GL_ONE_MINUS_CONSTANT_ALPHA;
+		case BlendFactor::SrcAlphaSaturate:      return GL_SRC_ALPHA_SATURATE;
+		case BlendFactor::Src1Color:             return GL_SRC1_COLOR;
+		case BlendFactor::OneMinusSrc1Color:     return GL_ONE_MINUS_SRC1_COLOR;
+		case BlendFactor::Src1Alpha:             return GL_SRC1_ALPHA;
+		case BlendFactor::OneMinusSrc1Alpha:     return GL_ONE_MINUS_SRC1_ALPHA;
+		default: std::unreachable();
+		}
+	}
+
 	inline GLenum EnumToValue(BlendOp op) noexcept
 	{
 		switch (op)
@@ -814,79 +810,67 @@ namespace gpu
 		}
 	}
 
+	inline GLenum EnumToValue(IndexType type) noexcept
+	{
+		switch (type)
+		{
+		case IndexType::UnsignedByte:  return GL_UNSIGNED_BYTE;
+		case IndexType::UnsignedShort: return GL_UNSIGNED_SHORT;
+		case IndexType::UnsignedInt:   return GL_UNSIGNED_INT;
+		default: std::unreachable();
+		}
+	}
 
+	inline size_t GetIndexSize(IndexType indexType) noexcept
+	{
+		switch (indexType)
+		{
+		case IndexType::UnsignedByte:  return 1;
+		case IndexType::UnsignedShort: return 2;
+		case IndexType::UnsignedInt:   return 4;
+		default: std::unreachable();
+		}
+	}
 
+	inline GLbitfield EnumToValue(MemoryBarrierBits bits) noexcept
+	{
+		GLbitfield ret = 0;
+		ret |= bits & MemoryBarrierBit::VERTEX_BUFFER_BIT ? GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::INDEX_BUFFER_BIT ? GL_ELEMENT_ARRAY_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::UNIFORM_BUFFER_BIT ? GL_UNIFORM_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::TEXTURE_FETCH_BIT ? GL_TEXTURE_FETCH_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::IMAGE_ACCESS_BIT ? GL_SHADER_IMAGE_ACCESS_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::COMMAND_BUFFER_BIT ? GL_COMMAND_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::TEXTURE_UPDATE_BIT ? GL_TEXTURE_UPDATE_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::BUFFER_UPDATE_BIT ? GL_BUFFER_UPDATE_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::MAPPED_BUFFER_BIT ? GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::FRAMEBUFFER_BIT ? GL_FRAMEBUFFER_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::SHADER_STORAGE_BIT ? GL_SHADER_STORAGE_BARRIER_BIT : 0;
+		ret |= bits & MemoryBarrierBit::QUERY_COUNTER_BIT ? GL_QUERY_BUFFER_BARRIER_BIT : 0;
+		return ret;
+	}
 
-
-
-
-
-
-
-
-
-	//=============================================================================
-
-	
-	//=============================================================================
-	inline GLenum EnumToValue(gpu::Operation op) noexcept
+	inline GLenum EnumToValue(StencilOp op) noexcept
 	{
 		switch (op)
 		{
-		case gpu::Operation::Zero:          return GL_ZERO;
-		case gpu::Operation::Keep:          return GL_KEEP;
-		case gpu::Operation::Replace:       return GL_REPLACE;
-		case gpu::Operation::Increment:     return GL_INCR;
-		case gpu::Operation::IncrementWrap: return GL_INCR_WRAP;
-		case gpu::Operation::Decrement:     return GL_DECR;
-		case gpu::Operation::DecrementWrap: return GL_DECR_WRAP;
-		case gpu::Operation::Invert:        return GL_INVERT;
+		case gpu::StencilOp::Zero:           return GL_ZERO;
+		case gpu::StencilOp::Keep:           return GL_KEEP;
+		case gpu::StencilOp::Replace:        return GL_REPLACE;
+		case gpu::StencilOp::IncrementClamp: return GL_INCR;
+		case gpu::StencilOp::IncrementWrap:  return GL_INCR_WRAP;
+		case gpu::StencilOp::DecrementClamp: return GL_DECR;
+		case gpu::StencilOp::DecrementWrap:  return GL_DECR_WRAP;
+		case gpu::StencilOp::Invert:         return GL_INVERT;
 		default: std::unreachable();
 		}
 	}
-	//=============================================================================
-	inline GLenum EnumToValue(gpu::BlendFactor factor) noexcept
+	
+	inline GLenum EnumToValue(ClipDepthRange depthRange) noexcept
 	{
-		switch (factor) {
-		case gpu::BlendFactor::Zero:                  return GL_ZERO;
-		case gpu::BlendFactor::One:                   return GL_ONE;
-		case gpu::BlendFactor::SrcColor:              return GL_SRC_COLOR;
-		case gpu::BlendFactor::OneMinusSrcColor:      return GL_ONE_MINUS_SRC_COLOR;
-		case gpu::BlendFactor::DstColor:              return GL_DST_COLOR;
-		case gpu::BlendFactor::OneMinusDstColor:      return GL_ONE_MINUS_DST_COLOR;
-		case gpu::BlendFactor::SrcAlpha:              return GL_SRC_ALPHA;
-		case gpu::BlendFactor::OneMinusSrcAlpha:      return GL_ONE_MINUS_SRC_ALPHA;
-		case gpu::BlendFactor::DstAlpha:              return GL_DST_ALPHA;
-		case gpu::BlendFactor::OneMinusDstAlpha:      return GL_ONE_MINUS_DST_ALPHA;
-		case gpu::BlendFactor::ConstantColor:         return GL_CONSTANT_COLOR;
-		case gpu::BlendFactor::OneMinusConstantColor: return GL_ONE_MINUS_CONSTANT_COLOR;
-		case gpu::BlendFactor::ConstantAlpha:         return GL_CONSTANT_ALPHA;
-		case gpu::BlendFactor::OneMinusConstantAlpha: return GL_ONE_MINUS_CONSTANT_ALPHA;
-		case gpu::BlendFactor::SrcAlphaSaturate:      return GL_SRC_ALPHA_SATURATE;
-		case gpu::BlendFactor::Src1Color:             return GL_SRC1_COLOR;
-		case gpu::BlendFactor::OneMinusSrc1Color:     return GL_ONE_MINUS_SRC1_COLOR;
-		case gpu::BlendFactor::Src1Alpha:             return GL_SRC1_ALPHA;
-		case gpu::BlendFactor::OneMinusSrc1Alpha:     return GL_ONE_MINUS_SRC1_ALPHA;
-		default: std::unreachable();
-		}
+		if (depthRange == ClipDepthRange::NegativeOneToOne)
+			return GL_NEGATIVE_ONE_TO_ONE;
+		return GL_ZERO_TO_ONE;
 	}
-	//=============================================================================
 
-	//=============================================================================
-
-	//=============================================================================
-	inline GLenum EnumToValue(gpu::PrimitiveTopology topology) noexcept
-	{
-		switch (topology)
-		{
-		case  gpu::PrimitiveTopology::PointList:     return GL_POINTS;
-		case  gpu::PrimitiveTopology::LineList:      return GL_LINES;
-		case  gpu::PrimitiveTopology::LineStrip:     return GL_LINE_STRIP;
-		case  gpu::PrimitiveTopology::TriangleList:  return GL_TRIANGLES;
-		case  gpu::PrimitiveTopology::TriangleStrip: return GL_TRIANGLE_STRIP;
-		case  gpu::PrimitiveTopology::TriangleFan:   return GL_TRIANGLE_FAN;
-		case  gpu::PrimitiveTopology::PatchList:     return GL_PATCHES;
-		default: std::unreachable();
-		}
-	}
 } // namespace gpu

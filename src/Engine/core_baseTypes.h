@@ -116,9 +116,9 @@ namespace core
 
 	struct Rect2D final
 	{
+		bool operator==(const Rect2D&) const noexcept = default;
+
 		Offset2D offset;
 		Extent2D extent;
-
-		bool operator==(const Rect2D&) const noexcept = default;
 	};
 } // namespace core

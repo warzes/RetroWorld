@@ -15,13 +15,12 @@ namespace gpu
 		TimerQuery& operator=(const TimerQuery&) = delete;
 		TimerQuery(TimerQuery&& old) noexcept
 		{
-			m_queries[0] = std::exchange(old.m_queries[0], 0);
-			m_queries[1] = std::exchange(old.m_queries[1], 0);
+			m_queries[0] = std::exchange(old.m_queries[0], 0u);
+			m_queries[1] = std::exchange(old.m_queries[1], 0u);
 		}
 		TimerQuery& operator=(TimerQuery&& old) noexcept
 		{
-			if (&old == this)
-				return *this;
+			if (&old == this) return *this;
 			this->~TimerQuery();
 			return *new (this) TimerQuery(std::move(old));
 		}
@@ -45,9 +44,9 @@ namespace gpu
 		TimerQueryAsync(const TimerQueryAsync&) = delete;
 		TimerQueryAsync& operator=(const TimerQueryAsync&) = delete;
 		TimerQueryAsync(TimerQueryAsync&& old) noexcept
-			: m_start(std::exchange(old.m_start, 0))
-			, m_count(std::exchange(old.m_count, 0))
-			, m_capacity(std::exchange(old.m_capacity, 0))
+			: m_start(std::exchange(old.m_start, 0u))
+			, m_count(std::exchange(old.m_count, 0u))
+			, m_capacity(std::exchange(old.m_capacity, 0u))
 			, m_queries(std::exchange(old.m_queries, nullptr))
 		{}
 		TimerQueryAsync& operator=(TimerQueryAsync&& old) noexcept

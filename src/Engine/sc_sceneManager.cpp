@@ -59,10 +59,10 @@ scene::SceneManager::SceneManager()
 {
 	root = std::make_unique<SceneNode>("root");
 
-	m_wireframeState.polygonMode = gpu::RasterizationMode::Line;
-	m_wireframeState.cullMode = gpu::CullFace::None;
-	m_fillState.polygonMode = gpu::RasterizationMode::Fill;
-	m_fillState.cullMode = gpu::CullFace::Back;
+	m_wireframeState.polygonMode = gpu::PolygonMode::Line;
+	m_wireframeState.cullMode = gpu::CullMode::None;
+	m_fillState.polygonMode = gpu::PolygonMode::Fill;
+	m_fillState.cullMode = gpu::CullMode::Back;
 	m_fillState.frontFace = gpu::FrontFace::CounterClockWise;
 
 	gpu::texture::SamplerState ss;
@@ -76,12 +76,12 @@ scene::SceneManager::SceneManager()
 	m_instanceCapacity = INITIAL_INSTANCE_CAPACITY;
 	m_instanceSSBO = gpu::buffer::CreateBuffer(
 		m_instanceCapacity * sizeof(glm::mat4),
-		gpu::BufferStorageFlag::DynamicStorage,
+		gpu::buffer::BufferStorageFlag::DynamicStorage,
 		"instance_ssbo");
 
 	m_lightUBO = gpu::buffer::CreateBuffer(
 		sizeof(LightBlockUBO),
-		gpu::BufferStorageFlag::DynamicStorage,
+		gpu::buffer::BufferStorageFlag::DynamicStorage,
 		"light_ubo");
 }
 //=============================================================================
@@ -342,8 +342,8 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 	gpu::cmd::SetState(depthState);
 
 	gpu::RasterizationState rs;
-	rs.polygonMode = gpu::RasterizationMode::Fill;
-	rs.cullMode = gpu::CullFace::Back;
+	rs.polygonMode = gpu::PolygonMode::Fill;
+	rs.cullMode = gpu::CullMode::Back;
 	rs.depthBiasEnable = true;
 	rs.depthBiasConstantFactor = light.shadowSettings.bias;
 	rs.depthBiasSlopeFactor = light.shadowSettings.normalBias;
@@ -374,7 +374,7 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 					m_instanceCapacity = (std::max)(count, m_instanceCapacity * 2u);
 					m_instanceSSBO = gpu::buffer::CreateBuffer(
 						m_instanceCapacity * sizeof(glm::mat4),
-						gpu::BufferStorageFlag::DynamicStorage,
+						gpu::buffer::BufferStorageFlag::DynamicStorage,
 						"instance_ssbo");
 				}
 
@@ -703,7 +703,7 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 			m_instanceCapacity = (std::max)(count, m_instanceCapacity * 2u);
 			m_instanceSSBO = gpu::buffer::CreateBuffer(
 				m_instanceCapacity * sizeof(glm::mat4),
-				gpu::BufferStorageFlag::DynamicStorage,
+				gpu::buffer::BufferStorageFlag::DynamicStorage,
 				"instance_ssbo");
 		}
 

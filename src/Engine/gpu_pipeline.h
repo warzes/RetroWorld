@@ -18,8 +18,8 @@ namespace gpu
 	struct RasterizationState final
 	{
 		bool depthClampEnable         = false;
-		RasterizationMode polygonMode = RasterizationMode::Fill;
-		CullFace cullMode             = CullFace::Back;
+		PolygonMode polygonMode       = PolygonMode::Fill;
+		CullMode cullMode             = CullMode::Back;
 		FrontFace frontFace           = FrontFace::CounterClockWise;
 		bool depthBiasEnable          = false;
 		float depthBiasConstantFactor = 0.0f;
@@ -48,9 +48,9 @@ namespace gpu
 	{
 		bool operator==(const StencilOpState&) const noexcept = default;
 
-		Operation passOp      = Operation::Keep;   // glStencilOp (dppass)
-		Operation failOp      = Operation::Keep;   // glStencilOp (sfail)
-		Operation depthFailOp = Operation::Keep;   // glStencilOp (dpfail)
+		StencilOp passOp      = StencilOp::Keep;   // glStencilOp (dppass)
+		StencilOp failOp      = StencilOp::Keep;   // glStencilOp (sfail)
+		StencilOp depthFailOp = StencilOp::Keep;   // glStencilOp (dpfail)
 		CompareOp compareOp   = CompareOp::Always; // glStencilFunc (func)
 		uint32_t compareMask  = 0;                 // glStencilFunc (mask)
 		uint32_t writeMask    = 0;                 // glStencilMask

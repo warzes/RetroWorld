@@ -355,8 +355,8 @@ void gpu::cmd::SetState(const RasterizationState& rs)
 
 	if (rs.cullMode != context.rasterizationState.cullMode)
 	{
-		GLEnableOrDisable(GL_CULL_FACE, rs.cullMode != CullFace::None);
-		if (rs.cullMode != CullFace::None)
+		GLEnableOrDisable(GL_CULL_FACE, rs.cullMode != CullMode::None);
+		if (rs.cullMode != CullMode::None)
 			glCullFace(EnumToValue(rs.cullMode));
 
 		context.rasterizationState.cullMode = rs.cullMode;
