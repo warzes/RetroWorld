@@ -123,6 +123,7 @@
     <ClInclude Include="gpu_uniform.h" />
     <ClInclude Include="gpu_vao.h" />
     <ClInclude Include="gr_camera.h" />
+    <ClInclude Include="gr_material.h" />
     <ClInclude Include="gr_mesh.h" />
     <ClInclude Include="math_aabb.h" />
     <ClInclude Include="math_core.h" />
@@ -161,6 +162,7 @@
     <ClCompile Include="gpu_timer.cpp" />
     <ClCompile Include="gpu_vao.cpp" />
     <ClCompile Include="gr_camera.cpp" />
+    <ClCompile Include="gr_material.cpp" />
     <ClCompile Include="gr_mesh.cpp" />
     <ClCompile Include="mathTest.cpp" />
     <ClCompile Include="stdafx.cpp">

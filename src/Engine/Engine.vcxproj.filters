@@ -125,6 +125,9 @@
     <ClInclude Include="gr_mesh.h">
       <Filter>graphics</Filter>
     </ClInclude>
+    <ClInclude Include="gr_material.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -201,6 +204,9 @@
       <Filter>_temp</Filter>
     </ClCompile>
     <ClCompile Include="gr_mesh.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="gr_material.cpp">
       <Filter>graphics</Filter>
     </ClCompile>
   </ItemGroup>
