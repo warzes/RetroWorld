@@ -4,19 +4,16 @@ namespace math
 {
 	struct AABB final
 	{
-		glm::vec3 min = glm::vec3(0.0f);
-		glm::vec3 max = glm::vec3(0.0f);
-
 		AABB() = default;
 		AABB(const glm::vec3& min_, const glm::vec3& max_) : min(min_), max(max_) {}
 
 		void Reset()
 		{
-			float m = std::numeric_limits<float>::max();
-			min = glm::vec3(m);
-			max = glm::vec3(-m);
+			min = glm::vec3(std::numeric_limits<float>::max());
+			max = glm::vec3(-std::numeric_limits<float>::max());
 		}
 
+		// Expand to include a point
 		void Expand(const glm::vec3& point)
 		{
 			min.x = std::min(min.x, point.x);
@@ -27,6 +24,7 @@ namespace math
 			max.z = std::max(max.z, point.z);
 		}
 
+		// Expand to include another AABB
 		void Expand(const AABB& other)
 		{
 			Expand(other.min);
@@ -38,27 +36,21 @@ namespace math
 			return min.x <= max.x && min.y <= max.y && min.z <= max.z;
 		}
 
-		glm::vec3 GetCenter() const
-		{
-			return (min + max) * 0.5f;
-		}
+		glm::vec3 GetCenter() const { return (min + max) * 0.5f; }
+		glm::vec3 GetExtents() const { return (max - min) * 0.5f; }
 
-		glm::vec3 GetExtents() const
-		{
-			return (max - min) * 0.5f;
-		}
-
+		// Transform all 8 corners and compute new AABB in world space
 		AABB Transform(const glm::mat4& m) const
 		{
-			glm::vec3 corners[8] = {
-			glm::vec3(min.x, min.y, min.z),
-			glm::vec3(max.x, min.y, min.z),
-			glm::vec3(min.x, max.y, min.z),
-			glm::vec3(max.x, max.y, min.z),
-			glm::vec3(min.x, min.y, max.z),
-			glm::vec3(max.x, min.y, max.z),
-			glm::vec3(min.x, max.y, max.z),
-			glm::vec3(max.x, max.y, max.z)
+			const glm::vec3 corners[] = {
+				glm::vec3(min.x, min.y, min.z),
+				glm::vec3(max.x, min.y, min.z),
+				glm::vec3(min.x, max.y, min.z),
+				glm::vec3(max.x, max.y, min.z),
+				glm::vec3(min.x, min.y, max.z),
+				glm::vec3(max.x, min.y, max.z),
+				glm::vec3(min.x, max.y, max.z),
+				glm::vec3(max.x, max.y, max.z)
 			};
 
 			AABB result;
@@ -78,12 +70,17 @@ namespace math
 				point.z >= min.z && point.z <= max.z;
 		}
 
+		// Check intersection with another AABB
 		bool Intersects(const AABB& other) const
 		{
-			return (min.x <= other.max.x && max.x >= other.min.x) &&
+			return 
+				(min.x <= other.max.x && max.x >= other.min.x) &&
 				(min.y <= other.max.y && max.y >= other.min.y) &&
 				(min.z <= other.max.z && max.z >= other.min.z);
 		}
+
+		glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
+		glm::vec3 max = glm::vec3(-std::numeric_limits<float>::max());
 	};
 
 } // namespace math

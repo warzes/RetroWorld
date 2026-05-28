@@ -40,7 +40,7 @@ namespace gpu
 	struct DepthState final
 	{
 		bool depthTestEnable     = false;           // gl{Enable, Disable}(GL_DEPTH_TEST)
-		bool depthWriteEnable    = true;            // glDepthMask(depthWriteEnable)
+		bool depthWriteEnable    = false;           // glDepthMask(depthWriteEnable)
 		CompareOp depthCompareOp = CompareOp::Less; // glDepthFunc
 	};
 

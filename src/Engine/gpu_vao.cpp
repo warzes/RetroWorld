@@ -72,13 +72,13 @@ gpu::vao::VertexArrayPtr gpu::vao::CreateVertexArray(const std::vector<VertexInp
 		glEnableVertexArrayAttrib(vao->id, desc.location);
 		glVertexArrayAttribBinding(vao->id, desc.location, desc.binding);
 
-		auto type         = FormatToTypeGL(desc.format);
-		auto size         = FormatToSizeGL(desc.format);
-		auto normalized   = IsFormatNormalizedGL(desc.format);
+		auto type = FormatToTypeGL(desc.format);
+		auto size = FormatToSizeGL(desc.format);
+		auto normalized = IsFormatNormalizedGL(desc.format);
 		auto internalType = FormatToFormatClass(desc.format);
 		switch (internalType)
 		{
-		case GlFormatClass::FLOAT: glVertexArrayAttribFormat( vao->id, desc.location, size, type, normalized, desc.offset); break;
+		case GlFormatClass::FLOAT: glVertexArrayAttribFormat(vao->id, desc.location, size, type, normalized, desc.offset); break;
 		case GlFormatClass::INT:   glVertexArrayAttribIFormat(vao->id, desc.location, size, type, desc.offset); break;
 		case GlFormatClass::LONG:  glVertexArrayAttribLFormat(vao->id, desc.location, size, type, desc.offset); break;
 		default: std::unreachable();

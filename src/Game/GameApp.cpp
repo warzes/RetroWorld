@@ -128,9 +128,12 @@ void main()
 	};
 
 	gpu::program::ShaderProgramPtr program;
-	gpu::vao::VertexArrayPtr vao;
-	gpu::buffer::BufferPtr vbo;
-	gpu::buffer::BufferPtr ibo;
+	//gpu::vao::VertexArrayPtr vao;
+	//gpu::buffer::BufferPtr vbo;
+	//gpu::buffer::BufferPtr ibo;
+
+	gr::Mesh mesh;
+
 
 	gpu::texture::TexturePtr texture;
 	gpu::texture::SamplerPtr sampler;
@@ -259,10 +262,12 @@ bool GameInit()
 	gpu::uniform::InitUniform(view, program, "view");
 	gpu::uniform::InitUniform(model, program, "model");
 
-	vao = gpu::vao::CreateVertexArray(VertexPNTBindingDescs);
+	//vao = gpu::vao::CreateVertexArray(VertexPNTBindingDescs);
 
-	vbo = gpu::buffer::CreateBuffer(gCubeVertices);
-	ibo = gpu::buffer::CreateBuffer(gCubeIndices);
+	//vbo = gpu::buffer::CreateBuffer(gCubeVertices);
+	//ibo = gpu::buffer::CreateBuffer(gCubeIndices);
+
+	mesh = gr::Mesh::CreateSphere(10, 10);
 
 	texture = gpu::texture::LoadTexture2D("data/textures/uv.png");
 
@@ -274,6 +279,7 @@ bool GameInit()
 	sampler = gpu::texture::CreateSampler(ss);
 
 	depthState.depthTestEnable = true;
+	depthState.depthWriteEnable = true;
 
 	return true;
 }
@@ -282,8 +288,9 @@ void GameClose()
 {
 	g_mouseLook.Reset();
 	program.reset();
-	vao.reset();
-	vbo.reset();
+	mesh.Close();
+	//vao.reset();
+	//vbo.reset();
 }
 //=============================================================================
 void GameUpdate()
@@ -306,33 +313,6 @@ void GameUpdate()
 		g_mouseLook.OnRightUp();
 	g_mouseLook.Update(camera);
 
-	//if (input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
-	//{
-	//	if (!mouseCapture)
-	//	{
-	//		prevMouse = input::GetMousePosition();
-	//		mouseCapture = true;
-	//		input::SetCursorVisible(false);
-	//	}
-	//}
-	//else
-	//{
-	//	if (mouseCapture)
-	//	{
-	//		input::SetCursorVisible(true);
-	//		mouseCapture = false;
-	//	}
-	//}
-
-	//if (mouseCapture)
-	//{
-	//	math::point2 delta = input::GetMousePosition() - prevMouse;
-	//	camera.Rotate(-delta.y * 0.1f, delta.x * 0.1f, 0.0f);
-
-	//	input::SetMousePosition(window::GetWidth() / 2, window::GetHeight() / 2);
-	//	prevMouse = { window::GetWidth() / 2, window::GetHeight() / 2 };
-	//}
-
 	proj = glm::perspective(glm::radians(65.f), window::GetAspectRatio(), 0.1f, 1000.f);
 	view = camera.GetViewMatrix();
 	model = glm::mat4(1.0f);
@@ -353,10 +333,13 @@ void GameRender()
 	gpu::cmd::BindShaderProgram(program);
 	gpu::cmd::BindSampledImage(0, texture, sampler);
 
-	gpu::cmd::BindVertexArray(vao);
+	mesh.Bind();
+	mesh.Draw();
+
+	/*gpu::cmd::BindVertexArray(vao);
 	gpu::cmd::BindVertexBuffer(vao, 0, vbo, 0, sizeof(VertexPNT));
 	gpu::cmd::BindIndexBuffer(vao, ibo, gpu::IndexType::UnsignedInt);
-	gpu::cmd::DrawIndexed(static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);
+	gpu::cmd::DrawIndexed(static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);*/
 }
 //=============================================================================
 void GameRenderUI()

@@ -113,6 +113,18 @@
     <ClInclude Include="GLTFLoader.h">
       <Filter>_temp</Filter>
     </ClInclude>
+    <ClInclude Include="math_transform.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="math_plane.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="math_frustum.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="gr_mesh.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -188,6 +200,9 @@
     <ClCompile Include="GLTFLoader.cpp">
       <Filter>_temp</Filter>
     </ClCompile>
+    <ClCompile Include="gr_mesh.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="core">
@@ -219,6 +234,9 @@
     </Filter>
     <Filter Include="_temp">
       <UniqueIdentifier>{0a6f5b4a-8ac2-4f1f-bd03-5105f497c050}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="scene">
+      <UniqueIdentifier>{1db58990-d057-485d-86c4-c6d39a959a23}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

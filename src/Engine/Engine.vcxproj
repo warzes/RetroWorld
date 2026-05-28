@@ -123,10 +123,14 @@
     <ClInclude Include="gpu_uniform.h" />
     <ClInclude Include="gpu_vao.h" />
     <ClInclude Include="gr_camera.h" />
+    <ClInclude Include="gr_mesh.h" />
     <ClInclude Include="math_aabb.h" />
     <ClInclude Include="math_core.h" />
     <ClInclude Include="core_baseTypes.h" />
+    <ClInclude Include="math_frustum.h" />
+    <ClInclude Include="math_plane.h" />
     <ClInclude Include="math_point2.h" />
+    <ClInclude Include="math_transform.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="_app_input.h" />
     <ClInclude Include="_app_window.h" />
@@ -157,6 +161,7 @@
     <ClCompile Include="gpu_timer.cpp" />
     <ClCompile Include="gpu_vao.cpp" />
     <ClCompile Include="gr_camera.cpp" />
+    <ClCompile Include="gr_mesh.cpp" />
     <ClCompile Include="mathTest.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

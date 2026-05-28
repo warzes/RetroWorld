@@ -26,6 +26,9 @@
 #include <math_core.h>
 #include <math_point2.h>
 #include <math_aabb.h>
+#include <math_transform.h>
+#include <math_plane.h>
+#include <math_frustum.h>
 
 #include <gpu_core.h>
 #include <gpu_program.h>
@@ -41,6 +44,7 @@
 #include <gpu_fence.h>
 
 #include <gr_camera.h>
+#include <gr_mesh.h>
 
 #include <app.h>
 
