@@ -3,6 +3,7 @@
     <Platform Name="x64" />
   </Configurations>
   <Folder Name="/DOC/">
+    <File Path="../AGENTS.md" />
     <File Path="3rdparty.md" />
     <File Path="idea.md" />
     <File Path="other.md" />
