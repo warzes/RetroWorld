@@ -385,6 +385,7 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 				gpu::program::SetUniform(depthShader, locInst, true);
 
 				mesh.DrawInstanced(count);
+				item.node->instanceTransforms.clear();
 				++lastFrameStats.instancedBatches;
 				++lastFrameStats.drawCalls;
 			}
