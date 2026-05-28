@@ -720,6 +720,7 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 
 		// Single draw call for all instances
 		mesh.DrawInstanced(count);
+		item.node->instanceTransforms.clear(); // don't leak transforms to next frame
 		++lastFrameStats.instancedBatches;
 		++lastFrameStats.drawCalls;
 	}
