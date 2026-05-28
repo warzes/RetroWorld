@@ -128,6 +128,30 @@
     <ClInclude Include="gr_material.h">
       <Filter>graphics</Filter>
     </ClInclude>
+    <ClInclude Include="sc_node.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="sc_modelNode.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="sc_lightNode.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="sc_cameraNode.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="gr_renderQueue.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="sc_sceneManager.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="sc_reflectionNode.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="gr_shadowMapManager.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -207,6 +231,30 @@
       <Filter>graphics</Filter>
     </ClCompile>
     <ClCompile Include="gr_material.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="sc_node.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="sc_modelNode.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="sc_lightNode.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="sc_cameraNode.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="gr_renderQueue.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="sc_sceneManager.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="sc_reflectionNode.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="gr_shadowMapManager.cpp">
       <Filter>graphics</Filter>
     </ClCompile>
   </ItemGroup>

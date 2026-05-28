@@ -125,6 +125,8 @@
     <ClInclude Include="gr_camera.h" />
     <ClInclude Include="gr_material.h" />
     <ClInclude Include="gr_mesh.h" />
+    <ClInclude Include="gr_renderQueue.h" />
+    <ClInclude Include="gr_shadowMapManager.h" />
     <ClInclude Include="math_aabb.h" />
     <ClInclude Include="math_core.h" />
     <ClInclude Include="core_baseTypes.h" />
@@ -132,6 +134,12 @@
     <ClInclude Include="math_plane.h" />
     <ClInclude Include="math_point2.h" />
     <ClInclude Include="math_transform.h" />
+    <ClInclude Include="sc_cameraNode.h" />
+    <ClInclude Include="sc_lightNode.h" />
+    <ClInclude Include="sc_modelNode.h" />
+    <ClInclude Include="sc_node.h" />
+    <ClInclude Include="sc_reflectionNode.h" />
+    <ClInclude Include="sc_sceneManager.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="_app_input.h" />
     <ClInclude Include="_app_window.h" />
@@ -164,7 +172,15 @@
     <ClCompile Include="gr_camera.cpp" />
     <ClCompile Include="gr_material.cpp" />
     <ClCompile Include="gr_mesh.cpp" />
+    <ClCompile Include="gr_renderQueue.cpp" />
+    <ClCompile Include="gr_shadowMapManager.cpp" />
     <ClCompile Include="mathTest.cpp" />
+    <ClCompile Include="sc_cameraNode.cpp" />
+    <ClCompile Include="sc_lightNode.cpp" />
+    <ClCompile Include="sc_modelNode.cpp" />
+    <ClCompile Include="sc_node.cpp" />
+    <ClCompile Include="sc_reflectionNode.cpp" />
+    <ClCompile Include="sc_sceneManager.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>

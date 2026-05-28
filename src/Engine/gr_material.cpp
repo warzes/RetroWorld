@@ -15,12 +15,10 @@ void gr::Material::Bind(const gpu::program::ShaderProgramPtr& shader)
 	if (!sampler)
 	{
 		gpu::texture::SamplerState ss;
-		ss.minFilter = gpu::Filter::Linear;
-		ss.magFilter = gpu::Filter::Linear;
-		ss.mipmapFilter = gpu::Filter::LinearMipmapLinear;
+		ss.minFilter = gpu::Filter::Nearest;
+		ss.magFilter = gpu::Filter::Nearest;
 		ss.addressModeU = gpu::AddressMode::Repeat;
 		ss.addressModeV = gpu::AddressMode::Repeat;
-		ss.addressModeW = gpu::AddressMode::Repeat;
 		sampler = gpu::texture::CreateSampler(ss);
 	}
 

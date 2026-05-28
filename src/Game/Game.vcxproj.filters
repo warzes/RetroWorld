@@ -6,6 +6,9 @@
     <ClCompile Include="GameApp.cpp">
       <Filter>Game</Filter>
     </ClCompile>
+    <ClCompile Include="GameApp_cube.cpp">
+      <Filter>Game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />

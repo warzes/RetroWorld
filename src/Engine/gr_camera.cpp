@@ -67,7 +67,7 @@ void gr::Camera::Rotate(float pitchDelta, float yawDelta, float rollDelta)
 	m_cameraTarget = m_cameraPosition + m_cameraFrontDirection;
 }
 //=============================================================================
-glm::mat4 gr::Camera::GetViewMatrix()
+glm::mat4 gr::Camera::GetViewMatrix() const
 {
 	return glm::lookAt(m_cameraPosition, m_cameraTarget, m_cameraUpDirection);
 }

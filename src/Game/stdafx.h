@@ -45,6 +45,9 @@
 
 #include <gr_camera.h>
 #include <gr_mesh.h>
+#include <gr_material.h>
+
+#include <sc_sceneManager.h>
 
 #include <app.h>
 

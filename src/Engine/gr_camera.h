@@ -28,7 +28,7 @@ namespace gr
 		void Move(Movement direction, float speed);
 		void Rotate(float pitch, float yaw, float rollDelta);
 
-		glm::mat4 GetViewMatrix();
+		glm::mat4 GetViewMatrix() const;
 
 		const glm::vec3& GetPosition() const { return m_cameraPosition; }
 
