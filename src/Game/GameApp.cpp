@@ -89,6 +89,10 @@ uniform bool       u_receiveShadow;
 uniform sampler2D  u_shadowMap;
 uniform float      u_shadowMapSize;
 
+// Point light shadow
+uniform samplerCube u_pointShadowMap;
+uniform float       u_pointShadowMapSize;
+
 layout(location = 0) out vec4 o_color;
 
 float ShadowCalculation(vec4 lightSpacePos, float bias)
@@ -109,6 +113,13 @@ float ShadowCalculation(vec4 lightSpacePos, float bias)
 		}
 	}
 	return shadow / 9.0;
+}
+
+float PointShadowCalculation(vec3 fragToLight, float bias, float farPlane)
+{
+	float closestDepth = texture(u_pointShadowMap, normalize(fragToLight)).r;
+	float currentDepth = length(fragToLight) / farPlane;
+	return (currentDepth - bias) < closestDepth ? 1.0 : 0.0;
 }
 
 vec3 CalcDirectionalLight(LightData light, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
@@ -140,16 +151,25 @@ vec3 CalcPointLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, 
 	L /= dist;
 
 	float atten = 1.0 / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * dist * dist);
+	float fade  = 1.0 - (dist * dist) / (light.radius * light.radius);
+	atten *= fade * fade;
 
 	vec3 H = normalize(L + V);
 
 	float NdotL = max(dot(N, L), 0.0);
 	float NdotH = max(dot(N, H), 0.0);
 
+	float shadow = 1.0;
+	if (light.castShadow && u_receiveShadow)
+	{
+		vec3 fragToLight = fragPos - light.positionOrDirection.xyz;
+		shadow = PointShadowCalculation(fragToLight, light.shadowBias, light.radius);
+	}
+
 	vec3 diffuse  = light.color * albedo * NdotL;
 	vec3 spec     = light.color * specular * pow(NdotH, shininess);
 
-	return (ambient * albedo + diffuse + spec) * light.intensity * atten;
+	return (ambient * albedo + (diffuse + spec) * shadow) * light.intensity * atten;
 }
 
 vec3 CalcSpotLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
@@ -164,6 +184,8 @@ vec3 CalcSpotLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, v
 	float spot      = clamp((theta - light.outerCutoff) / epsilon, 0.0, 1.0);
 
 	float atten = spot / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * dist * dist);
+	float fade  = 1.0 - (dist * dist) / (light.radius * light.radius);
+	atten *= fade * fade;
 
 	vec3 H = normalize(L + V);
 
@@ -258,9 +280,73 @@ void main()
 void main() {}
 )";
 
+	// Point light shadow depth with layered cubemap rendering
+	const char* pointShadowVert = R"(
+#version 460 core
+layout(location = 0) in vec3 a_position;
+
+layout(std430, binding = 6) readonly buffer InstanceBuffer {
+	mat4 models[];
+} u_instanceData;
+
+uniform bool  u_isInstanced;
+uniform mat4  u_model;
+
+out vec3 v_worldPos;
+
+void main()
+{
+	mat4 model = u_isInstanced ? u_instanceData.models[gl_InstanceID] : u_model;
+	vec4 worldPos = model * vec4(a_position, 1.0);
+	v_worldPos = worldPos.xyz;
+	gl_Position = worldPos;
+}
+)";
+
+	const char* pointShadowGeom = R"(
+#version 460 core
+layout(triangles) in;
+layout(triangle_strip, max_vertices = 18) out;
+
+in vec3 v_worldPos[];
+out vec3 v_faceWorldPos;
+
+uniform mat4 u_faceVP[6];
+
+void main()
+{
+	for (int face = 0; face < 6; ++face)
+	{
+		gl_Layer = face;
+		for (int i = 0; i < 3; ++i)
+		{
+			v_faceWorldPos = v_worldPos[i];
+			gl_Position = u_faceVP[face] * gl_in[i].gl_Position;
+			EmitVertex();
+		}
+		EndPrimitive();
+	}
+}
+)";
+
+	const char* pointShadowFrag = R"(
+#version 460 core
+
+in vec3 v_faceWorldPos;
+
+uniform vec3  u_lightPos;
+uniform float u_farPlane;
+
+void main()
+{
+	float dist = length(v_faceWorldPos - u_lightPos);
+	gl_FragDepth = dist / u_farPlane;
+}
+)";
+
 	gpu::program::ShaderProgramPtr program;
 	gpu::program::ShaderProgramPtr g_depthShader;
-	scene::LightNode* g_sun = nullptr;
+	gpu::program::ShaderProgramPtr g_pointDepthShader;
 
 	gr::Mesh mesh;
 	gr::Material material;
@@ -412,6 +498,20 @@ bool GameInit()
 			return false;
 		}
 	}
+	{
+		gpu::program::GraphicsProgramCreateInfo info{
+			.name = "PointShadowDepth",
+			.vertexShaderCode = pointShadowVert,
+			.fragmentShaderCode = pointShadowFrag,
+			.geometryShaderCode = pointShadowGeom,
+		};
+		g_pointDepthShader = gpu::program::CreateShaderProgram(info);
+		if (!gpu::program::IsValid(g_pointDepthShader))
+		{
+			core::Error("SceneExample: failed to compile PointShadowDepth shader");
+			return false;
+		}
+	}
 
 	mesh = gr::Mesh::CreateCube();
 	material.albedoMap = gpu::texture::LoadTexture2D("data/textures/uv.png");
@@ -489,7 +589,17 @@ bool GameInit()
 	sun.shadowSettings.cascadeDistance[3] = -1.0f;
 	// Rotate so light comes from upper-right (local (0,-1,0) → world normalize(1,-1,0))
 	sun.transform.rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(0, 0, 1));
-	g_sun = &sun;
+
+	// --- Point light (warm, with shadow) ---
+	auto& pointLight = root.AddChild<scene::LightNode>("point_light");
+	pointLight.lightType = scene::LightNode::LightType::Point;
+	pointLight.color = glm::vec3(1.0f, 0.2f, 0.3f);
+	pointLight.intensity = 6.0f;
+	pointLight.radius = 8.0f;
+	pointLight.attenuation = glm::vec3(1.0f, 0.09f, 0.032f);
+	pointLight.castShadow = true;
+	pointLight.shadowSettings.resolution = 256;
+	pointLight.transform.position = glm::vec3(2.0f, 2.5f, 1.0f);
 
 	// Disable shadows / instancing for the minimal example
 	g_scene->enableShadows = true;
@@ -500,6 +610,7 @@ bool GameInit()
 //=============================================================================
 void GameClose()
 {
+	g_pointDepthShader.reset();
 	g_depthShader.reset();
 	g_scene.reset();
 	g_mouseLook.Reset();
@@ -551,13 +662,19 @@ void GameRender()
 	if (g_scene->activeCamera)
 		frustum = g_scene->activeCamera->ExtractFrustum();
 
-	// 1. Shadow pass
-	if (g_scene->enableShadows && g_sun && g_sun->castShadow)
+	// 1. Shadow passes for all shadow-casting lights
+	if (g_scene->enableShadows)
 	{
-		auto shadowQueue = g_scene->BuildRenderQueue(frustum, scene::RenderPassType::Shadow);
-		g_scene->RenderShadowPass(shadowQueue, *g_sun, g_depthShader);
-		// Restore default framebuffer after shadow pass
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		for (auto* light : g_scene->lights)
+		{
+			if (!light->castShadow) continue;
+			auto shadowQueue = g_scene->BuildRenderQueue(frustum, scene::RenderPassType::Shadow);
+			if (light->lightType == scene::LightNode::LightType::Point)
+				g_scene->RenderShadowPass(shadowQueue, *light, g_depthShader, g_pointDepthShader);
+			else
+				g_scene->RenderShadowPass(shadowQueue, *light, g_depthShader);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		}
 	}
 
 	// 2. Clear main framebuffer

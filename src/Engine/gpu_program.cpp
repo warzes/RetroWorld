@@ -61,6 +61,7 @@ inline std::string loadShaderCode(const std::string& path, unsigned int level)
 	case GL_FRAGMENT_SHADER:        return "GL_FRAGMENT_SHADER";
 	case GL_TESS_CONTROL_SHADER:    return "GL_TESS_CONTROL_SHADER";
 	case GL_TESS_EVALUATION_SHADER: return "GL_TESS_EVALUATION_SHADER";
+	case GL_GEOMETRY_SHADER:        return "GL_GEOMETRY_SHADER";
 	case GL_COMPUTE_SHADER:         return "GL_COMPUTE_SHADER";
 	default: std::unreachable();
 	}
@@ -296,16 +297,25 @@ gpu::program::ShaderProgramPtr gpu::program::CreateShaderProgram(const GraphicsP
 		if (!tessEvalShader) return nullptr;
 	}
 
+	ShaderHandle geometryShader;
+	if (!createInfo.geometryShaderCode.empty())
+	{
+		geometryShader.handle = compileShaderGLSL(GL_GEOMETRY_SHADER, createInfo.geometryShaderCode);
+		if (!geometryShader) return nullptr;
+	}
+
 	ShaderProgramPtr program = std::make_shared<ShaderProgram>();
 	if (vertexShader)      glAttachShader(program->programID, vertexShader.get());
 	if (fragmentShader)    glAttachShader(program->programID, fragmentShader.get());
 	if (tessControlShader) glAttachShader(program->programID, tessControlShader.get());
 	if (tessEvalShader)    glAttachShader(program->programID, tessEvalShader.get());
+	if (geometryShader)    glAttachShader(program->programID, geometryShader.get());
 	glLinkProgram(program->programID);
 	if (vertexShader)      glDetachShader(program->programID, vertexShader.get());
 	if (fragmentShader)    glDetachShader(program->programID, fragmentShader.get());
 	if (tessControlShader) glDetachShader(program->programID, tessControlShader.get());
 	if (tessEvalShader)    glDetachShader(program->programID, tessEvalShader.get());
+	if (geometryShader)    glDetachShader(program->programID, geometryShader.get());
 
 	GLint linkStatus;
 	glGetProgramiv(program->programID, GL_LINK_STATUS, &linkStatus);

@@ -73,6 +73,15 @@ scene::SceneManager::SceneManager()
 	ss.compareEnable = false;
 	m_shadowSampler = gpu::texture::CreateSampler(ss);
 
+	gpu::texture::SamplerState pointSs;
+	pointSs.minFilter = gpu::Filter::Linear;
+	pointSs.magFilter = gpu::Filter::Linear;
+	pointSs.addressModeU = gpu::AddressMode::ClampToEdge;
+	pointSs.addressModeV = gpu::AddressMode::ClampToEdge;
+	pointSs.addressModeW = gpu::AddressMode::ClampToEdge;
+	pointSs.compareEnable = false;
+	m_pointShadowSampler = gpu::texture::CreateSampler(pointSs);
+
 	m_instanceCapacity = INITIAL_INSTANCE_CAPACITY;
 	m_instanceSSBO = gpu::buffer::CreateBuffer(
 		m_instanceCapacity * sizeof(glm::mat4),
@@ -233,7 +242,7 @@ gr::RenderQueue scene::SceneManager::BuildRenderQueue(const math::Frustum& frust
 	return queue;
 }
 //=============================================================================
-void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& light, const gpu::program::ShaderProgramPtr& depthShader)
+void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& light, const gpu::program::ShaderProgramPtr& depthShader, const gpu::program::ShaderProgramPtr& pointDepthShader)
 {
 	if (!enableShadows || !depthShader) return;
 
@@ -348,15 +357,10 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 	rs.depthBiasSlopeFactor = light.shadowSettings.normalBias;
 	gpu::cmd::SetState(rs);
 
-	gpu::cmd::BindShaderProgram(depthShader);
-
-	// Set light VP uniform
-	int locLightVP = gpu::program::GetUniformLocation(depthShader, "u_lightVP");
-	int locModel = gpu::program::GetUniformLocation(depthShader, "u_model");
-	int locInst = gpu::program::GetUniformLocation(depthShader, "u_isInstanced");
-
 	// Lambda to draw a single render item (handles instancing via SSBO)
-	auto drawShadowItem = [&](const gr::RenderItem& item)
+	auto drawShadowItem = [&](const gr::RenderItem& item,
+		const gpu::program::ShaderProgramPtr& shader,
+		int locModel, int locInst)
 		{
 			if (!item.node || !item.node->mesh) return;
 			const auto& mesh = *item.node->mesh;
@@ -381,7 +385,7 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 					reinterpret_cast<const void*>(transforms.data()),
 					count * sizeof(glm::mat4));
 				gpu::cmd::BindStorageBuffer(INSTANCE_SSBO_BINDING, m_instanceSSBO);
-				gpu::program::SetUniform(depthShader, locInst, true);
+				gpu::program::SetUniform(shader, locInst, true);
 
 				mesh.DrawInstanced(count);
 				item.node->instanceTransforms.clear(); // clean up manual instancing only; auto never touched node
@@ -390,8 +394,8 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 			}
 			else
 			{
-				gpu::program::SetUniform(depthShader, locModel, item.worldTransform);
-				gpu::program::SetUniform(depthShader, locInst, false);
+				gpu::program::SetUniform(shader, locModel, item.worldTransform);
+				gpu::program::SetUniform(shader, locInst, false);
 				mesh.Draw();
 				++lastFrameStats.drawCalls;
 			}
@@ -399,6 +403,12 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 
 	if (light.lightType == LightNode::LightType::Directional)
 	{
+		int locLightVP = gpu::program::GetUniformLocation(depthShader, "u_lightVP");
+		int locModel = gpu::program::GetUniformLocation(depthShader, "u_model");
+		int locInst = gpu::program::GetUniformLocation(depthShader, "u_isInstanced");
+
+		gpu::cmd::BindShaderProgram(depthShader);
+
 		// Render each cascade
 		int cascadeCount = 0;
 		for (int c = 0; c < 4; ++c)
@@ -416,12 +426,18 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 			vp.drawRect.extent = { static_cast<uint32_t>(res), static_cast<uint32_t>(res) };
 			gpu::cmd::SetViewport(vp);
 
-			for (auto& item : queue.opaqueItems) drawShadowItem(item);
-			for (auto& item : queue.transparentItems) drawShadowItem(item);
+			for (auto& item : queue.opaqueItems) drawShadowItem(item, depthShader, locModel, locInst);
+			for (auto& item : queue.transparentItems) drawShadowItem(item, depthShader, locModel, locInst);
 		}
 	}
 	else if (light.lightType == LightNode::LightType::Spot)
 	{
+		int locLightVP = gpu::program::GetUniformLocation(depthShader, "u_lightVP");
+		int locModel = gpu::program::GetUniformLocation(depthShader, "u_model");
+		int locInst = gpu::program::GetUniformLocation(depthShader, "u_isInstanced");
+
+		gpu::cmd::BindShaderProgram(depthShader);
+
 		gpu::program::SetUniform(depthShader, locLightVP, sm.lightSpaceMatrix);
 		int res = sm.resolution;
 		gpu::Viewport vp;
@@ -429,10 +445,52 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 		vp.drawRect.extent = { static_cast<uint32_t>(res), static_cast<uint32_t>(res) };
 		gpu::cmd::SetViewport(vp);
 
-		for (auto& item : queue.opaqueItems) drawShadowItem(item);
-		for (auto& item : queue.transparentItems) drawShadowItem(item);
+		for (auto& item : queue.opaqueItems) drawShadowItem(item, depthShader, locModel, locInst);
+		for (auto& item : queue.transparentItems) drawShadowItem(item, depthShader, locModel, locInst);
 	}
-	// Point light cubemap shadow would render 6 times with different face matrices
+	else if (light.lightType == LightNode::LightType::Point)
+	{
+		if (!pointDepthShader) return;
+
+		// Point light cubemap shadow via geometry shader layered rendering
+		glm::vec3 worldPos = glm::vec3(light.cachedWorldMatrix[3]);
+
+		glm::mat4 lightProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, light.radius);
+
+		glm::mat4 faceViews[6] = {
+			glm::lookAt(worldPos, worldPos + glm::vec3( 1, 0, 0), glm::vec3(0,-1, 0)),
+			glm::lookAt(worldPos, worldPos + glm::vec3(-1, 0, 0), glm::vec3(0,-1, 0)),
+			glm::lookAt(worldPos, worldPos + glm::vec3( 0, 1, 0), glm::vec3(0, 0, 1)),
+			glm::lookAt(worldPos, worldPos + glm::vec3( 0,-1, 0), glm::vec3(0, 0,-1)),
+			glm::lookAt(worldPos, worldPos + glm::vec3( 0, 0, 1), glm::vec3(0,-1, 0)),
+			glm::lookAt(worldPos, worldPos + glm::vec3( 0, 0,-1), glm::vec3(0,-1, 0)),
+		};
+
+		std::vector<glm::mat4> faceVP;
+		for (int f = 0; f < 6; ++f)
+			faceVP.push_back(lightProj * faceViews[f]);
+
+		int res = sm.resolution;
+		gpu::Viewport vp;
+		vp.drawRect.offset = { 0, 0 };
+		vp.drawRect.extent = { static_cast<uint32_t>(res), static_cast<uint32_t>(res) };
+		gpu::cmd::SetViewport(vp);
+
+		gpu::cmd::BindShaderProgram(pointDepthShader);
+
+		gpu::program::SetUniform(pointDepthShader,
+			gpu::program::GetUniformLocation(pointDepthShader, "u_faceVP"), faceVP);
+		gpu::program::SetUniform(pointDepthShader,
+			gpu::program::GetUniformLocation(pointDepthShader, "u_lightPos"), worldPos);
+		gpu::program::SetUniform(pointDepthShader,
+			gpu::program::GetUniformLocation(pointDepthShader, "u_farPlane"), light.radius);
+
+		int locModel = gpu::program::GetUniformLocation(pointDepthShader, "u_model");
+		int locInst = gpu::program::GetUniformLocation(pointDepthShader, "u_isInstanced");
+
+		for (auto& item : queue.opaqueItems) drawShadowItem(item, pointDepthShader, locModel, locInst);
+		for (auto& item : queue.transparentItems) drawShadowItem(item, pointDepthShader, locModel, locInst);
+	}
 }
 //=============================================================================
 void scene::SceneManager::RenderOpaquePass(gr::RenderQueue& queue, const gpu::program::ShaderProgramPtr& blinnPhongShader)
@@ -581,6 +639,7 @@ void scene::SceneManager::UploadLights(const gpu::program::ShaderProgramPtr& sha
 			data.type = 1;
 			data.radius = light->radius;
 			data.attenuation = light->attenuation;
+			data.castShadow = light->castShadow ? 1 : 0;
 			break;
 		}
 		case LightNode::LightType::Spot:
@@ -634,34 +693,55 @@ void scene::SceneManager::UploadModel(const gpu::program::ShaderProgramPtr& shad
 // Upload shadow map texture + metadata
 void scene::SceneManager::UploadShadowMap(const gpu::program::ShaderProgramPtr& shader)
 {
-	// Find the first shadow-casting light
-	LightNode* shadowLight = nullptr;
+	// Bind directional/spot shadow map (2D depth texture)
 	for (auto* light : lights)
 	{
-		if (light->castShadow)
-		{
-			shadowLight = light;
-			break;
-		}
+		if (!light->castShadow) continue;
+		if (light->lightType == LightNode::LightType::Point) continue;
+
+		auto& sm = shadowMaps.GetOrCreate(light);
+		if (!sm.depthTexture) continue;
+
+		gpu::cmd::BindSampledImage(SHADOW_TEX_UNIT, sm.depthTexture, m_shadowSampler);
+
+		auto setInt = [&](const char* name, int val) {
+			int loc = gpu::program::GetUniformLocation(shader, name);
+			gpu::program::SetUniform(shader, loc, val);
+			};
+		auto setFloat = [&](const char* name, float val) {
+			int loc = gpu::program::GetUniformLocation(shader, name);
+			gpu::program::SetUniform(shader, loc, val);
+			};
+
+		setInt("u_shadowMap", static_cast<int>(SHADOW_TEX_UNIT));
+		setFloat("u_shadowMapSize", static_cast<float>(sm.resolution));
+		break;
 	}
-	if (!shadowLight) return;
 
-	auto& sm = shadowMaps.GetOrCreate(shadowLight);
-	if (!sm.depthTexture) return;
+	// Bind point shadow cubemap
+	for (auto* light : lights)
+	{
+		if (!light->castShadow) continue;
+		if (light->lightType != LightNode::LightType::Point) continue;
 
-	gpu::cmd::BindSampledImage(SHADOW_TEX_UNIT, sm.depthTexture, m_shadowSampler);
+		auto& sm = shadowMaps.GetOrCreate(light);
+		if (!sm.cubemapTexture) continue;
 
-	auto setInt = [&](const char* name, int val) {
-		int loc = gpu::program::GetUniformLocation(shader, name);
-		gpu::program::SetUniform(shader, loc, val);
-		};
-	auto setFloat = [&](const char* name, float val) {
-		int loc = gpu::program::GetUniformLocation(shader, name);
-		gpu::program::SetUniform(shader, loc, val);
-		};
+		gpu::cmd::BindSampledImage(POINT_SHADOW_TEX_UNIT, sm.cubemapTexture, m_pointShadowSampler);
 
-	setInt("u_shadowMap", static_cast<int>(SHADOW_TEX_UNIT));
-	setFloat("u_shadowMapSize", static_cast<float>(sm.resolution));
+		auto setInt = [&](const char* name, int val) {
+			int loc = gpu::program::GetUniformLocation(shader, name);
+			gpu::program::SetUniform(shader, loc, val);
+			};
+		auto setFloat = [&](const char* name, float val) {
+			int loc = gpu::program::GetUniformLocation(shader, name);
+			gpu::program::SetUniform(shader, loc, val);
+			};
+
+		setInt("u_pointShadowMap", static_cast<int>(POINT_SHADOW_TEX_UNIT));
+		setFloat("u_pointShadowMapSize", static_cast<float>(sm.resolution));
+		break;
+	}
 }
 //=============================================================================
 glm::vec3 scene::SceneManager::GetActiveCameraPosition() const

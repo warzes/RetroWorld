@@ -20,6 +20,7 @@ namespace gpu::program
 		std::string fragmentShaderCode{};
 		std::string tessellationControlShaderCode{};
 		std::string tessellationEvaluationShaderCode{};
+		std::string geometryShaderCode{};
 	};
 
 	struct ProgramReflect final

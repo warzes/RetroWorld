@@ -51,7 +51,7 @@ namespace scene
 		gr::RenderQueue BuildRenderQueue(const math::Frustum& frustum, RenderPassType passType);
 
 		// === Shadow pass ===
-		void RenderShadowPass(gr::RenderQueue& queue, LightNode& light, const gpu::program::ShaderProgramPtr& depthShader);
+		void RenderShadowPass(gr::RenderQueue& queue, LightNode& light, const gpu::program::ShaderProgramPtr& depthShader, const gpu::program::ShaderProgramPtr& pointDepthShader = nullptr);
 
 		// === Opaque pass ===
 		void RenderOpaquePass(gr::RenderQueue& queue, const gpu::program::ShaderProgramPtr& blinnPhongShader);
@@ -96,7 +96,9 @@ namespace scene
 		gpu::RasterizationState m_fillState;
 
 		gpu::texture::SamplerPtr m_shadowSampler;
+		gpu::texture::SamplerPtr m_pointShadowSampler;
 		static constexpr uint32_t SHADOW_TEX_UNIT = 5;
+		static constexpr uint32_t POINT_SHADOW_TEX_UNIT = 6;
 
 		// SSBO for instance transforms (binding 6 in shaders)
 		gpu::buffer::BufferPtr m_instanceSSBO;
