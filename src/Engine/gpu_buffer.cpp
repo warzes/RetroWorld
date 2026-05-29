@@ -70,6 +70,15 @@ gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(const void* data, size_t size, 
 	buffer->storageFlags = storageFlags;
 
 	glNamedBufferStorage(buffer->id, buffer->size, data, glflags);
+
+	GLint realSize;
+	glGetNamedBufferParameteriv(buffer->id, GL_BUFFER_SIZE, &realSize);
+	if (realSize != (GLint)buffer->size)
+	{
+		core::Error("CreateBuffer: couldn't allocate buffer size {" + std::to_string(size) + "} bytes");
+		return nullptr;
+	}
+
 	if (storageFlags & BufferStorageFlag::MapMemory)
 	{
 		// GL_MAP_UNSYNCHRONIZED_BIT should be used if the user can map and unmap buffers at their own will

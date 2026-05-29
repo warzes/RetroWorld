@@ -104,7 +104,6 @@ namespace gpu::texture
 	};
 
 	[[nodiscard]] TexturePtr CreateTexture(const TextureCreateInfo& createInfo, std::string_view name = "");
-
 	[[nodiscard]] TexturePtr CreateTexture2D(core::Extent2D size, Format format, std::string_view name = "");
 	[[nodiscard]] TexturePtr CreateTexture2DMip(core::Extent2D size, Format format, uint32_t mipLevels, std::string_view name = "");
 
@@ -116,41 +115,38 @@ namespace gpu::texture
 
 	// Creates a view of a single mip level of the image
 	[[nodiscard]] TextureViewPtr CreateSingleMipView(TexturePtr texture, uint32_t level);
-
 	// Creates a view of a single array layer of the image
 	[[nodiscard]] TextureViewPtr CreateSingleLayerView(TexturePtr texture, uint32_t layer);
-
 	// Reinterpret the data of this texture
 	[[nodiscard]] TextureViewPtr CreateFormatView(TexturePtr texture, Format newFormat);
-
 	// Creates a view of the texture with a new component mapping
 	[[nodiscard]] TextureViewPtr CreateSwizzleView(TexturePtr texture, ComponentMapping components);
 
 	[[nodiscard]] SamplerPtr CreateSampler(const SamplerState& samplerState);
 
 	// Generates and makes resident a bindless handle from the image and a sampler.
-	[[nodiscard]] uint64_t GetBindlessHandle(TexturePtr texture, Sampler sampler);
+	[[nodiscard]] uint64_t GetBindlessHandle(const TexturePtr& texture, const SamplerPtr& sampler);
 
 	// Automatically generates LoDs of the image. All mip levels beyond 0 are filled with the generated LoDs
-	void GenMipmaps(TexturePtr texture);
+	void GenMipmaps(const TexturePtr& texture);
 
-	[[nodiscard]] const TextureCreateInfo& GetCreateInfo(TexturePtr texture) noexcept;
-	[[nodiscard]] core::Extent3D Extent(TexturePtr texture) noexcept;
-	[[nodiscard]] uint32_t Handle(TexturePtr texture) noexcept;
-	[[nodiscard]] bool IsValid(TexturePtr texture) noexcept;
+	[[nodiscard]] const TextureCreateInfo& GetCreateInfo(const TexturePtr& texture) noexcept;
+	[[nodiscard]] core::Extent3D Extent(const TexturePtr& texture) noexcept;
+	[[nodiscard]] uint32_t Handle(const TexturePtr& texture) noexcept;
+	[[nodiscard]] bool IsValid(const TexturePtr& texture) noexcept;
 
-	[[nodiscard]] const TextureCreateInfo& GetCreateInfo(TextureViewPtr view) noexcept;
-	[[nodiscard]] const TextureViewCreateInfo& GetViewInfo(TextureViewPtr view) noexcept;
-	[[nodiscard]] core::Extent3D Extent(TextureViewPtr view) noexcept;
-	[[nodiscard]] uint32_t Handle(TextureViewPtr view) noexcept;
-	[[nodiscard]] bool IsValid(TextureViewPtr view) noexcept;
+	[[nodiscard]] const TextureCreateInfo& GetCreateInfo(const TextureViewPtr& view) noexcept;
+	[[nodiscard]] const TextureViewCreateInfo& GetViewInfo(const TextureViewPtr& view) noexcept;
+	[[nodiscard]] core::Extent3D Extent(const TextureViewPtr& view) noexcept;
+	[[nodiscard]] uint32_t Handle(const TextureViewPtr& view) noexcept;
+	[[nodiscard]] bool IsValid(const TextureViewPtr& view) noexcept;
 
-	[[nodiscard]] uint32_t Handle(SamplerPtr sampler) noexcept;
-	[[nodiscard]] bool IsValid(SamplerPtr sampler) noexcept;
+	[[nodiscard]] uint32_t Handle(const SamplerPtr& sampler) noexcept;
+	[[nodiscard]] bool IsValid(const SamplerPtr& sampler) noexcept;
 
-	void UpdateImage(TexturePtr texture, const TextureUpdateInfo& info);
-	void UpdateCompressedImage(TexturePtr texture, const CompressedTextureUpdateInfo& info);
-	void ClearImage(TexturePtr texture, const TextureClearInfo& info);
+	void UpdateImage(const TexturePtr& texture, const TextureUpdateInfo& info);
+	void UpdateCompressedImage(const TexturePtr& texture, const CompressedTextureUpdateInfo& info);
+	void ClearImage(const TexturePtr& texture, const TextureClearInfo& info);
 
 } // namespace gpu::texture
 

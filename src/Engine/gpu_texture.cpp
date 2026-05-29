@@ -58,6 +58,7 @@ inline uint64_t getBlockCompressedImageSize(gpu::Format format, uint32_t width, 
 		return width * height * depth;
 	default: std::unreachable();
 	}
+	return 0;
 }
 //=============================================================================
 struct gpu::texture::Texture final
@@ -67,27 +68,25 @@ struct gpu::texture::Texture final
 	{
 		if (id)
 		{
-			if (bindlessHandle != 0)
-				glMakeTextureHandleNonResidentARB(bindlessHandle);
-
 			core::Debug("Destroyed texture with handle " + std::to_string(id));
+			if (bindlessHandle) glMakeTextureHandleNonResidentARB(bindlessHandle);
 			glDeleteTextures(1, &id);
 		}
 	}
 
-	Texture(const Texture&) = delete;
-	Texture& operator=(const Texture&) = delete;
+	Texture(const Texture&) noexcept = default;
+	Texture& operator=(const Texture&) noexcept = default;
 	Texture(Texture&&) noexcept = default;
 	Texture& operator=(Texture&&) noexcept = default;
 
-	[[nodiscard]] core::Extent3D Extent() const noexcept { return createInfo.extent; }
+	[[nodiscard]] const core::Extent3D& Extent() const noexcept { return createInfo.extent; }
 	[[nodiscard]] operator bool() const noexcept { return id > 0; }
-	[[nodiscard]] unsigned Handle() const noexcept { return id; }
+	[[nodiscard]] uint32_t Handle() const noexcept { return id; }
 	[[nodiscard]] bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t          id{ 0 };
 	TextureCreateInfo createInfo{};
-	uint64_t          bindlessHandle = 0;
+	uint64_t          bindlessHandle{ 0 };
 };
 //=============================================================================
 struct gpu::texture::TextureView final
@@ -95,14 +94,14 @@ struct gpu::texture::TextureView final
 	TextureView() noexcept = default;
 	~TextureView() = default; // TODO:???
 
-	TextureView(const TextureView&) = delete;
-	TextureView& operator=(const TextureView&) = delete;
+	TextureView(const TextureView&) noexcept = default;
+	TextureView& operator=(const TextureView&) noexcept = default;
 	TextureView(TextureView&&) noexcept = default;
 	TextureView& operator=(TextureView&&) noexcept = default;
 
-	[[nodiscard]] core::Extent3D Extent() const noexcept { return createInfo.extent; }
+	[[nodiscard]] const core::Extent3D& Extent() const noexcept { return createInfo.extent; }
 	[[nodiscard]] operator bool() const noexcept { return id > 0; }
-	[[nodiscard]] unsigned Handle() const noexcept { return id; }
+	[[nodiscard]] uint32_t Handle() const noexcept { return id; }
 	[[nodiscard]] bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t              id{ 0 };
@@ -112,10 +111,7 @@ struct gpu::texture::TextureView final
 //=============================================================================
 struct gpu::texture::Sampler final
 {
-	Sampler() noexcept
-	{
-		glCreateSamplers(1, &id);
-	}
+	Sampler() noexcept { glCreateSamplers(1, &id); }
 	~Sampler()
 	{
 		if (id)
@@ -125,13 +121,13 @@ struct gpu::texture::Sampler final
 		}
 	}
 
-	Sampler(const Sampler&) = delete;
-	Sampler& operator=(const Sampler&) = delete;
+	Sampler(const Sampler&) noexcept = default;
+	Sampler& operator=(const Sampler&) noexcept = default;
 	Sampler(Sampler&&) noexcept = default;
 	Sampler& operator=(Sampler&&) noexcept = default;
 
 	[[nodiscard]] operator bool() const noexcept { return id > 0; }
-	[[nodiscard]] unsigned Handle() const noexcept { return id; }
+	[[nodiscard]] uint32_t Handle() const noexcept { return id; }
 	[[nodiscard]] bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t id{ 0 };
@@ -172,7 +168,6 @@ gpu::texture::TexturePtr gpu::texture::CreateTexture(const TextureCreateInfo& cr
 {
 	auto texture = std::make_shared<Texture>();
 	texture->createInfo = createInfo;
-
 	glCreateTextures(EnumToValue(createInfo.imageType), 1, &texture->id);
 
 	GLint glFormat = EnumToValue(createInfo.format);
@@ -341,11 +336,11 @@ gpu::texture::TextureViewPtr gpu::texture::CreateTextureView(TexturePtr texture,
 gpu::texture::TextureViewPtr gpu::texture::CreateSingleMipView(TexturePtr texture, uint32_t level)
 {
 	TextureViewCreateInfo createInfo{
-		.viewType = texture->createInfo.imageType,
-		.format = texture->createInfo.format,
-		.minLevel = level,
+		.viewType  = texture->createInfo.imageType,
+		.format    = texture->createInfo.format,
+		.minLevel  = level,
 		.numLevels = 1,
-		.minLayer = 0,
+		.minLayer  = 0,
 		.numLayers = texture->createInfo.arrayLayers,
 	};
 	return CreateTextureView(createInfo, texture);
@@ -354,11 +349,11 @@ gpu::texture::TextureViewPtr gpu::texture::CreateSingleMipView(TexturePtr textur
 gpu::texture::TextureViewPtr gpu::texture::CreateSingleLayerView(TexturePtr texture, uint32_t layer)
 {
 	TextureViewCreateInfo createInfo{
-		.viewType = texture->createInfo.imageType,
-		.format = texture->createInfo.format,
-		.minLevel = 0,
+		.viewType  = texture->createInfo.imageType,
+		.format    = texture->createInfo.format,
+		.minLevel  = 0,
 		.numLevels = texture->createInfo.mipLevels,
-		.minLayer = layer,
+		.minLayer  = layer,
 		.numLayers = 1,
 	};
 	return CreateTextureView(createInfo, texture);
@@ -367,11 +362,11 @@ gpu::texture::TextureViewPtr gpu::texture::CreateSingleLayerView(TexturePtr text
 gpu::texture::TextureViewPtr gpu::texture::CreateFormatView(TexturePtr texture, Format newFormat)
 {
 	TextureViewCreateInfo createInfo{
-		.viewType = texture->createInfo.imageType,
-		.format = newFormat,
-		.minLevel = 0,
+		.viewType  = texture->createInfo.imageType,
+		.format    = newFormat,
+		.minLevel  = 0,
 		.numLevels = texture->createInfo.mipLevels,
-		.minLayer = 0,
+		.minLayer  = 0,
 		.numLayers = texture->createInfo.arrayLayers,
 	};
 	return CreateTextureView(createInfo, texture);
@@ -380,13 +375,13 @@ gpu::texture::TextureViewPtr gpu::texture::CreateFormatView(TexturePtr texture, 
 gpu::texture::TextureViewPtr gpu::texture::CreateSwizzleView(TexturePtr texture, ComponentMapping components)
 {
 	TextureViewCreateInfo createInfo{
-		.viewType = texture->createInfo.imageType,
-		.format = texture->createInfo.format,
+		.viewType   = texture->createInfo.imageType,
+		.format     = texture->createInfo.format,
 		.components = components,
-		.minLevel = 0,
-		.numLevels = texture->createInfo.mipLevels,
-		.minLayer = 0,
-		.numLayers = texture->createInfo.arrayLayers,
+		.minLevel   = 0,
+		.numLevels  = texture->createInfo.mipLevels,
+		.minLayer   = 0,
+		.numLayers  = texture->createInfo.arrayLayers,
 	};
 	return CreateTextureView(createInfo, texture);
 }
@@ -400,9 +395,7 @@ gpu::texture::SamplerPtr gpu::texture::CreateSampler(const SamplerState& sampler
 
 	auto sampler = std::make_shared<Sampler>();
 
-	glSamplerParameteri(sampler->id,
-		GL_TEXTURE_COMPARE_MODE,
-		samplerState.compareEnable ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
+	glSamplerParameteri(sampler->id, GL_TEXTURE_COMPARE_MODE, samplerState.compareEnable ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
 
 	glSamplerParameteri(sampler->id, GL_TEXTURE_COMPARE_FUNC, EnumToValue(samplerState.compareOp));
 
@@ -429,7 +422,6 @@ gpu::texture::SamplerPtr gpu::texture::CreateSampler(const SamplerState& sampler
 	glSamplerParameteri(sampler->id, GL_TEXTURE_WRAP_T, EnumToValue(samplerState.addressModeV));
 	glSamplerParameteri(sampler->id, GL_TEXTURE_WRAP_R, EnumToValue(samplerState.addressModeW));
 
-	// TODO: determine whether int white values should be 1 or 255
 	switch (samplerState.borderColor)
 	{
 	case BorderColor::FloatTransparentBlack:
@@ -452,7 +444,6 @@ gpu::texture::SamplerPtr gpu::texture::CreateSampler(const SamplerState& sampler
 	}
 	case BorderColor::IntOpaqueBlack:
 	{
-		// constexpr GLint color[4]{ 0, 0, 0, 255 };
 		constexpr GLint color[4]{ 0, 0, 0, 1 };
 		glSamplerParameteriv(sampler->id, GL_TEXTURE_BORDER_COLOR, color);
 		break;
@@ -465,7 +456,6 @@ gpu::texture::SamplerPtr gpu::texture::CreateSampler(const SamplerState& sampler
 	}
 	case BorderColor::IntOpaqueWhite:
 	{
-		// constexpr GLint color[4]{ 255, 255, 255, 255 };
 		constexpr GLint color[4]{ 1, 1, 1, 1 };
 		glSamplerParameteriv(sampler->id, GL_TEXTURE_BORDER_COLOR, color);
 		break;
@@ -473,14 +463,9 @@ gpu::texture::SamplerPtr gpu::texture::CreateSampler(const SamplerState& sampler
 	default: std::unreachable(); break;
 	}
 
-	glSamplerParameterf(sampler->id,
-		GL_TEXTURE_MAX_ANISOTROPY,
-		static_cast<GLfloat>(EnumToValue(samplerState.anisotropy)));
-
+	glSamplerParameterf(sampler->id, GL_TEXTURE_MAX_ANISOTROPY, static_cast<GLfloat>(EnumToValue(samplerState.anisotropy)));
 	glSamplerParameterf(sampler->id, GL_TEXTURE_LOD_BIAS, samplerState.lodBias);
-
 	glSamplerParameterf(sampler->id, GL_TEXTURE_MIN_LOD, samplerState.minLod);
-
 	glSamplerParameterf(sampler->id, GL_TEXTURE_MAX_LOD, samplerState.maxLod);
 
 	core::Debug("Created sampler with handle " + std::to_string(sampler->id));
@@ -488,83 +473,88 @@ gpu::texture::SamplerPtr gpu::texture::CreateSampler(const SamplerState& sampler
 	return context.samplerCache.insert({ samplerState, sampler }).first->second;
 }
 //=============================================================================
-uint64_t gpu::texture::GetBindlessHandle(TexturePtr texture, Sampler sampler)
+uint64_t gpu::texture::GetBindlessHandle(const TexturePtr& texture, const SamplerPtr& sampler)
 {
 	assert(texture->bindlessHandle == 0 && "Texture already has bindless handle resident.");
-	texture->bindlessHandle = glGetTextureSamplerHandleARB(texture->id, sampler.Handle());
+	texture->bindlessHandle = glGetTextureSamplerHandleARB(texture->id, sampler->Handle());
 	assert(texture->bindlessHandle != 0 && "Failed to create texture sampler handle.");
 	glMakeTextureHandleResidentARB(texture->bindlessHandle);
 	return texture->bindlessHandle;
 }
 //=============================================================================
-void gpu::texture::GenMipmaps(TexturePtr texture)
+void gpu::texture::GenMipmaps(const TexturePtr& texture)
 {
 	assert(texture);
 	glGenerateTextureMipmap(texture->id);
 }
 //=============================================================================
-const gpu::texture::TextureCreateInfo& gpu::texture::GetCreateInfo(TexturePtr texture) noexcept
+const gpu::texture::TextureCreateInfo& gpu::texture::GetCreateInfo(const TexturePtr& texture) noexcept
 {
-	return texture ? texture->createInfo : TextureCreateInfo{};
+	assert(texture);
+	return texture ? texture->createInfo : std::move(TextureCreateInfo{});
 }
 //=============================================================================
-core::Extent3D gpu::texture::Extent(TexturePtr texture) noexcept
+core::Extent3D gpu::texture::Extent(const TexturePtr& texture) noexcept
 {
-	return texture ? texture->Extent() : core::Extent3D{};
+	assert(texture);
+	return texture ? texture->Extent() : std::move(core::Extent3D{});
 }
 //=============================================================================
-uint32_t gpu::texture::Handle(TexturePtr texture) noexcept
+uint32_t gpu::texture::Handle(const TexturePtr& texture) noexcept
 {
 	return texture ? texture->Handle() : 0;
 }
 //=============================================================================
-bool gpu::texture::IsValid(TexturePtr texture) noexcept
+bool gpu::texture::IsValid(const TexturePtr& texture) noexcept
 {
 	return texture ? texture->IsValid() : false;
 }
 //=============================================================================
-const gpu::texture::TextureCreateInfo& gpu::texture::GetCreateInfo(TextureViewPtr view) noexcept
+const gpu::texture::TextureCreateInfo& gpu::texture::GetCreateInfo(const TextureViewPtr& view) noexcept
 {
-	return view ? view->createInfo : TextureCreateInfo{};
+	assert(view);
+	return view ? view->createInfo : std::move(TextureCreateInfo{});
 }
 //=============================================================================
-const gpu::texture::TextureViewCreateInfo& gpu::texture::GetViewInfo(TextureViewPtr view) noexcept
+const gpu::texture::TextureViewCreateInfo& gpu::texture::GetViewInfo(const TextureViewPtr& view) noexcept
 {
-	return view ? view->viewInfo : TextureViewCreateInfo{};
+	assert(view);
+	return view ? view->viewInfo : std::move(TextureViewCreateInfo{});
 }
 //=============================================================================
-core::Extent3D gpu::texture::Extent(TextureViewPtr view) noexcept
+core::Extent3D gpu::texture::Extent(const TextureViewPtr& view) noexcept
 {
-	return view ? view->Extent() : core::Extent3D{};
+	assert(view);
+	return view ? view->Extent() : std::move(core::Extent3D{});
 }
 //=============================================================================
-uint32_t gpu::texture::Handle(TextureViewPtr view) noexcept
+uint32_t gpu::texture::Handle(const TextureViewPtr& view) noexcept
 {
 	return view ? view->Handle() : 0;
 }
 //=============================================================================
-bool gpu::texture::IsValid(TextureViewPtr view) noexcept
+bool gpu::texture::IsValid(const TextureViewPtr& view) noexcept
 {
 	return view ? view->IsValid() : false;
 }
 //=============================================================================
-uint32_t gpu::texture::Handle(SamplerPtr sampler) noexcept
+uint32_t gpu::texture::Handle(const SamplerPtr& sampler) noexcept
 {
 	return sampler ? sampler->Handle() : 0;
 }
 //=============================================================================
-bool gpu::texture::IsValid(SamplerPtr sampler) noexcept
+bool gpu::texture::IsValid(const SamplerPtr& sampler) noexcept
 {
 	return sampler ? sampler->IsValid() : false;
 }
 //=============================================================================
-void gpu::texture::UpdateImage(TexturePtr texture, const TextureUpdateInfo& info)
+void gpu::texture::UpdateImage(const TexturePtr& texture, const TextureUpdateInfo& info)
 {
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	SubImageInternal(texture, info);
 }
 //=============================================================================
-void gpu::texture::UpdateCompressedImage(TexturePtr texture, const CompressedTextureUpdateInfo& info)
+void gpu::texture::UpdateCompressedImage(const TexturePtr& texture, const CompressedTextureUpdateInfo& info)
 {
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	assert(IsBlockCompressedFormat(texture->createInfo.format));
@@ -605,7 +595,7 @@ void gpu::texture::UpdateCompressedImage(TexturePtr texture, const CompressedTex
 	}
 }
 //=============================================================================
-void gpu::texture::ClearImage(TexturePtr texture, const TextureClearInfo& info)
+void gpu::texture::ClearImage(const TexturePtr& texture, const TextureClearInfo& info)
 {
 	// Infer format
 	GLenum format{};

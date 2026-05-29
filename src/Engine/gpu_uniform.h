@@ -22,23 +22,23 @@ namespace gpu::uniform
 
 		std::string name;
 		T value = {};
-		gpu::program::ShaderProgramPtr program;
+		program::ShaderProgramPtr program;
 		int location{ -1 };
 	};
 
 	template<typename T>
-	bool InitUniform(Uniform<T>& uniform, gpu::program::ShaderProgramPtr program, const std::string& name)
+	bool InitUniform(Uniform<T>& uniform, program::ShaderProgramPtr program, const std::string& name)
 	{
 		uniform.name = name;
 		uniform.program = program;
-		uniform.location = gpu::program::GetUniformLocation(program, name);
+		uniform.location = program::GetUniformLocation(program, name);
 		return uniform.IsValid();
 	}
 
 	template<typename T>
 	bool BindUniform(const Uniform<T>& uniform)
 	{
-		return gpu::program::SetUniform(uniform.program, uniform.location, uniform.value);
+		return program::SetUniform(uniform.program, uniform.location, uniform.value);
 	}
 
 	template<typename T>

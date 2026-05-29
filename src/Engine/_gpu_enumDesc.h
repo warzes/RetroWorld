@@ -654,12 +654,8 @@ namespace gpu
 	{
 		switch (filter)
 		{
-		case Filter::Nearest:              return GL_NEAREST;
-		case Filter::Linear:               return GL_LINEAR;
-		case Filter::NearestMipmapNearest: return GL_NEAREST_MIPMAP_NEAREST;
-		case Filter::NearestMipmapLinear:  return GL_NEAREST_MIPMAP_LINEAR;
-		case Filter::LinearMipmapNearest:  return GL_LINEAR_MIPMAP_NEAREST;
-		case Filter::LinearMipmapLinear:   return GL_LINEAR_MIPMAP_LINEAR;
+		case Filter::Nearest: return GL_NEAREST;
+		case Filter::Linear:  return GL_LINEAR;
 		default: std::unreachable();
 		}
 	}

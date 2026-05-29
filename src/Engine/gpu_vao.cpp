@@ -24,22 +24,22 @@ struct gpu::vao::VertexArray final
 		}
 	}
 
-	VertexArray(const VertexArray&) = delete;
-	VertexArray& operator=(const VertexArray&) = delete;
+	VertexArray(const VertexArray&) noexcept = default;
+	VertexArray& operator=(const VertexArray&) noexcept = default;
 	VertexArray(VertexArray&&) noexcept = default;
 	VertexArray& operator=(VertexArray&&) noexcept = default;
 
 	void Bind()
 	{
-#if defined(_DEBUG)
-		core::Debug("Bind vertex array " + std::to_string(id));
-#endif
+//#if defined(_DEBUG)
+//		core::Debug("Bind vertex array " + std::to_string(id));
+//#endif
 		glBindVertexArray(id);
 		MetricsCurrent.vertexBindings++;
 	}
 
 	[[nodiscard]] operator bool() const noexcept { return id > 0; }
-	[[nodiscard]] unsigned Handle() const noexcept { return id; }
+	[[nodiscard]] uint32_t Handle() const noexcept { return id; }
 	[[nodiscard]] bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t id{ 0 };
@@ -88,17 +88,17 @@ gpu::vao::VertexArrayPtr gpu::vao::CreateVertexArray(const std::vector<VertexInp
 	return context.vertexArrayCache.insert({ inputHash, vao }).first->second;
 }
 //=============================================================================
-uint32_t gpu::vao::Handle(VertexArrayPtr vao) noexcept
+uint32_t gpu::vao::Handle(const VertexArrayPtr& vao) noexcept
 {
 	return vao ? vao->Handle() : 0;
 }
 //=============================================================================
-bool gpu::vao::IsValid(VertexArrayPtr vao) noexcept
+bool gpu::vao::IsValid(const VertexArrayPtr& vao) noexcept
 {
 	return vao ? vao->IsValid() : false;
 }
 //=============================================================================
-void gpu::vao::BindVertexArray(VertexArrayPtr vao)
+void gpu::vao::BindVertexArray(const VertexArrayPtr& vao)
 {
 	if (context.currentVertexArray != vao)
 	{
@@ -106,5 +106,4 @@ void gpu::vao::BindVertexArray(VertexArrayPtr vao)
 		vao ? vao->Bind() : glBindVertexArray(0);
 	}
 }
-
 //=============================================================================

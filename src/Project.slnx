@@ -11,7 +11,7 @@
   </Folder>
   <Project Path="3rdparty/3rdparty.vcxproj" Id="85d00892-bf33-46df-b47c-bdfc3b6937a1" />
   <Project Path="Engine/Engine.vcxproj" Id="c46b92ad-642b-4901-8b8b-c55733bb2556" />
-  <Project Path="Examples/Examples.vcxproj">
+  <Project Path="Examples/Examples.vcxproj" Id="da6725b2-80fb-4516-bb33-dae0629a57d4">
     <BuildDependency Project="Engine/Engine.vcxproj" />
     <BuildDependency Project="Game/Game.vcxproj" />
   </Project>

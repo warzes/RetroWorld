@@ -200,10 +200,6 @@ namespace gpu
 		None,
 		Nearest,
 		Linear,
-		NearestMipmapNearest,
-		LinearMipmapNearest,
-		NearestMipmapLinear,
-		LinearMipmapLinear
 	};
 
 	enum class AddressMode : uint8_t

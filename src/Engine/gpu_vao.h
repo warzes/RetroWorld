@@ -21,11 +21,11 @@ namespace gpu::vao
 		uint32_t offset{ 0 };   // glVertexArrayAttribFormat
 	};
 
-	VertexArrayPtr CreateVertexArray(const std::vector<VertexInputBindingDescription>& vertexInputState);
+	[[nodiscard]] VertexArrayPtr CreateVertexArray(const std::vector<VertexInputBindingDescription>& vertexInputState);
 
-	[[nodiscard]] uint32_t Handle(VertexArrayPtr vao) noexcept;
-	[[nodiscard]] bool IsValid(VertexArrayPtr vao) noexcept;
+	[[nodiscard]] uint32_t Handle(const VertexArrayPtr& vao) noexcept;
+	[[nodiscard]] bool IsValid(const VertexArrayPtr& vao) noexcept;
 
-	void BindVertexArray(VertexArrayPtr vao);
+	void BindVertexArray(const VertexArrayPtr& vao);
 
 } // namespace gpu::vao
