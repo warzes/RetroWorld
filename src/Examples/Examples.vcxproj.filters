@@ -3,15 +3,15 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="GameApp.cpp">
-      <Filter>Game</Filter>
+    <ClCompile Include="gpu001_cube.cpp">
+      <Filter>GPUExamples</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="Game">
+    <Filter Include="GPUExamples">
       <UniqueIdentifier>{4e21f915-3420-400c-91ae-c6e0fae0498d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>

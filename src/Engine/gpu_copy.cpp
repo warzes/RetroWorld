@@ -30,7 +30,7 @@ void gpu::TextureBarrier()
 void gpu::CopyBuffer(const CopyBufferInfo& copy)
 {
 	auto size = copy.size;
-	if (size == WHOLE_BUFFER)
+	if (size == buffer::WHOLE_BUFFER)
 	{
 		size = buffer::Size(copy.source) - copy.sourceOffset;
 	}

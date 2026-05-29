@@ -2,7 +2,7 @@
 #include "gpu_buffer.h"
 #include "core_log.h"
 //=============================================================================
-inline size_t roundUp(size_t numberToRoundUp, size_t multipleOf)
+constexpr size_t roundUp(size_t numberToRoundUp, size_t multipleOf)
 {
 	assert(multipleOf);
 	return ((numberToRoundUp + multipleOf - 1) / multipleOf) * multipleOf;
@@ -36,13 +36,13 @@ struct gpu::buffer::Buffer final
 		}
 	}
 
-	Buffer(const Buffer&) = delete;
-	Buffer& operator=(const Buffer&) = delete;
+	Buffer(const Buffer&) noexcept = default;
+	Buffer& operator=(const Buffer&) noexcept = default;
 	Buffer(Buffer&&) noexcept = default;
 	Buffer& operator=(Buffer&&) noexcept = default;
 
 	[[nodiscard]] operator bool() const noexcept { return id > 0; }
-	[[nodiscard]] unsigned Handle() const noexcept { return id; }
+	[[nodiscard]] uint32_t Handle() const noexcept { return id; }
 	[[nodiscard]] bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t           id{ 0 };
@@ -56,7 +56,7 @@ gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(size_t size, BufferStorageFlags
 	return CreateBuffer(nullptr, size, storageFlags, name);
 }
 //=============================================================================
-gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(TriviallyCopyableByteSpan data, BufferStorageFlags storageFlags, std::string_view name)
+gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(ByteSpan data, BufferStorageFlags storageFlags, std::string_view name)
 {
 	return CreateBuffer(data.data(), data.size_bytes(), storageFlags, name);
 }
@@ -68,6 +68,7 @@ gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(const void* data, size_t size, 
 	BufferPtr buffer = std::make_shared<Buffer>();
 	buffer->size = roundUp(size, 16);
 	buffer->storageFlags = storageFlags;
+
 	glNamedBufferStorage(buffer->id, buffer->size, data, glflags);
 	if (storageFlags & BufferStorageFlag::MapMemory)
 	{
@@ -83,57 +84,59 @@ gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(const void* data, size_t size, 
 	return buffer;
 }
 //=============================================================================
-void* gpu::buffer::GetMappedPointer(BufferPtr buffer) noexcept
+std::span<std::byte> gpu::buffer::GetMappedPointer(const BufferPtr& buffer) noexcept
 {
-	assert(buffer);
-	return buffer->mappedMemory;
+	if (!buffer || !buffer->mappedMemory) return {};
+	return std::span(static_cast<std::byte*>(buffer->mappedMemory), buffer->size);
 }
 //=============================================================================
-bool gpu::buffer::IsMapped(BufferPtr buffer) noexcept
+bool gpu::buffer::IsMapped(const BufferPtr& buffer) noexcept
 {
-	assert(buffer);
-	return buffer->mappedMemory != nullptr;
+	return buffer ? (buffer->mappedMemory != nullptr) : false;
 }
 //=============================================================================
-size_t gpu::buffer::Size(BufferPtr buffer) noexcept
+size_t gpu::buffer::Size(const BufferPtr& buffer) noexcept
 {
-	assert(buffer);
-	return buffer->size;
+	return buffer ? buffer->size : 0;
 }
 //=============================================================================
-uint32_t gpu::buffer::Handle(BufferPtr buffer) noexcept
+uint32_t gpu::buffer::Handle(const BufferPtr& buffer) noexcept
 {
 	return buffer ? buffer->Handle() : 0;
 }
 //=============================================================================
-bool gpu::buffer::IsValid(BufferPtr buffer) noexcept
+bool gpu::buffer::IsValid(const BufferPtr& buffer) noexcept
 {
 	return buffer ? buffer->IsValid() : false;
 }
 //=============================================================================
-void gpu::buffer::Invalidate(BufferPtr buffer)
+void gpu::buffer::Invalidate(const BufferPtr& buffer)
 {
 	assert(buffer);
 	glInvalidateBufferData(buffer->id);
 }
 //=============================================================================
-void gpu::buffer::FillData(BufferPtr buffer, const BufferFillInfo& clear)
+void gpu::buffer::FillData(const BufferPtr& buffer, const BufferFillInfo& clear)
 {
 	const auto actualSize = clear.size == WHOLE_BUFFER ? buffer->size : clear.size;
 	assert(actualSize % 4 == 0 && "Size must be a multiple of 4 bytes");
 	glClearNamedBufferSubData(buffer->id, GL_R32UI, clear.offset, actualSize, GL_RED_INTEGER, GL_UNSIGNED_INT, &clear.data);
 }
 //=============================================================================
-void gpu::buffer::UpdateData(BufferPtr buffer, TriviallyCopyableByteSpan data, size_t destOffsetBytes)
+void gpu::buffer::UpdateData(const BufferPtr& buffer, ByteSpan data, size_t destOffsetBytes)
 {
 	UpdateData(buffer, data.data(), data.size_bytes(), destOffsetBytes);
 }
 //=============================================================================
-void gpu::buffer::UpdateData(BufferPtr buffer, const void* data, size_t size, size_t destOffsetBytes)
+void gpu::buffer::UpdateData(const BufferPtr& buffer, const void* data, size_t size, size_t destOffsetBytes)
 {
 	assert(buffer);
 	assert((buffer->storageFlags & BufferStorageFlag::DynamicStorage) && "UpdateData can only be called on buffers created with the DYNAMIC_STORAGE flag");
-	assert(size + destOffsetBytes <= Size(buffer));
+	assert(size + destOffsetBytes <= buffer->size);
+
+	if (!(buffer->storageFlags & BufferStorageFlag::DynamicStorage)) return;
+	if (size + destOffsetBytes > buffer->size) return;
+
 	glNamedBufferSubData(buffer->id, static_cast<GLuint>(destOffsetBytes), static_cast<GLuint>(size), data);
 }
 //=============================================================================

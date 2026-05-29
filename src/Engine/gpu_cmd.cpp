@@ -632,14 +632,14 @@ void gpu::cmd::BindIndexBuffer(vao::VertexArrayPtr vao, gpu::buffer::BufferPtr b
 void gpu::cmd::BindUniformBuffer(uint32_t index, buffer::BufferPtr buffer, uint64_t offset, uint64_t size)
 {
 	assert(context.isRendering);
-	if (size == WHOLE_BUFFER) size = buffer::Size(buffer) - offset;
+	if (size == buffer::WHOLE_BUFFER) size = buffer::Size(buffer) - offset;
 	glBindBufferRange(GL_UNIFORM_BUFFER, index, buffer::Handle(buffer), offset, size);
 }
 //=============================================================================
 void gpu::cmd::BindStorageBuffer(uint32_t index, buffer::BufferPtr buffer, uint64_t offset, uint64_t size)
 {
 	assert(context.isRendering);
-	if (size == WHOLE_BUFFER) size = buffer::Size(buffer) - offset;
+	if (size == buffer::WHOLE_BUFFER) size = buffer::Size(buffer) - offset;
 	glBindBufferRange(GL_SHADER_STORAGE_BUFFER, index, buffer::Handle(buffer), offset, size);
 }
 //=============================================================================

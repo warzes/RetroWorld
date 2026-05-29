@@ -155,6 +155,9 @@
     <ClInclude Include="core_hash.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="app_mouseLook.h">
+      <Filter>app</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -259,6 +262,9 @@
     </ClCompile>
     <ClCompile Include="gr_shadowMapManager.cpp">
       <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="app_mouseLook.cpp">
+      <Filter>app</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

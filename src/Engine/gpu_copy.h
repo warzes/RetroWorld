@@ -27,7 +27,7 @@ namespace gpu
 		uint64_t sourceOffset = 0;
 		uint64_t targetOffset = 0;
 		// The amount of data to copy, in bytes. If size is WHOLE_BUFFER, the size of the source buffer is used.
-		uint64_t size = WHOLE_BUFFER;
+		uint64_t size = buffer::WHOLE_BUFFER;
 	};
 
 	void CopyBuffer(const CopyBufferInfo& copy);

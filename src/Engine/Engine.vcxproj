@@ -100,6 +100,7 @@
     <ClInclude Include="app_input.h" />
     <ClInclude Include="app_keys.h" />
     <ClInclude Include="app_messageHandler.h" />
+    <ClInclude Include="app_mouseLook.h" />
     <ClInclude Include="app_window.h" />
     <ClInclude Include="core_file.h" />
     <ClInclude Include="core_flags.h" />
@@ -152,6 +153,7 @@
   <ItemGroup>
     <ClCompile Include="app.cpp" />
     <ClCompile Include="app_input.cpp" />
+    <ClCompile Include="app_mouseLook.cpp" />
     <ClCompile Include="app_window.cpp" />
     <ClCompile Include="core_file.cpp" />
     <ClCompile Include="core_image.cpp" />

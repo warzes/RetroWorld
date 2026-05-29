@@ -61,7 +61,7 @@ namespace gpu::cmd
 	void BindIndexBuffer(vao::VertexArrayPtr vao, buffer::BufferPtr buffer, IndexType indexType);
 
 	void BindUniformBuffer(uint32_t index, buffer::BufferPtr buffer, uint64_t offset, uint64_t size);
-	void BindStorageBuffer(uint32_t index, buffer::BufferPtr buffer, uint64_t offset = 0, uint64_t size = WHOLE_BUFFER);
+	void BindStorageBuffer(uint32_t index, buffer::BufferPtr buffer, uint64_t offset = 0, uint64_t size = buffer::WHOLE_BUFFER);
 
 	// Equivalent to glDrawArraysInstancedBaseInstance or vkCmdDraw
 	void Draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
