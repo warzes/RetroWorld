@@ -83,18 +83,15 @@ scene::SceneManager::SceneManager()
 	m_pointShadowSampler = gpu::texture::CreateSampler(pointSs);
 
 	m_instanceCapacity = INITIAL_INSTANCE_CAPACITY;
+	m_instanceSSBO = gpu::buffer::CreateBuffer(
+		m_instanceCapacity * sizeof(glm::mat4),
+		gpu::buffer::BufferStorageFlag::DynamicStorage,
+		"instance_ssbo");
 
-	gpu::buffer::BufferCreateInfo ssbo = {
-		.name = "instance_ssbo",
-		.storageFlags = gpu::buffer::BufferStorageFlag::DynamicStorage,		
-	};
-	m_instanceSSBO = gpu::buffer::CreateBuffer(m_instanceCapacity * sizeof(glm::mat4), ssbo);
-
-	gpu::buffer::BufferCreateInfo ubo = {
-		.name = "light_ubo",
-		.storageFlags = gpu::buffer::BufferStorageFlag::DynamicStorage,
-	};
-	m_lightUBO = gpu::buffer::CreateBuffer(sizeof(LightBlockUBO), ubo);
+	m_lightUBO = gpu::buffer::CreateBuffer(
+		sizeof(LightBlockUBO),
+		gpu::buffer::BufferStorageFlag::DynamicStorage,
+		"light_ubo");
 }
 //=============================================================================
 void scene::SceneManager::Update()
@@ -378,11 +375,10 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 				if (count > m_instanceCapacity)
 				{
 					m_instanceCapacity = (std::max)(count, m_instanceCapacity * 2u);
-					gpu::buffer::BufferCreateInfo ssbo = {
-						.name = "instance_ssbo",
-						.storageFlags = gpu::buffer::BufferStorageFlag::DynamicStorage,
-					};
-					m_instanceSSBO = gpu::buffer::CreateBuffer(m_instanceCapacity * sizeof(glm::mat4), ssbo);
+					m_instanceSSBO = gpu::buffer::CreateBuffer(
+						m_instanceCapacity * sizeof(glm::mat4),
+						gpu::buffer::BufferStorageFlag::DynamicStorage,
+						"instance_ssbo");
 				}
 
 				gpu::buffer::UpdateData(m_instanceSSBO,
@@ -784,11 +780,10 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 		if (count > m_instanceCapacity)
 		{
 			m_instanceCapacity = (std::max)(count, m_instanceCapacity * 2u);
-			gpu::buffer::BufferCreateInfo ssbo = {
-				.name = "instance_ssbo",
-				.storageFlags = gpu::buffer::BufferStorageFlag::DynamicStorage,
-			};
-			m_instanceSSBO = gpu::buffer::CreateBuffer(m_instanceCapacity * sizeof(glm::mat4), ssbo);
+			m_instanceSSBO = gpu::buffer::CreateBuffer(
+				m_instanceCapacity * sizeof(glm::mat4),
+				gpu::buffer::BufferStorageFlag::DynamicStorage,
+				"instance_ssbo");
 		}
 
 		// Upload all instance matrices to SSBO

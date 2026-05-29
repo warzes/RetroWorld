@@ -51,34 +51,34 @@ struct gpu::buffer::Buffer final
 	void*              mappedMemory{ nullptr };
 };
 //=============================================================================
-gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(size_t size, const BufferCreateInfo& createInfo)
+gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(size_t size, BufferStorageFlags storageFlags, std::string_view name)
 {
-	return CreateBuffer(nullptr, size, createInfo);
+	return CreateBuffer(nullptr, size, storageFlags, name);
 }
 //=============================================================================
-gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(ByteSpan data, const BufferCreateInfo& createInfo)
+gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(ByteSpan data, BufferStorageFlags storageFlags, std::string_view name)
 {
-	return CreateBuffer(data.data(), data.size_bytes(), createInfo);
+	return CreateBuffer(data.data(), data.size_bytes(), storageFlags, name);
 }
 //=============================================================================
-gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(const void* data, size_t size, const BufferCreateInfo& createInfo)
+gpu::buffer::BufferPtr gpu::buffer::CreateBuffer(const void* data, size_t size, BufferStorageFlags storageFlags, std::string_view name)
 {
-	GLbitfield glflags = bufferStorageFlagsToGL(createInfo.storageFlags);
+	GLbitfield glflags = bufferStorageFlagsToGL(storageFlags);
 
 	BufferPtr buffer = std::make_shared<Buffer>();
 	buffer->size = roundUp(size, 16);
-	buffer->storageFlags = createInfo.storageFlags;
+	buffer->storageFlags = storageFlags;
 
 	glNamedBufferStorage(buffer->id, buffer->size, data, glflags);
-	if (createInfo.storageFlags & BufferStorageFlag::MapMemory)
+	if (storageFlags & BufferStorageFlag::MapMemory)
 	{
 		// GL_MAP_UNSYNCHRONIZED_BIT should be used if the user can map and unmap buffers at their own will
 		constexpr GLenum access = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
 		buffer->mappedMemory = glMapNamedBufferRange(buffer->id, 0, buffer->size, access);
 	}
 
-	if (!createInfo.name.empty())
-		glObjectLabel(GL_BUFFER, buffer->id, static_cast<GLsizei>(createInfo.name.length()), createInfo.name.data());
+	if (!name.empty())
+		glObjectLabel(GL_BUFFER, buffer->id, static_cast<GLsizei>(name.length()), name.data());
 
 	core::Debug("Created buffer with handle " + std::to_string(buffer->id));
 	return buffer;
