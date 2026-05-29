@@ -39,9 +39,16 @@ namespace gpu::buffer
 		ByteSpan(std::span<T> t) : std::span<const std::byte>(std::as_bytes(t)) {}
 	};
 
-	[[nodiscard]] BufferPtr CreateBuffer(size_t size, BufferStorageFlags storageFlags = BufferStorageFlag::None, std::string_view name = "");
-	[[nodiscard]] BufferPtr CreateBuffer(ByteSpan data, BufferStorageFlags storageFlags = BufferStorageFlag::None, std::string_view name = "");
-	[[nodiscard]] BufferPtr CreateBuffer(const void* data, size_t size, BufferStorageFlags storageFlags = BufferStorageFlag::None, std::string_view name = "");
+	struct BufferCreateInfo final
+	{
+		std::string_view name = "";
+		BufferStorageFlags storageFlags = BufferStorageFlag::None;
+		bool immutableStorage{ false };
+	};
+
+	[[nodiscard]] BufferPtr CreateBuffer(size_t size, const BufferCreateInfo& createInfo = {});
+	[[nodiscard]] BufferPtr CreateBuffer(ByteSpan data, const BufferCreateInfo& createInfo = {});
+	[[nodiscard]] BufferPtr CreateBuffer(const void* data, size_t size, const BufferCreateInfo& createInfo = {});
 
 	// Gets the buffer's persistently mapped memory as a span of bytes.
 	// Returns an empty span if the buffer was not created with BufferStorageFlag::MapMemory.
