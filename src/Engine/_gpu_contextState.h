@@ -73,6 +73,14 @@ namespace gpu
 
 		bool isRenderingToSwapchain = true;
 
+		// True during a render or compute scope that has a name.
+		bool isScopedDebugGroupPushed = false;
+
+		// True during SwapchainRendering scopes that disable sRGB.
+		// This is needed since regular Rendering scopes always have framebuffer sRGB enabled
+		// (the user uses framebuffer attachments to decide if they want the linear->sRGB conversion).
+		bool srgbWasDisabled = false;
+
 		// Used for error checking for indexed draws
 		bool isIndexBufferBound = false;
 

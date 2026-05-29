@@ -47,48 +47,18 @@ inline gpu::fbo::FramebufferPtr makeSingleTextureFbo(gpu::texture::TexturePtr te
 	return gpu::fbo::CreateFramebuffer(createInfo);
 }
 //=============================================================================
-void gpu::cmd::BlitTexture(texture::TexturePtr source, texture::TexturePtr target, core::Offset3D sourceOffset, core::Offset3D targetOffset, core::Extent3D sourceExtent, core::Extent3D targetExtent, Filter filter, AspectMask aspect)
-{
-	auto fboSource = makeSingleTextureFbo(source);
-	auto fboTarget = makeSingleTextureFbo(target);
-	glBlitNamedFramebuffer(
-		gpu::fbo::Handle(fboSource),
-		gpu::fbo::Handle(fboTarget),
-		sourceOffset.x,
-		sourceOffset.y,
-		sourceExtent.width,
-		sourceExtent.height,
-		targetOffset.x,
-		targetOffset.y,
-		targetExtent.width,
-		targetExtent.height,
-		gpu::EnumToValue(aspect),
-		gpu::EnumToValue(filter));
-}
-//=============================================================================
-void gpu::cmd::BlitTextureToSwapchain(texture::TexturePtr source, core::Offset3D sourceOffset, core::Offset3D targetOffset, core::Extent3D sourceExtent, core::Extent3D targetExtent, Filter filter, AspectMask aspect)
-{
-	auto fbo = makeSingleTextureFbo(source);
-
-	glBlitNamedFramebuffer(gpu::fbo::Handle(fbo),
-		0,
-		sourceOffset.x,
-		sourceOffset.y,
-		sourceExtent.width,
-		sourceExtent.height,
-		targetOffset.x,
-		targetOffset.y,
-		targetExtent.width,
-		targetExtent.height,
-		gpu::EnumToValue(aspect),
-		gpu::EnumToValue(filter));
-}
-//=============================================================================
-void gpu::cmd::SwapchainRendering(const fbo::SwapchainRenderInfo& renderInfo)
+void gpu::cmd::BeginDraw(const fbo::SwapchainRenderInfo& renderInfo, std::string_view name)
 {
 	const auto& ri = renderInfo;
 
-	if (!context.isRenderingToSwapchain) 
+	context.isRendering = true;
+	if (!name.empty())
+	{
+		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, static_cast<GLsizei>(name.size()), name.data());
+		context.isScopedDebugGroupPushed = true;
+	}
+
+	if (!context.isRenderingToSwapchain)
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	context.isRenderingToSwapchain = true;
 
@@ -159,15 +129,29 @@ void gpu::cmd::SwapchainRendering(const fbo::SwapchainRenderInfo& renderInfo)
 	default: std::unreachable();
 	}
 
+	// Framebuffer sRGB can only be disabled in this exact function
+	if (!renderInfo.enableSrgb)
+	{
+		glDisable(GL_FRAMEBUFFER_SRGB);
+		context.srgbWasDisabled = true;
+	}
+
 	setViewportInternal(renderInfo.viewport, context.lastViewport, context.initViewport);
 
 	context.lastViewport = renderInfo.viewport;
 	context.initViewport = false;
 }
 //=============================================================================
-void gpu::cmd::BindFramebuffer(fbo::FramebufferPtr fbo)
+void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 {
+	context.isRendering = true;
 	context.isRenderingToSwapchain = false;
+
+	if (!name.empty())
+	{
+		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, static_cast<GLsizei>(name.size()), name.data());
+		context.isScopedDebugGroupPushed = true;
+	}
 
 	GLuint fboId = fbo::Handle(fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fboId);
@@ -300,9 +284,9 @@ void gpu::cmd::BindFramebuffer(fbo::FramebufferPtr fbo)
 	context.initViewport = false;
 }
 //=============================================================================
-void gpu::cmd::BindFramebufferNoAttachments(fbo::FramebufferPtr fbo, const fbo::RenderNoAttachmentsInfo& info)
+void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, const fbo::RenderNoAttachmentsInfo& info, std::string_view name)
 {
-	BindFramebuffer(fbo);
+	BeginDraw(fbo, name);
 	GLuint fboId = fbo::Handle(fbo);
 
 	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_WIDTH, info.framebufferSize.width);
@@ -310,6 +294,67 @@ void gpu::cmd::BindFramebufferNoAttachments(fbo::FramebufferPtr fbo, const fbo::
 	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_LAYERS, info.framebufferSize.depth);
 	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_SAMPLES, EnumToValue(info.framebufferSamples));
 	glNamedFramebufferParameteri(fboId, GL_FRAMEBUFFER_DEFAULT_FIXED_SAMPLE_LOCATIONS, GL_TRUE);
+}
+//=============================================================================
+void gpu::cmd::EndDraw()
+{
+	context.isRendering = false;
+	context.isIndexBufferBound = false;
+	context.isRenderingToSwapchain = false;
+
+	if (context.isScopedDebugGroupPushed)
+	{
+		context.isScopedDebugGroupPushed = false;
+		glPopDebugGroup();
+	}
+
+	if (context.scissorEnabled)
+	{
+		glDisable(GL_SCISSOR_TEST);
+		context.scissorEnabled = false;
+	}
+
+	if (context.srgbWasDisabled)
+	{
+		glEnable(GL_FRAMEBUFFER_SRGB);
+	}
+}
+//=============================================================================
+void gpu::cmd::BlitTexture(texture::TexturePtr source, texture::TexturePtr target, core::Offset3D sourceOffset, core::Offset3D targetOffset, core::Extent3D sourceExtent, core::Extent3D targetExtent, Filter filter, AspectMask aspect)
+{
+	auto fboSource = makeSingleTextureFbo(source);
+	auto fboTarget = makeSingleTextureFbo(target);
+	glBlitNamedFramebuffer(
+		gpu::fbo::Handle(fboSource),
+		gpu::fbo::Handle(fboTarget),
+		sourceOffset.x,
+		sourceOffset.y,
+		sourceExtent.width,
+		sourceExtent.height,
+		targetOffset.x,
+		targetOffset.y,
+		targetExtent.width,
+		targetExtent.height,
+		gpu::EnumToValue(aspect),
+		gpu::EnumToValue(filter));
+}
+//=============================================================================
+void gpu::cmd::BlitTextureToSwapchain(texture::TexturePtr source, core::Offset3D sourceOffset, core::Offset3D targetOffset, core::Extent3D sourceExtent, core::Extent3D targetExtent, Filter filter, AspectMask aspect)
+{
+	auto fbo = makeSingleTextureFbo(source);
+
+	glBlitNamedFramebuffer(gpu::fbo::Handle(fbo),
+		0,
+		sourceOffset.x,
+		sourceOffset.y,
+		sourceExtent.width,
+		sourceExtent.height,
+		targetOffset.x,
+		targetOffset.y,
+		targetExtent.width,
+		targetExtent.height,
+		gpu::EnumToValue(aspect),
+		gpu::EnumToValue(filter));
 }
 //=============================================================================
 void gpu::cmd::SetTopology(PrimitiveTopology topology)

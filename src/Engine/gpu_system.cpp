@@ -12,7 +12,7 @@ namespace
 {
 }
 //=============================================================================
-void zeroResourceBindings() noexcept
+inline void zeroResourceBindings() noexcept
 {
 	auto& limits = gpu::DeviceInfo.limits;
 	for (int i = 0; i < limits.maxImageUnits; i++)

@@ -340,7 +340,7 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 	}
 
 	// Bind depth FBO
-	gpu::cmd::BindFramebuffer(sm.framebuffer);
+	gpu::cmd::BeginDraw(sm.framebuffer, "RenderShadowPass");
 
 	// Set shadow-specific state
 	gpu::DepthState depthState;
@@ -491,6 +491,8 @@ void scene::SceneManager::RenderShadowPass(gr::RenderQueue& queue, LightNode& li
 		for (auto& item : queue.opaqueItems) drawShadowItem(item, pointDepthShader, locModel, locInst);
 		for (auto& item : queue.transparentItems) drawShadowItem(item, pointDepthShader, locModel, locInst);
 	}
+
+	gpu::cmd::EndDraw();
 }
 //=============================================================================
 void scene::SceneManager::RenderOpaquePass(gr::RenderQueue& queue, const gpu::program::ShaderProgramPtr& blinnPhongShader)

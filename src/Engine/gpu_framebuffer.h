@@ -45,7 +45,7 @@ namespace gpu::fbo
 		AttachmentLoadOp colorLoadOp = AttachmentLoadOp::Load;
 		float clearColorValue[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		AttachmentLoadOp depthLoadOp = AttachmentLoadOp::Load;
-		float clearDepthValue = 0.0f;
+		float clearDepthValue = 1.0f;
 		AttachmentLoadOp stencilLoadOp = AttachmentLoadOp::Load;
 		int32_t clearStencilValue = 0;
 
@@ -58,9 +58,6 @@ namespace gpu::fbo
 	// Consult the documentation for glFramebufferParameteri for more info.
 	struct RenderNoAttachmentsInfo final
 	{
-		// An optional name to demarcate the pass in a graphics debugger
-		std::string_view name;
-		Viewport viewport{};
 		core::Extent3D framebufferSize{}; // If depth > 0, framebuffer is layered
 		SampleCount framebufferSamples{};
 	};
@@ -73,10 +70,10 @@ namespace gpu::fbo
 		std::optional<RenderDepthStencilAttachment> stencilAttachment = std::nullopt;
 	};
 
-	FramebufferPtr CreateFramebuffer(const FramebufferCreateInfo& createInfo);
+	[[nodiscard]] FramebufferPtr CreateFramebuffer(const FramebufferCreateInfo& createInfo);
 
-	[[nodiscard]] uint32_t Handle(FramebufferPtr fbo) noexcept;
-	[[nodiscard]] bool IsValid(FramebufferPtr fbo) noexcept;
-	[[nodiscard]] FramebufferCreateInfo GetCreateInfo(FramebufferPtr fbo) noexcept;
+	[[nodiscard]] uint32_t Handle(const FramebufferPtr& fbo) noexcept;
+	[[nodiscard]] bool IsValid(const FramebufferPtr& fbo) noexcept;
+	[[nodiscard]] FramebufferCreateInfo GetCreateInfo(const FramebufferPtr& fbo) noexcept;
 
 } // 

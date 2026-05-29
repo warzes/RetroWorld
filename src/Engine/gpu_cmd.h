@@ -9,6 +9,11 @@
 
 namespace gpu::cmd
 {
+	void BeginDraw(const fbo::SwapchainRenderInfo& renderInfo, std::string_view name = "");
+	void BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name = "");
+	void BeginDraw(const fbo::FramebufferPtr& fbo, const fbo::RenderNoAttachmentsInfo& info, std::string_view name = "");
+	void EndDraw();
+
 	void BlitTexture(
 		texture::TexturePtr source,
 		texture::TexturePtr target,
@@ -27,9 +32,7 @@ namespace gpu::cmd
 		Filter filter,
 		AspectMask aspect = AspectMaskBit::COLOR_BUFFER_BIT);
 
-	void SwapchainRendering(const fbo::SwapchainRenderInfo& renderInfo);
-	void BindFramebuffer(fbo::FramebufferPtr fbo);
-	void BindFramebufferNoAttachments(fbo::FramebufferPtr fbo, const fbo::RenderNoAttachmentsInfo& info);
+
 
 	void SetTopology(PrimitiveTopology topology);
 	

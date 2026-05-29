@@ -607,26 +607,28 @@ void GameRender()
 				g_scene->RenderShadowPass(shadowQueue, *light, g_depthShader, g_pointDepthShader);
 			else
 				g_scene->RenderShadowPass(shadowQueue, *light, g_depthShader);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		}
 	}
 
-	// 2. Clear main framebuffer
-	glClearColor(0.12f, 0.32f, 0.88f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	// 3. Viewport for the main framebuffer
-	gpu::Viewport vp;
-	vp.drawRect.offset = { 0, 0 };
-	vp.drawRect.extent = { window::GetWidth(), window::GetHeight() };
-	gpu::cmd::SetViewport(vp);
+	gpu::fbo::SwapchainRenderInfo swapchainRI = {};
+	swapchainRI.colorLoadOp = gpu::fbo::AttachmentLoadOp::Clear;
+	swapchainRI.clearColorValue[0] = 0.12f;
+	swapchainRI.clearColorValue[1] = 0.32f;
+	swapchainRI.clearColorValue[2] = 0.88f;
+	swapchainRI.clearColorValue[3] = 1.0f;
+	swapchainRI.depthLoadOp = gpu::fbo::AttachmentLoadOp::Clear;
+	swapchainRI.viewport.drawRect.offset = { 0, 0 };
+	swapchainRI.viewport.drawRect.extent = { window::GetWidth(), window::GetHeight() };
+	gpu::cmd::BeginDraw(swapchainRI, "MainFrame");
 
-	// 4. Build render queue with frustum culling from active camera
+	//// 4. Build render queue with frustum culling from active camera
 	g_scene->enableFrustumCulling = true;
 	auto queue = g_scene->BuildRenderQueue(frustum, scene::RenderPassType::Opaque);
 	
 	// 5. Render opaque objects (shadow map is bound inside renderOpaquePass)
 	g_scene->RenderOpaquePass(queue, program);
 	g_scene->RenderTransparentPass(queue, program);
+	gpu::cmd::EndDraw();
 }
 //=============================================================================
 void GameRenderUI()

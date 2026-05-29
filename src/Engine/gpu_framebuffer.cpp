@@ -15,13 +15,13 @@ struct gpu::fbo::Framebuffer final
 		}
 	}
 
-	Framebuffer(const Framebuffer&) = delete;
-	Framebuffer& operator=(const Framebuffer&) = delete;
+	Framebuffer(const Framebuffer&) noexcept = default;
+	Framebuffer& operator=(const Framebuffer&) noexcept = default;
 	Framebuffer(Framebuffer&&) noexcept = default;
 	Framebuffer& operator=(Framebuffer&&) noexcept = default;
 
 	[[nodiscard]] operator bool() const noexcept { return id > 0; }
-	[[nodiscard]] unsigned Handle() const noexcept { return id; }
+	[[nodiscard]] uint32_t Handle() const noexcept { return id; }
 	[[nodiscard]] bool IsValid() const noexcept { return id > 0; }
 
 	uint32_t              id{ 0 };
@@ -95,17 +95,17 @@ gpu::fbo::FramebufferPtr gpu::fbo::CreateFramebuffer(const FramebufferCreateInfo
 	return context.framebufferCacheValue.emplace_back(fbo);
 }
 //=============================================================================
-uint32_t gpu::fbo::Handle(FramebufferPtr fbo) noexcept
+uint32_t gpu::fbo::Handle(const FramebufferPtr& fbo) noexcept
 {
 	return fbo ? fbo->Handle() : 0;
 }
 //=============================================================================
-bool gpu::fbo::IsValid(FramebufferPtr fbo) noexcept
+bool gpu::fbo::IsValid(const FramebufferPtr& fbo) noexcept
 {
 	return fbo ? fbo->IsValid() : false;
 }
 //=============================================================================
-gpu::fbo::FramebufferCreateInfo gpu::fbo::GetCreateInfo(FramebufferPtr fbo) noexcept
+gpu::fbo::FramebufferCreateInfo gpu::fbo::GetCreateInfo(const FramebufferPtr& fbo) noexcept
 {
 	return fbo ? fbo->createInfo : FramebufferCreateInfo{};
 }

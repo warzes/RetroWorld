@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "_gpu_contextState.h"
 #include "_gpu_enumDesc.h"
+#include "gpu_deviceInfo.h"
 //=============================================================================
 bool gpu::detail::RenderAttachments::operator==(const RenderAttachments& rhs) const
 {
@@ -38,7 +39,7 @@ void gpu::ContextState::Init(uint16_t width, uint16_t height)
 	context.contextHeight = height;
 
 	InvalidatePipelineState();
-
+	
 	void GLEnableOrDisable(GLenum state, GLboolean value) noexcept;
 
 	GLEnableOrDisable(GL_PRIMITIVE_RESTART_FIXED_INDEX, inputAssemblyState.primitiveRestartEnable);
@@ -87,12 +88,6 @@ void gpu::ContextState::EndFrame()
 	isRendering = false;
 	isRenderingToSwapchain = true;
 	isIndexBufferBound = false;
-
-	if (scissorEnabled)
-	{
-		glDisable(GL_SCISSOR_TEST);
-		scissorEnabled = false;
-	}
 }
 //=============================================================================
 void gpu::ContextState::Clear()

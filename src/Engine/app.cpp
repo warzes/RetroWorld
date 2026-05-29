@@ -3,6 +3,7 @@
 #include "_app_window.h"
 #include "_app_input.h"
 #include "_gpu_system.h"
+#include "_res_loader.h"
 //=============================================================================
 namespace
 {
@@ -65,11 +66,15 @@ static bool Init(const app::AppCreateInfo& info)
 	if (!gpu::Init())
 		return false;
 
+	if (!res::Init())
+		return false;
+
 	return true;
 }
 //=============================================================================
 static void Close()
 {
+	res::Close();
 	input::CaptureMause(false);
 	gpu::Close();
 	window::Close();
