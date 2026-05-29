@@ -130,13 +130,13 @@ namespace gpu::texture
 	// Automatically generates LoDs of the image. All mip levels beyond 0 are filled with the generated LoDs
 	void GenMipmaps(const TexturePtr& texture);
 
-	[[nodiscard]] const TextureCreateInfo& GetCreateInfo(const TexturePtr& texture) noexcept;
+	[[nodiscard]] TextureCreateInfo* GetCreateInfo(const TexturePtr& texture) noexcept;
 	[[nodiscard]] core::Extent3D Extent(const TexturePtr& texture) noexcept;
 	[[nodiscard]] uint32_t Handle(const TexturePtr& texture) noexcept;
 	[[nodiscard]] bool IsValid(const TexturePtr& texture) noexcept;
 
-	[[nodiscard]] const TextureCreateInfo& GetCreateInfo(const TextureViewPtr& view) noexcept;
-	[[nodiscard]] const TextureViewCreateInfo& GetViewInfo(const TextureViewPtr& view) noexcept;
+	[[nodiscard]] TextureCreateInfo* GetCreateInfo(const TextureViewPtr& view) noexcept;
+	[[nodiscard]] TextureViewCreateInfo* GetViewInfo(const TextureViewPtr& view) noexcept;
 	[[nodiscard]] core::Extent3D Extent(const TextureViewPtr& view) noexcept;
 	[[nodiscard]] uint32_t Handle(const TextureViewPtr& view) noexcept;
 	[[nodiscard]] bool IsValid(const TextureViewPtr& view) noexcept;

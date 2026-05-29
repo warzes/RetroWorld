@@ -321,12 +321,15 @@ void GameUpdate()
 	view = camera.GetViewMatrix();
 	model = glm::mat4(1.0f);
 
+	skyboxProj = proj.value;
+	skyboxView = view.value;
+
 	gpu::uniform::BindUniform(proj);
 	gpu::uniform::BindUniform(view);
 	gpu::uniform::BindUniform(model);
 
-	skyboxProj = proj.value;
-	skyboxView = view.value;
+	gpu::uniform::BindUniform(skyboxProj);
+	gpu::uniform::BindUniform(skyboxView);
 }
 //=============================================================================
 void GameFixedUpdate()
@@ -334,29 +337,37 @@ void GameFixedUpdate()
 //=============================================================================
 void GameRender()
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gpu::fbo::SwapchainRenderInfo swapchainRI = {};
+	swapchainRI.colorLoadOp = gpu::fbo::AttachmentLoadOp::Clear;
+	swapchainRI.clearColorValue[0] = 0.12f;
+	swapchainRI.clearColorValue[1] = 0.32f;
+	swapchainRI.clearColorValue[2] = 0.88f;
+	swapchainRI.clearColorValue[3] = 1.0f;
+	swapchainRI.depthLoadOp = gpu::fbo::AttachmentLoadOp::Clear;
+	swapchainRI.viewport.drawRect.offset = { 0, 0 };
+	swapchainRI.viewport.drawRect.extent = { window::GetWidth(), window::GetHeight() };
+	gpu::cmd::BeginDraw(swapchainRI, "MainFrame");
+	{
+		// Skybox
+		gpu::cmd::SetState(skyboxDepthState);
+		gpu::cmd::SetState(skyboxRasterState);
+		gpu::cmd::BindShaderProgram(skyboxProgram);
+		gpu::cmd::BindSampledImage(0, skyboxTexture, skyboxSampler);
+		gpu::cmd::BindVertexArray(skyboxVao);
+		gpu::cmd::BindVertexBuffer(skyboxVao, 0, skyboxVbo, 0, sizeof(glm::vec3));
+		gpu::cmd::Draw(static_cast<uint32_t>(gSkyboxVertices.size()), 1, 0, 0);
 
-	// Skybox
-	gpu::cmd::SetState(skyboxDepthState);
-	gpu::cmd::SetState(skyboxRasterState);
-	gpu::cmd::BindShaderProgram(skyboxProgram);
-	gpu::cmd::BindSampledImage(0, skyboxTexture, skyboxSampler);
-	gpu::uniform::BindUniform(skyboxProj);
-	gpu::uniform::BindUniform(skyboxView);
-	gpu::cmd::BindVertexArray(skyboxVao);
-	gpu::cmd::BindVertexBuffer(skyboxVao, 0, skyboxVbo, 0, sizeof(glm::vec3));
-	gpu::cmd::Draw(static_cast<uint32_t>(gSkyboxVertices.size()), 1, 0, 0);
-
-	// Cube
-	gpu::cmd::SetState(defaultRasterState);
-	gpu::cmd::SetState(depthState);
-	gpu::cmd::BindShaderProgram(program);
-	gpu::cmd::BindSampledImage(0, texture, sampler);
-
-	gpu::cmd::BindVertexArray(vao);
-	gpu::cmd::BindVertexBuffer(vao, 0, vbo, 0, sizeof(gr::MeshVertex));
-	gpu::cmd::BindIndexBuffer(vao, ibo, gpu::IndexType::UnsignedInt);
-	gpu::cmd::DrawIndexed(static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);
+		// Cube
+		gpu::cmd::SetState(depthState);
+		gpu::cmd::SetState(defaultRasterState);
+		gpu::cmd::BindShaderProgram(program);
+		gpu::cmd::BindSampledImage(0, texture, sampler);
+		gpu::cmd::BindVertexArray(vao);
+		gpu::cmd::BindVertexBuffer(vao, 0, vbo, 0, sizeof(gr::MeshVertex));
+		gpu::cmd::BindIndexBuffer(vao, ibo, gpu::IndexType::UnsignedInt);
+		gpu::cmd::DrawIndexed(static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);
+	}
+	gpu::cmd::EndDraw();
 }
 //=============================================================================
 void GameRenderUI()

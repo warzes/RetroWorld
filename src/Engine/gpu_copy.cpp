@@ -6,13 +6,13 @@
 void gpu::CopyTexture(const CopyTextureInfo& copy)
 {
 	glCopyImageSubData(texture::Handle(copy.source),
-		gpu::EnumToValue(texture::GetCreateInfo(copy.source).imageType),
+		gpu::EnumToValue(texture::GetCreateInfo(copy.source)->imageType),
 		copy.sourceLevel,
 		copy.sourceOffset.x,
 		copy.sourceOffset.y,
 		copy.sourceOffset.z,
 		texture::Handle(copy.target),
-		gpu::EnumToValue(texture::GetCreateInfo(copy.target).imageType),
+		gpu::EnumToValue(texture::GetCreateInfo(copy.target)->imageType),
 		copy.targetLevel,
 		copy.targetOffset.x,
 		copy.targetOffset.y,
@@ -52,7 +52,7 @@ void gpu::CopyTextureToBuffer(const CopyTextureToBufferInfo& copy)
 	GLenum format{};
 	if (copy.format == UploadFormat::INFER_FORMAT)
 	{
-		format = EnumToValue(FormatToUploadFormat(texture::GetCreateInfo(copy.sourceTexture).format));
+		format = EnumToValue(FormatToUploadFormat(texture::GetCreateInfo(copy.sourceTexture)->format));
 	}
 	else
 	{
@@ -62,7 +62,7 @@ void gpu::CopyTextureToBuffer(const CopyTextureToBufferInfo& copy)
 	GLenum type{};
 	if (copy.type == UploadType::INFER_TYPE)
 	{
-		type = EnumToValue(texture::GetCreateInfo(copy.sourceTexture).format);
+		type = EnumToValue(texture::GetCreateInfo(copy.sourceTexture)->format);
 	}
 	else
 	{

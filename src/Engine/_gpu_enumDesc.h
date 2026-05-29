@@ -862,11 +862,4 @@ namespace gpu
 		}
 	}
 	
-	inline GLenum EnumToValue(ClipDepthRange depthRange) noexcept
-	{
-		if (depthRange == ClipDepthRange::NegativeOneToOne)
-			return GL_NEGATIVE_ONE_TO_ONE;
-		return GL_ZERO_TO_ONE;
-	}
-
 } // namespace gpu

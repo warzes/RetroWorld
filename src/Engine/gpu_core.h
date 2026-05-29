@@ -4,10 +4,6 @@
 #include "core_hash.h"
 #include "core_baseTypes.h"
 
-#ifndef SE_DEFAULT_CLIP_DEPTH_RANGE_ZERO_TO_ONE
-#	define SE_DEFAULT_CLIP_DEPTH_RANGE_NEGATIVE_ONE_TO_ONE
-#endif
-
 namespace gpu
 {
 	enum class ImageType : uint8_t
@@ -378,12 +374,6 @@ namespace gpu
 		Invert
 	};
 
-	enum class ClipDepthRange : uint8_t
-	{
-		NegativeOneToOne, // OpenGL default
-		ZeroToOne         // D3D and Vulkan
-	};
-
 	struct DrawIndirectCommand final
 	{
 		uint32_t vertexCount;
@@ -415,12 +405,6 @@ namespace gpu
 		core::Rect2D drawRect = {}; // glViewport
 		float minDepth = 0.0f;      // glDepthRangef
 		float maxDepth = 1.0f;      // glDepthRangef
-		ClipDepthRange depthRange = // glClipControl
-#ifdef SE_DEFAULT_CLIP_DEPTH_RANGE_NEGATIVE_ONE_TO_ONE
-			ClipDepthRange::NegativeOneToOne;
-#else
-			ClipDepthRange::ZeroToOne;
-#endif
 	};
 
 	struct Scissor final

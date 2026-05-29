@@ -21,15 +21,11 @@ inline void setViewportInternal(const gpu::Viewport& viewport, const gpu::Viewpo
 	{
 		glDepthRangef(viewport.minDepth, viewport.maxDepth);
 	}
-	if (initViewport || viewport.depthRange != lastViewport.depthRange)
-	{
-		glClipControl(GL_LOWER_LEFT, gpu::EnumToValue(viewport.depthRange));
-	}
 }
 //=============================================================================
 inline gpu::fbo::FramebufferPtr makeSingleTextureFbo(gpu::texture::TexturePtr texture)
 {
-	auto format = gpu::texture::GetCreateInfo(texture).format;
+	auto format = gpu::texture::GetCreateInfo(texture)->format;
 
 	auto depthStencil = gpu::fbo::RenderDepthStencilAttachment{ .texture = texture };
 	auto color = gpu::fbo::RenderColorAttachment{ .texture = texture };
@@ -156,11 +152,12 @@ void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 	GLuint fboId = fbo::Handle(fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fboId);
 
-	const auto& ri = fbo::GetCreateInfo(fbo);
+	const auto* ri = fbo::GetCreateInfo(fbo);
+	assert(ri);
 
-	for (GLint i = 0; i < static_cast<GLint>(ri.colorAttachments.size()); i++)
+	for (GLint i = 0; i < static_cast<GLint>(ri->colorAttachments.size()); i++)
 	{
-		const auto& attachment = ri.colorAttachments[i];
+		const auto& attachment = ri->colorAttachments[i];
 		switch (attachment.loadOp)
 		{
 		case fbo::AttachmentLoadOp::Load: break;
@@ -185,9 +182,9 @@ void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 		}
 	}
 
-	if (ri.depthAttachment)
+	if (ri->depthAttachment)
 	{
-		switch (ri.depthAttachment->loadOp)
+		switch (ri->depthAttachment->loadOp)
 		{
 		case fbo::AttachmentLoadOp::Load: break;
 		case fbo::AttachmentLoadOp::Clear:
@@ -199,7 +196,7 @@ void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 				context.lastDepthMask = true;
 			}
 
-			glClearNamedFramebufferfv(fboId, GL_DEPTH, 0, &ri.depthAttachment->clearValue.depth);
+			glClearNamedFramebufferfv(fboId, GL_DEPTH, 0, &ri->depthAttachment->clearValue.depth);
 			break;
 		}
 		case fbo::AttachmentLoadOp::DontCare:
@@ -212,9 +209,9 @@ void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 		}
 	}
 
-	if (ri.stencilAttachment)
+	if (ri->stencilAttachment)
 	{
-		switch (ri.stencilAttachment->loadOp)
+		switch (ri->stencilAttachment->loadOp)
 		{
 		case fbo::AttachmentLoadOp::Load: break;
 		case fbo::AttachmentLoadOp::Clear:
@@ -227,7 +224,7 @@ void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 				context.lastStencilMask[1] = true;
 			}
 
-			glClearNamedFramebufferiv(fboId, GL_STENCIL, 0, &ri.stencilAttachment->clearValue.stencil);
+			glClearNamedFramebufferiv(fboId, GL_STENCIL, 0, &ri->stencilAttachment->clearValue.stencil);
 			break;
 		}
 		case fbo::AttachmentLoadOp::DontCare:
@@ -241,9 +238,9 @@ void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 	}
 
 	Viewport viewport{};
-	if (ri.viewport)
+	if (ri->viewport)
 	{
-		viewport = *ri.viewport;
+		viewport = *ri->viewport;
 	}
 	else
 	{
@@ -255,25 +252,25 @@ void gpu::cmd::BeginDraw(const fbo::FramebufferPtr& fbo, std::string_view name)
 		.offset = {},
 		.extent = {std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()},
 		};
-		for (const auto& attachment : ri.colorAttachments)
+		for (const auto& attachment : ri->colorAttachments)
 		{
-			drawRect.extent.width = std::min(drawRect.extent.width, texture::GetCreateInfo(attachment.texture).extent.width);
+			drawRect.extent.width = std::min(drawRect.extent.width, texture::GetCreateInfo(attachment.texture)->extent.width);
 			drawRect.extent.height =
-				std::min(drawRect.extent.height, texture::GetCreateInfo(attachment.texture).extent.height);
+				std::min(drawRect.extent.height, texture::GetCreateInfo(attachment.texture)->extent.height);
 		}
-		if (ri.depthAttachment)
+		if (ri->depthAttachment)
 		{
 			drawRect.extent.width =
-				std::min(drawRect.extent.width, texture::GetCreateInfo(ri.depthAttachment->texture).extent.width);
+				std::min(drawRect.extent.width, texture::GetCreateInfo(ri->depthAttachment->texture)->extent.width);
 			drawRect.extent.height =
-				std::min(drawRect.extent.height, texture::GetCreateInfo(ri.depthAttachment->texture).extent.height);
+				std::min(drawRect.extent.height, texture::GetCreateInfo(ri->depthAttachment->texture)->extent.height);
 		}
-		if (ri.stencilAttachment)
+		if (ri->stencilAttachment)
 		{
 			drawRect.extent.width =
-				std::min(drawRect.extent.width, texture::GetCreateInfo(ri.stencilAttachment->texture).extent.width);
+				std::min(drawRect.extent.width, texture::GetCreateInfo(ri->stencilAttachment->texture)->extent.width);
 			drawRect.extent.height =
-				std::min(drawRect.extent.height, texture::GetCreateInfo(ri.stencilAttachment->texture).extent.height);
+				std::min(drawRect.extent.height, texture::GetCreateInfo(ri->stencilAttachment->texture)->extent.height);
 		}
 		viewport.drawRect = drawRect;
 	}
@@ -643,8 +640,8 @@ void gpu::cmd::BindSampledImage(uint32_t index, texture::TexturePtr texture, tex
 void gpu::cmd::BindImage(uint32_t index, texture::TexturePtr texture, uint32_t level)
 {
 	assert(context.isRendering);
-	assert(level < texture::GetCreateInfo(texture).mipLevels);
-	assert(IsValidImageFormat(texture::GetCreateInfo(texture).format));
+	assert(level < texture::GetCreateInfo(texture)->mipLevels);
+	assert(IsValidImageFormat(texture::GetCreateInfo(texture)->format));
 
 	glBindImageTexture(index,
 		texture::Handle(texture),
@@ -652,7 +649,7 @@ void gpu::cmd::BindImage(uint32_t index, texture::TexturePtr texture, uint32_t l
 		GL_TRUE,
 		0,
 		GL_READ_WRITE,
-		EnumToValue(texture::GetCreateInfo(texture).format));
+		EnumToValue(texture::GetCreateInfo(texture)->format));
 }
 //=============================================================================
 void gpu::cmd::BindVertexBuffer(vao::VertexArrayPtr vao, uint32_t bindingIndex, gpu::buffer::BufferPtr buffer, uint64_t offset, uint64_t stride)

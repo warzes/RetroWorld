@@ -488,10 +488,10 @@ void gpu::texture::GenMipmaps(const TexturePtr& texture)
 	glGenerateTextureMipmap(texture->id);
 }
 //=============================================================================
-const gpu::texture::TextureCreateInfo& gpu::texture::GetCreateInfo(const TexturePtr& texture) noexcept
+gpu::texture::TextureCreateInfo* gpu::texture::GetCreateInfo(const TexturePtr& texture) noexcept
 {
 	assert(texture);
-	return texture ? texture->createInfo : std::move(TextureCreateInfo{});
+	return texture ? &texture->createInfo : nullptr;
 }
 //=============================================================================
 core::Extent3D gpu::texture::Extent(const TexturePtr& texture) noexcept
@@ -510,16 +510,16 @@ bool gpu::texture::IsValid(const TexturePtr& texture) noexcept
 	return texture ? texture->IsValid() : false;
 }
 //=============================================================================
-const gpu::texture::TextureCreateInfo& gpu::texture::GetCreateInfo(const TextureViewPtr& view) noexcept
+gpu::texture::TextureCreateInfo* gpu::texture::GetCreateInfo(const TextureViewPtr& view) noexcept
 {
 	assert(view);
-	return view ? view->createInfo : std::move(TextureCreateInfo{});
+	return view ? &view->createInfo : nullptr;
 }
 //=============================================================================
-const gpu::texture::TextureViewCreateInfo& gpu::texture::GetViewInfo(const TextureViewPtr& view) noexcept
+gpu::texture::TextureViewCreateInfo* gpu::texture::GetViewInfo(const TextureViewPtr& view) noexcept
 {
 	assert(view);
-	return view ? view->viewInfo : std::move(TextureViewCreateInfo{});
+	return view ? &view->viewInfo : nullptr;
 }
 //=============================================================================
 core::Extent3D gpu::texture::Extent(const TextureViewPtr& view) noexcept

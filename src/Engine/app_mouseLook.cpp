@@ -77,7 +77,7 @@ void input::MouseLook::beginCapture()
 	m_centerY = current.y;
 
 	// Hide cursor, capture mouse to window, clip to client area
-	input::CaptureMause(true);
+	input::CaptureMouse(true);
 	// Center cursor so first delta is zero
 	input::SetMousePosition(m_centerX, m_centerY);
 
@@ -89,6 +89,6 @@ void input::MouseLook::endCapture()
 	if (!m_captured) return;
 	m_captured = false;
 
-	input::CaptureMause(false);
+	input::CaptureMouse(false);
 }
 //=============================================================================

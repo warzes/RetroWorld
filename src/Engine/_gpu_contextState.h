@@ -36,7 +36,7 @@ namespace gpu::detail
 	{
 		bool operator==(const TextureProxy&) const noexcept = default;
 
-		texture::TextureCreateInfo createInfo;
+		texture::TextureCreateInfo* createInfo;
 		uint32_t id;
 	};
 

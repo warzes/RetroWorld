@@ -75,7 +75,7 @@ static bool Init(const app::AppCreateInfo& info)
 static void Close()
 {
 	res::Close();
-	input::CaptureMause(false);
+	input::CaptureMouse(false);
 	gpu::Close();
 	window::Close();
 	IsRequestingExit = true;

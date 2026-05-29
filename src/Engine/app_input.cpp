@@ -221,7 +221,7 @@ bool input::SetMousePosition(int x, int y)
 	return result != 0; // Возвращает true, если успешно
 }
 //=============================================================================
-void input::CaptureMause(bool capture)
+void input::CaptureMouse(bool capture)
 {
 	if (capture)
 	{

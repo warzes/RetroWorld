@@ -8,18 +8,6 @@
 
 ## 1. КРИТИЧЕСКИЕ БАГИ (Crash / Data Corruption)
 
-### 1.3 `GetCreateInfo(nullptr)` возвращает ссылку на временный объект
-
-**Файл:** `src/Engine/gpu_texture.cpp:508`
-```cpp
-const gpu::texture::TextureCreateInfo& gpu::texture::GetCreateInfo(TexturePtr texture) noexcept
-{
-    return texture ? texture->createInfo : TextureCreateInfo{};
-}
-```
-**Проблема:** если `texture == nullptr`, возвращается ссылка на временный объект (`TextureCreateInfo{}`) — **undefined behavior**.
-**Исправление:** либо кидать assert, либо возвращать `std::optional`, либо хранить статический fallback.
-
 ### 1.4 `stbi_load` — нет обработки ошибок
 
 **Файл:** `src/Engine/gpu_texture.cpp:247-262`
@@ -128,12 +116,6 @@ struct alignas(16) LightBlockUBO
 2. Пассивная передача 144 байт × 16 = 2.3KB каждый кадр, даже если реально 1-2 источника.
 **Рекомендация:** перейти на SSBO для динамического числа источников.
 
-### 3.3 Shared_ptr для GPU ресурсов — нет циклических ссылок, но overhead есть
-
-**Файлы:** все `gpu_*.h`
-**Проблема:** `shared_ptr` требует атомарного подсчёта ссылок. В high-performance rendering принято использовать `unique_ptr` с ручным управлением или pool-based аллокаторы + handle (uint32_t). Для текущего проекта — допустимо, но в будущем стоит рефакторить.
-**См. также AGENTS.md:** запрещён `shared_ptr` в hot-path, но в данном случае `shared_ptr` используется для GPU resource handle, не в горячем цикле обновления.
-
 ### 3.4 `SceneManager::lights` — сырые указатели, нет проверки на удаление ноды
 
 **Файл:** `sc_sceneManager.h:77`
@@ -172,14 +154,6 @@ virtual ~SceneNode() = default;
 
 ## 4. OPENGL SPECIFIC
 
-### 4.2 `glClipControl(GL_LOWER_LEFT, ...)` — в `setViewportInternal`
-
-**Файл:** `gpu_cmd.cpp:26`
-```cpp
-glClipControl(GL_LOWER_LEFT, gpu::EnumToValue(viewport.depthRange));
-```
-**Проблема:** `GL_LOWER_LEFT` меняет convention для `gl_FragCoord`. По умолчанию `GL_UPPER_LEFT`. Смена convention может сломать screen-space эффекты (SSAO, post-processing), которые не учитывают это. Если не используется явно — лучше не вызывать.
-
 ### 4.3 `glNamedBufferSubData` с `GLuint` кастом
 
 **Файл:** `gpu_buffer.cpp:137`
@@ -197,14 +171,6 @@ glClipControl(GL_LOWER_LEFT, gpu::EnumToValue(viewport.depthRange));
 ---
 
 ## 5. КОДСТАЙЛ И КОНСИСТЕНТНОСТЬ
-
-### 5.1 `CaptureMause` — опечатка
-
-**Файлы:** `app.cpp:73`, `GameApp.cpp:369`, `app_input.h` (вероятно)
-```cpp
-input::CaptureMause(true);
-```
-Должно быть `CaptureMouse`. Опечатка названия функции.
 
 ### 5.2 `MouseLook::BeginCapture` дублирует установку позиции мыши
 
@@ -330,8 +296,6 @@ std::unordered_map<size_t, gpu::vao::VertexArrayPtr> vertexArrayCache;
 | **Итого** | **40** | **3** | **11** | **12** | **14** |
 
 ### Топ-5 что чинить в первую очередь:
-1. **Каскадные тени + instancing** — transforms очищаются после первой каскады (1.1)
-2. **`GetCreateInfo(nullptr)` — UB** (1.3)
 3. **`stbi_load` без обработки ошибок** (1.4)
 4. **`Traverse()` через `std::function` — хип-аллокация каждый кадр** (2.1)
 5. **`infoLog.resize` — buffer overflow** (1.6)

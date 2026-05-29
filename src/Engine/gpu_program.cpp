@@ -32,7 +32,7 @@ inline std::string loadShaderCode(const std::string& path, unsigned int level)
 	}
 
 	std::string directory;
-	size_t lastSlash = path.find_last_of("/\\"); // поддержка Windows
+	size_t lastSlash = path.find_last_of("/\\");
 	if (lastSlash != std::string::npos)
 		directory = path.substr(0, lastSlash);
 

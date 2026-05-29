@@ -105,8 +105,9 @@ bool gpu::fbo::IsValid(const FramebufferPtr& fbo) noexcept
 	return fbo ? fbo->IsValid() : false;
 }
 //=============================================================================
-gpu::fbo::FramebufferCreateInfo gpu::fbo::GetCreateInfo(const FramebufferPtr& fbo) noexcept
+gpu::fbo::FramebufferCreateInfo* gpu::fbo::GetCreateInfo(const FramebufferPtr& fbo) noexcept
 {
-	return fbo ? fbo->createInfo : FramebufferCreateInfo{};
+	assert(fbo);
+	return fbo ? &fbo->createInfo : nullptr;
 }
 //=============================================================================

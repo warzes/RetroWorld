@@ -74,6 +74,6 @@ namespace gpu::fbo
 
 	[[nodiscard]] uint32_t Handle(const FramebufferPtr& fbo) noexcept;
 	[[nodiscard]] bool IsValid(const FramebufferPtr& fbo) noexcept;
-	[[nodiscard]] FramebufferCreateInfo GetCreateInfo(const FramebufferPtr& fbo) noexcept;
+	[[nodiscard]] FramebufferCreateInfo* GetCreateInfo(const FramebufferPtr& fbo) noexcept;
 
 } // 
