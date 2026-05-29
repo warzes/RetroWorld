@@ -6,6 +6,12 @@
     <ClCompile Include="gpu001_cube.cpp">
       <Filter>GPUExamples</Filter>
     </ClCompile>
+    <ClCompile Include="gpu002_cubeSkybox.cpp">
+      <Filter>GPUExamples</Filter>
+    </ClCompile>
+    <ClCompile Include="gpu003_spherePhong.cpp">
+      <Filter>GPUExamples</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />

@@ -7,95 +7,147 @@ namespace
 
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec3 a_normal;
-layout(location = 2) in vec2 a_texcoord;
 
 uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_projection;
 
-layout(location = 0) out vec3 v_position;
+layout(location = 0) out vec3 v_eye;
 layout(location = 1) out vec3 v_normal;
-layout(location = 2) out vec2 v_uv;
 
 void main()
 {
-	v_position = a_position;
-	v_normal = normalize(inverse(transpose(mat3(u_model))) * a_normal);
-	v_uv = a_texcoord;
-
 	gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);
+	v_eye = -vec3(gl_Position);
+	v_normal = normalize(inverse(transpose(mat3(u_model))) * a_normal);
 }
 )";
 
 	const char* fragmentSource = R"(
 #version 460 core
 
-layout(location = 0) in vec3 v_position;
+struct LightProperties
+{
+	vec3 direction;
+	vec4 ambientColor;
+	vec4 diffuseColor;
+	vec4 specularColor;
+};
+
+struct MaterialProperties
+{
+	vec4  ambientColor;
+	vec4  diffuseColor;
+	vec4  specularColor;
+	float specularExponent;
+};
+
+layout(location = 0) in vec3 v_eye;
 layout(location = 1) in vec3 v_normal;
-layout(location = 2) in vec2 v_uv;
 
-layout(binding = 0) uniform sampler2D diffuseTex;
+uniform LightProperties    u_light;
+uniform MaterialProperties u_material;
 
-layout(location = 0) out vec4 o_color;
+layout(location = 0) out vec4 fragColor;
 
 void main()
 {
-	o_color = texture(diffuseTex, v_uv);
+	// Note: All calculations are in camera space.
+
+	vec4 color = u_light.ambientColor * u_material.ambientColor;
+
+	vec3 normal = normalize(v_normal);
+
+	float nDotL = max(dot(u_light.direction, normal), 0.0);
+
+	if (nDotL > 0.0)
+	{
+		vec3 eye = normalize(v_eye);
+
+		// Incident vector is opposite light direction vector.
+		vec3 reflection = reflect(-u_light.direction, normal);
+
+		float eDotR = max(dot(eye, reflection), 0.0);
+
+		color += u_light.diffuseColor * u_material.diffuseColor * nDotL;
+
+		float specularIntensity = 0.0;
+
+		if (eDotR > 0.0)
+		{
+			specularIntensity = pow(eDotR, u_material.specularExponent);
+		}
+
+		color += u_light.specularColor * u_material.specularColor * specularIntensity;
+	}
+
+	fragColor = color;
 }
 )";
 
-	static constexpr auto gCubeVertices = std::array<gr::MeshVertex, 24>{
-		// front (+z)
-		gr::MeshVertex{{-0.5, -0.5, 0.5}, {0, 0, 1}, {0, 0}},
-		{{0.5, -0.5, 0.5}, {0, 0, 1}, {1, 0}},
-		{{0.5, 0.5, 0.5}, {0, 0, 1}, {1, 1}},
-		{{-0.5, 0.5, 0.5}, {0, 0, 1}, {0, 1}},
-
-		// back (-z)
-		{{-0.5, 0.5, -0.5}, {0, 0, -1}, {1, 1}},
-		{{0.5, 0.5, -0.5}, {0, 0, -1}, {0, 1}},
-		{{0.5, -0.5, -0.5}, {0, 0, -1}, {0, 0}},
-		{{-0.5, -0.5, -0.5}, {0, 0, -1}, {1, 0}},
-
-		// left (-x)
-		{{-0.5, -0.5, -0.5}, {-1, 0, 0}, {0, 0}},
-		{{-0.5, -0.5, 0.5}, {-1, 0, 0}, {1, 0}},
-		{{-0.5, 0.5, 0.5}, {-1, 0, 0}, {1, 1}},
-		{{-0.5, 0.5, -0.5}, {-1, 0, 0}, {0, 1}},
-
-		// right (+x)
-		{{0.5, 0.5, -0.5}, {1, 0, 0}, {1, 1}},
-		{{0.5, 0.5, 0.5}, {1, 0, 0}, {0, 1}},
-		{{0.5, -0.5, 0.5}, {1, 0, 0}, {0, 0}},
-		{{0.5, -0.5, -0.5}, {1, 0, 0}, {1, 0}},
-
-		// top (+y)
-		{{-0.5, 0.5, 0.5}, {0, 1, 0}, {0, 0}},
-		{{0.5, 0.5, 0.5}, {0, 1, 0}, {1, 0}},
-		{{0.5, 0.5, -0.5}, {0, 1, 0}, {1, 1}},
-		{{-0.5, 0.5, -0.5}, {0, 1, 0}, {0, 1}},
-
-		// bottom (-y)
-		{{-0.5, -0.5, -0.5}, {0, -1, 0}, {0, 0}},
-		{{0.5, -0.5, -0.5}, {0, -1, 0}, {1, 0}},
-		{{0.5, -0.5, 0.5}, {0, -1, 0}, {1, 1}},
-		{{-0.5, -0.5, 0.5}, {0, -1, 0}, {0, 1}},
+	/**
+	 * Properties of the light.
+	 */
+	struct LightProperties
+	{
+		glm::aligned_vec3 direction;
+		glm::vec4 ambientColor;
+		glm::vec4 diffuseColor;
+		glm::vec4 specularColor;
 	};
 
-	static constexpr auto gCubeIndices = std::array<uint32_t, 36>{
-	  0,  1,  2,  2,  3,  0,
-	  4,  5,  6,  6,  7,  4,
-	  8,  9,  10, 10, 11, 8,
-	  12, 13, 14, 14, 15, 12,
-	  16, 17, 18, 18, 19, 16,
-	  20, 21, 22, 22, 23, 20,
+	/**
+	 * Properties of the material, basically all the color factors without the emissive color component.
+	 */
+	struct MaterialProperties
+	{
+		glm::vec4 ambientColor;
+		glm::vec4 diffuseColor;
+		glm::vec4 specularColor;
+		GLfloat specularExponent;
 	};
+
+	/**
+	 * Locations for the light properties.
+	 */
+	struct LightLocations
+	{
+		GLint directionLocation;
+		GLint ambientColorLocation;
+		GLint diffuseColorLocation;
+		GLint specularColorLocation;
+	};
+
+	/**
+	* Locations for the material properties.
+	*/
+	struct MaterialLocations
+	{
+		GLint ambientColorLocation;
+		GLint diffuseColorLocation;
+		GLint specularColorLocation;
+		GLint specularExponentLocation;
+	};
+
+	/**
+	* The locations for the light properties.
+	*/
+	static LightLocations g_light;
+
+	/**
+	* The locations for the material properties.
+	*/
+	static MaterialLocations g_material;
+
+	// This is a white light.
+	LightProperties light = { {1.0f, 1.0f, 1.0f}, {0.3f, 0.3f, 0.3f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f} };
+
+	// Blue color material with white specular color.
+	MaterialProperties material = { {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}, 20.0f };
 
 	gpu::program::ShaderProgramPtr program;
-	gpu::vao::VertexArrayPtr vao;
-	gpu::buffer::BufferPtr vbo;
-	gpu::buffer::BufferPtr ibo;
-	
+	gr::Mesh mesh;
+
 	gpu::texture::TexturePtr texture;
 	gpu::texture::SamplerPtr sampler;
 
@@ -122,11 +174,17 @@ static bool GameInit()
 	gpu::uniform::InitUniform(view, program, "u_view");
 	gpu::uniform::InitUniform(model, program, "u_model");
 
-	vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
+	g_light.directionLocation = gpu::program::GetUniformLocation(program, "u_light.direction");
+	g_light.ambientColorLocation = gpu::program::GetUniformLocation(program, "u_light.ambientColor");
+	g_light.diffuseColorLocation = gpu::program::GetUniformLocation(program, "u_light.diffuseColor");
+	g_light.specularColorLocation = gpu::program::GetUniformLocation(program, "u_light.specularColor");
 
-	vbo = gpu::buffer::CreateBuffer(gCubeVertices);
-	ibo = gpu::buffer::CreateBuffer(gCubeIndices);
+	g_material.ambientColorLocation = gpu::program::GetUniformLocation(program, "u_material.ambientColor");
+	g_material.diffuseColorLocation = gpu::program::GetUniformLocation(program, "u_material.diffuseColor");
+	g_material.specularColorLocation = gpu::program::GetUniformLocation(program, "u_material.specularColor");
+	g_material.specularExponentLocation = gpu::program::GetUniformLocation(program, "u_material.specularExponent");
 
+	mesh = gr::Mesh::CreateSphere(32, 32);
 	texture = gpu::texture::LoadTexture2D("data/textures/uv.png");
 
 	gpu::texture::SamplerState ss;
@@ -146,9 +204,7 @@ static void GameClose()
 {
 	mouseLook.Reset();
 	program.reset();
-	vao.reset();
-	vbo.reset();
-	ibo.reset();
+	mesh.Close();
 }
 //=============================================================================
 static void GameUpdate()
@@ -178,6 +234,18 @@ static void GameUpdate()
 	gpu::uniform::BindUniform(proj);
 	gpu::uniform::BindUniform(view);
 	gpu::uniform::BindUniform(model);
+
+	// Set up light ...
+	gpu::program::SetUniform(program, g_light.directionLocation, light.direction);
+	gpu::program::SetUniform(program, g_light.ambientColorLocation, light.ambientColor);
+	gpu::program::SetUniform(program, g_light.diffuseColorLocation, light.diffuseColor);
+	gpu::program::SetUniform(program, g_light.specularColorLocation, light.specularColor);
+
+	// ... and material values.
+	gpu::program::SetUniform(program, g_material.ambientColorLocation, material.ambientColor);
+	gpu::program::SetUniform(program, g_material.diffuseColorLocation, material.diffuseColor);
+	gpu::program::SetUniform(program, g_material.specularColorLocation, material.specularColor);
+	gpu::program::SetUniform(program, g_material.specularExponentLocation, material.specularExponent);
 }
 //=============================================================================
 static void GameFixedUpdate()
@@ -201,10 +269,8 @@ static void GameRender()
 		gpu::cmd::SetState(defaultRasterState);
 		gpu::cmd::BindShaderProgram(program);
 		gpu::cmd::BindSampledImage(0, texture, sampler);
-		gpu::cmd::BindVertexArray(vao);
-		gpu::cmd::BindVertexBuffer(vao, 0, vbo, 0, sizeof(gr::MeshVertex));
-		gpu::cmd::BindIndexBuffer(vao, ibo, gpu::IndexType::UnsignedInt);
-		gpu::cmd::DrawIndexed(static_cast<uint32_t>(gCubeIndices.size()), 1, 0, 0, 0);
+		mesh.Bind();
+		mesh.Draw();
 	}
 	gpu::cmd::EndDraw();
 }
@@ -216,7 +282,7 @@ static void GameRenderUI()
 	ImGui::End();
 }
 //=============================================================================
-void gpu001_cube()
+void gpu003_spherePhong()
 {
 	app::AppCreateInfo createInfo{};
 	createInfo.init_cb = GameInit;

@@ -15,12 +15,16 @@
 //	https://www.youtube.com/user/Lemmitbh/videos
 // RPG Paper Maker 3.0
 //=============================================================================
-void GameApp();
+void gpu001_cube();
+void gpu002_cubeSkybox();
+void gpu003_spherePhong();
 //=============================================================================
 int main(
 	[[maybe_unused]] int   argc,
 	[[maybe_unused]] char* argv[])
 {
-	GameApp();
+	//gpu001_cube();
+	//gpu002_cubeSkybox();
+	gpu003_spherePhong();
 }
 //=============================================================================
