@@ -95,6 +95,7 @@
     <ClCompile Include="gpu001_cube.cpp" />
     <ClCompile Include="gpu002_cubeSkybox.cpp" />
     <ClCompile Include="gpu003_spherePhong.cpp" />
+    <ClCompile Include="gpu004_reflection.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

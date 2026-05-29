@@ -18,6 +18,7 @@
 void gpu001_cube();
 void gpu002_cubeSkybox();
 void gpu003_spherePhong();
+void gpu004_reflection();
 //=============================================================================
 int main(
 	[[maybe_unused]] int   argc,
@@ -25,6 +26,7 @@ int main(
 {
 	//gpu001_cube();
 	//gpu002_cubeSkybox();
-	gpu003_spherePhong();
+	//gpu003_spherePhong();
+	gpu004_reflection();
 }
 //=============================================================================

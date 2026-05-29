@@ -12,6 +12,9 @@
     <ClCompile Include="gpu003_spherePhong.cpp">
       <Filter>GPUExamples</Filter>
     </ClCompile>
+    <ClCompile Include="gpu004_reflection.cpp">
+      <Filter>GPUExamples</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
