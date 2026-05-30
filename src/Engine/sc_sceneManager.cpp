@@ -769,6 +769,13 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 	// Bind material
 	material.Bind(shader);
 
+	// Per-material rasterisation state (cull mode override)
+	{
+		gpu::RasterizationState rs = m_fillState;
+		rs.cullMode = material.cullMode;
+		gpu::cmd::SetState(rs);
+	}
+
 	// Bind mesh and draw
 	mesh.Bind();
 

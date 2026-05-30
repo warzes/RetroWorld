@@ -7,12 +7,8 @@ scene::CameraNode::CameraNode(std::string name_)
 //=============================================================================
 glm::mat4 scene::CameraNode::GetViewMatrix() const
 {
-	if (externalCamera)
-		return externalCamera->GetViewMatrix();
-
-	// Extract position and look direction from cached world matrix
+	if (externalCamera) return externalCamera->GetViewMatrix();
 	glm::vec3 pos = glm::vec3(cachedWorldMatrix[3]);
-	// Forward: -Z of the local-to-world rotation (third column negated in a look-at matrix)
 	glm::vec3 forward = -glm::vec3(cachedWorldMatrix[2]);
 	glm::vec3 up = glm::vec3(cachedWorldMatrix[1]);
 	return glm::lookAt(pos, pos + forward, up);

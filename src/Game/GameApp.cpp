@@ -371,7 +371,7 @@ void SetupCameraLookAt(scene::CameraNode& cam,
 static input::MouseLook g_mouseLook;
 
 //=============================================================================
-bool GameInit()
+static bool GameInit()
 {
 	{
 		gpu::program::GraphicsProgramCreateInfo createInfo{
@@ -542,7 +542,7 @@ bool GameInit()
 	return true;
 }
 //=============================================================================
-void GameClose()
+static void GameClose()
 {
 	g_pointDepthShader.reset();
 	g_depthShader.reset();
@@ -552,7 +552,7 @@ void GameClose()
 	mesh.Close();
 }
 //=============================================================================
-void GameUpdate()
+static void GameUpdate()
 {
 	// Input
 	const float speed = 10.0f * app::GetDeltaTime();
@@ -586,11 +586,11 @@ void GameUpdate()
 
 }
 //=============================================================================
-void GameFixedUpdate()
+static void GameFixedUpdate()
 {
 }
 //=============================================================================
-void GameRender()
+static void GameRender()
 {
 	math::Frustum frustum;
 	if (g_scene->activeCamera)
@@ -631,7 +631,7 @@ void GameRender()
 	gpu::cmd::EndDraw();
 }
 //=============================================================================
-void GameRenderUI()
+static void GameRenderUI()
 {
 	ImGui::Begin("Hello, world!");
 	ImGui::Text("Scene");

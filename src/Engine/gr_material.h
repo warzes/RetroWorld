@@ -34,5 +34,8 @@ namespace gr
 		// Flags
 		bool castShadow = true;
 		bool receiveShadow = true;
+
+		// Per-material rasterisation state override
+		gpu::CullMode cullMode = gpu::CullMode::Back;
 	};
 } // namespace gr

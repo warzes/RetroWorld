@@ -3,7 +3,6 @@
 #if defined(_MSC_VER)
 #	pragma comment( lib, "3rdparty.lib" )
 #	pragma comment( lib, "Engine.lib" )
-//#	pragma comment( lib, "slang-compiler.lib" )
 #endif
 // в этом видео по дагеру https://www.youtube.com/watch?v=4Lz5d-g4tik
 // визуальный стиль замка в первом отрывке - вот мне надо такую графикую
@@ -16,11 +15,13 @@
 // RPG Paper Maker 3.0
 //=============================================================================
 void GameApp();
+void GameAppTile();
 //=============================================================================
 int main(
 	[[maybe_unused]] int   argc,
 	[[maybe_unused]] char* argv[])
 {
-	GameApp();
+	//GameApp();
+	GameAppTile();
 }
 //=============================================================================
