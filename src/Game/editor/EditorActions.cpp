@@ -4,7 +4,7 @@
 // ---- RebuildTileMesh ----
 void RebuildTileMesh()
 {
-	g_tileMeshCPU.BuildFromMap(g_tileMap, 8, g_selTX, g_selTY, 6);
+	g_tileMeshCPU.BuildFromMap(g_tileMap, 8);
 
 	if (g_hoverTX >= 0)
 	{
