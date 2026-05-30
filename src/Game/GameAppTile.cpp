@@ -219,7 +219,7 @@ void main() {}
 //=============================================================================
 static void RebuildTileMesh()
 {
-	g_tileMeshCPU.BuildFromMap(g_tileMap, 4, g_selTX, g_selTY, 6);
+	g_tileMeshCPU.BuildFromMap(g_tileMap, 8, g_selTX, g_selTY, 6);
 
 	// Apply hover highlighting directly into CPU mesh colors
 	if (g_hoverTX >= 0)
@@ -291,7 +291,7 @@ static bool GameInit()
 	g_tileMap.GenerateRandom(++g_genSeed);
 
 	// --- Atlas texture ---
-	g_atlasTex = tile::CreateTileAtlas(64, 4);
+	g_atlasTex = tile::CreateTileAtlas(64, 8);
 	gpu::texture::SamplerState ss{};
 	ss.minFilter = gpu::Filter::Nearest;
 	ss.magFilter = gpu::Filter::Nearest;
@@ -734,9 +734,9 @@ static void GameRenderUI()
 	{
 		ImGui::Text("Brush:");
 		ImGui::Checkbox("Solid", &g_brushSolid);
-		ImGui::SliderInt("Wall Tex",  &g_brushWallTex,  0, 15);
-		ImGui::SliderInt("Floor Tex", &g_brushFloorTex, 0, 15);
-		ImGui::SliderInt("Ceil Tex",  &g_brushCeilTex,  0, 15);
+		ImGui::SliderInt("Wall Tex",  &g_brushWallTex,  0, 63);
+		ImGui::SliderInt("Floor Tex", &g_brushFloorTex, 0, 63);
+		ImGui::SliderInt("Ceil Tex",  &g_brushCeilTex,  0, 63);
 
 		ImGui::Separator();
 		ImGui::Text("Click tile to select, then change brush & click again to place.");
@@ -753,9 +753,9 @@ static void GameRenderUI()
 			t.renderSolid = (st == 1);
 
 			int wt = t.wallTex, ft = t.floorTex, ct = t.ceilTex;
-			if (ImGui::SliderInt("Wall",  &wt, 0, 15)) { t.wallTex  = static_cast<uint8_t>(wt); g_dirtyMesh = true; }
-			if (ImGui::SliderInt("Floor", &ft, 0, 15)) { t.floorTex = static_cast<uint8_t>(ft); g_dirtyMesh = true; }
-			if (ImGui::SliderInt("Ceil",  &ct, 0, 15)) { t.ceilTex  = static_cast<uint8_t>(ct); g_dirtyMesh = true; }
+			if (ImGui::SliderInt("Wall",  &wt, 0, 63)) { t.wallTex  = static_cast<uint8_t>(wt); g_dirtyMesh = true; }
+			if (ImGui::SliderInt("Floor", &ft, 0, 63)) { t.floorTex = static_cast<uint8_t>(ft); g_dirtyMesh = true; }
+			if (ImGui::SliderInt("Ceil",  &ct, 0, 63)) { t.ceilTex  = static_cast<uint8_t>(ct); g_dirtyMesh = true; }
 
 			if (ImGui::Button("Remove Tile"))
 			{
@@ -788,19 +788,19 @@ static void GameRenderUI()
 			if (g_selFace == tile::FaceDir::FLOOR)
 			{
 				int ft = t.floorTex;
-				if (ImGui::SliderInt("Floor Texture", &ft, 0, 15))
+				if (ImGui::SliderInt("Floor Texture", &ft, 0, 63))
 				{ t.floorTex = static_cast<uint8_t>(ft); g_dirtyMesh = true; }
 			}
 			else if (g_selFace == tile::FaceDir::CEILING)
 			{
 				int ct = t.ceilTex;
-				if (ImGui::SliderInt("Ceil Texture", &ct, 0, 15))
+				if (ImGui::SliderInt("Ceil Texture", &ct, 0, 63))
 				{ t.ceilTex = static_cast<uint8_t>(ct); g_dirtyMesh = true; }
 			}
 			else
 			{
 				int wt = t.wallTex;
-				if (ImGui::SliderInt("Wall Texture", &wt, 0, 15))
+				if (ImGui::SliderInt("Wall Texture", &wt, 0, 63))
 				{ t.wallTex = static_cast<uint8_t>(wt); g_dirtyMesh = true; }
 			}
 		}
