@@ -109,6 +109,7 @@ namespace tile
 		std::vector<glm::vec3>  positions;
 		std::vector<glm::vec3>  normals;
 		std::vector<glm::vec2>  uvs;
+		std::vector<glm::vec4>  colors;
 		std::vector<uint32_t>   indices;
 
 		// Per-triangle metadata  (1 entry per triangle = indices.size()/3)
@@ -125,6 +126,9 @@ namespace tile
 
 		// Ray intersection   —  returns hit info for the closest triangle
 		bool RayIntersect(glm::vec3 orig, glm::vec3 dir, HitInfo& hit) const;
+
+		// Set vertex color for all triangles belonging to a specific face
+		void SetFaceColor(int tx, int ty, int faceIdx, const glm::vec4& color);
 
 	private:
 		void addQuad(

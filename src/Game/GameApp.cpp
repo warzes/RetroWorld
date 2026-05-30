@@ -566,7 +566,7 @@ static void GameUpdate()
 	static math::point2 prevMouse;
 	static bool mouseCapture = false;
 
-	if (input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
+	if (!ImGui::GetIO().WantCaptureMouse && input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
 		g_mouseLook.OnRightDown();
 	else
 		g_mouseLook.OnRightUp();

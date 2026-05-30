@@ -222,6 +222,7 @@ namespace tile
 		positions.clear();
 		normals.clear();
 		uvs.clear();
+		colors.clear();
 		indices.clear();
 		triTileX.clear();
 		triTileY.clear();
@@ -234,11 +235,12 @@ namespace tile
 		glm::vec2 uv00, glm::vec2 uv10, glm::vec2 uv11, glm::vec2 uv01,
 		int tx, int ty, int faceIdx)
 	{
+		constexpr glm::vec4 white{1.0f};
 		uint32_t base = static_cast<uint32_t>(positions.size());
-		positions.push_back(a); normals.push_back(n); uvs.push_back(uv00);
-		positions.push_back(b); normals.push_back(n); uvs.push_back(uv10);
-		positions.push_back(c); normals.push_back(n); uvs.push_back(uv11);
-		positions.push_back(d); normals.push_back(n); uvs.push_back(uv01);
+		positions.push_back(a); normals.push_back(n); uvs.push_back(uv00); colors.push_back(white);
+		positions.push_back(b); normals.push_back(n); uvs.push_back(uv10); colors.push_back(white);
+		positions.push_back(c); normals.push_back(n); uvs.push_back(uv11); colors.push_back(white);
+		positions.push_back(d); normals.push_back(n); uvs.push_back(uv01); colors.push_back(white);
 
 		indices.push_back(base + 0);
 		indices.push_back(base + 1);
@@ -261,10 +263,11 @@ namespace tile
 		glm::vec2 uvA, glm::vec2 uvB, glm::vec2 uvC,
 		int tx, int ty, int faceIdx)
 	{
+		constexpr glm::vec4 white{1.0f};
 		uint32_t base = static_cast<uint32_t>(positions.size());
-		positions.push_back(a); normals.push_back(n); uvs.push_back(uvA);
-		positions.push_back(b); normals.push_back(n); uvs.push_back(uvB);
-		positions.push_back(c); normals.push_back(n); uvs.push_back(uvC);
+		positions.push_back(a); normals.push_back(n); uvs.push_back(uvA); colors.push_back(white);
+		positions.push_back(b); normals.push_back(n); uvs.push_back(uvB); colors.push_back(white);
+		positions.push_back(c); normals.push_back(n); uvs.push_back(uvC); colors.push_back(white);
 
 		indices.push_back(base + 0);
 		indices.push_back(base + 1);
@@ -451,12 +454,13 @@ namespace tile
 		verts.reserve(positions.size());
 		for (size_t i = 0; i < positions.size(); ++i)
 		{
-			verts.push_back({ positions[i], normals[i], uvs[i] });
+			verts.push_back({ positions[i], normals[i], uvs[i], colors[i] });
 		}
 
 		mesh.vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
 		mesh.vbo = gpu::buffer::CreateBuffer(
-			verts.data(), verts.size() * sizeof(gr::MeshVertex));
+			verts.data(), verts.size() * sizeof(gr::MeshVertex),
+			gpu::buffer::BufferStorageFlag::DynamicStorage);
 		mesh.ibo = gpu::buffer::CreateBuffer(
 			indices.data(), indices.size() * sizeof(uint32_t));
 		mesh.vertexCount = static_cast<uint32_t>(verts.size());
@@ -480,22 +484,54 @@ namespace tile
 			const auto& v1 = positions[indices[i + 1]];
 			const auto& v2 = positions[indices[i + 2]];
 
-			float t, u, v;
-			if (RayTriangleIntersect(orig, dir, v0, v1, v2, t, u, v))
+			// Moller-Trumbore with front-face culling (det > 0 = front-facing)
+			constexpr float EPS = 1e-8f;
+			glm::vec3 e1 = v1 - v0;
+			glm::vec3 e2 = v2 - v0;
+			glm::vec3 pvec = glm::cross(dir, e2);
+			float det = glm::dot(e1, pvec);
+			if (det <= EPS) continue; // backface or degenerate, skip
+			float invDet = 1.0f / det;
+			glm::vec3 tvec = orig - v0;
+			float u = glm::dot(tvec, pvec) * invDet;
+			if (u < 0.0f || u > 1.0f) continue;
+			glm::vec3 qvec = glm::cross(tvec, e1);
+			float v = glm::dot(dir, qvec) * invDet;
+			if (v < 0.0f || u + v > 1.0f) continue;
+			float t = glm::dot(e2, qvec) * invDet;
+			if (t <= 0.0f) continue;
+
+			if (t < hit.t)
 			{
-				if (t > 0 && t < hit.t)
-				{
-					hit.t      = t;
-					hit.point  = orig + dir * t;
-					hit.tileX  = triTileX[i / 3];
-					hit.tileY  = triTileY[i / 3];
-					hit.face   = static_cast<FaceDir>(triFace[i / 3]);
-					hit.corner = -1;
-					found = true;
-				}
+				hit.t      = t;
+				hit.point  = orig + dir * t;
+				hit.tileX  = triTileX[i / 3];
+				hit.tileY  = triTileY[i / 3];
+				hit.face   = static_cast<FaceDir>(triFace[i / 3]);
+				hit.corner = -1;
+				found = true;
 			}
 		}
 		return found;
+	}
+
+	// ==========================================================================
+	//  Face color highlight
+	// ==========================================================================
+	void TileMeshGen::SetFaceColor(int tx, int ty, int faceIdx, const glm::vec4& color)
+	{
+		for (size_t i = 0; i < triTileX.size(); ++i)
+		{
+			if (triTileX[i] == tx && triTileY[i] == ty && triFace[i] == faceIdx)
+			{
+				uint32_t i0 = indices[i * 3];
+				uint32_t i1 = indices[i * 3 + 1];
+				uint32_t i2 = indices[i * 3 + 2];
+				colors[i0] = color;
+				colors[i1] = color;
+				colors[i2] = color;
+			}
+		}
 	}
 
 	// ==========================================================================

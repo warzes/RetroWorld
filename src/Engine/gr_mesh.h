@@ -11,6 +11,7 @@ namespace gr
 		glm::vec3 position;
 		glm::vec3 normal;
 		glm::vec2 uv;
+		glm::vec4 color{1.0f, 1.0f, 1.0f, 1.0f};
 	};
 
 	static inline const std::vector MeshVertexBindingDescs = {
@@ -34,6 +35,13 @@ namespace gr
 			.binding  = 0,
 			.format   = gpu::Format::R32G32_FLOAT,
 			.offset   = offsetof(MeshVertex, uv),
+		},
+		gpu::vao::VertexInputBindingDescription{
+			// vertex color
+			.location = 3,
+			.binding  = 0,
+			.format   = gpu::Format::R32G32B32A32_FLOAT,
+			.offset   = offsetof(MeshVertex, color),
 		},
 	};
 

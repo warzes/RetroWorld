@@ -9,6 +9,7 @@ namespace
 layout(location = 0) in vec3 a_position;
 layout(location = 1) in vec3 a_normal;
 layout(location = 2) in vec2 a_texcoord;
+layout(location = 3) in vec4 a_color;
 
 layout(std430, binding = 6) readonly buffer InstanceBuffer {
 	mat4 models[];
@@ -23,6 +24,7 @@ uniform mat3  u_normalMatrix;
 layout(location = 0) out vec3 v_worldPos;
 layout(location = 1) out vec3 v_worldNormal;
 layout(location = 2) out vec2 v_texcoord;
+layout(location = 3) out vec4 v_color;
 
 void main()
 {
@@ -33,6 +35,7 @@ void main()
 	v_worldPos    = worldPos.xyz;
 	v_worldNormal = normalize(normalMatrix * a_normal);
 	v_texcoord    = a_texcoord;
+	v_color       = a_color;
 
 	gl_Position = u_projection * u_view * worldPos;
 }
@@ -61,6 +64,7 @@ struct LightData {
 layout(location = 0) in vec3 v_worldPos;
 layout(location = 1) in vec3 v_worldNormal;
 layout(location = 2) in vec2 v_texcoord;
+layout(location = 3) in vec4 v_color;
 
 layout(std140, binding = 4) uniform LightBlock {
 	int        u_lightCount;
@@ -134,7 +138,7 @@ vec3 CalcDirectionalLight(LightData light, vec3 N, vec3 V, vec3 albedo, float sh
 
 void main()
 {
-	vec3 albedo = u_albedoColor;
+	vec3 albedo = u_albedoColor * v_color.rgb;
 	vec3 normal = normalize(v_worldNormal);
 	if (u_hasAlbedoMap) albedo *= texture(u_albedoMap, v_texcoord).rgb;
 	vec3 V = normalize(u_cameraPos - v_worldPos);
@@ -203,12 +207,26 @@ void main() {}
 	int g_mapWidth  = 16;
 	int g_mapHeight = 16;
 	uint32_t g_genSeed = 0;
+
+	// --- Hover state ---
+	int g_hoverTX = -1, g_hoverTY = -1;
+	tile::FaceDir g_hoverFace = tile::FaceDir::COUNT;
+	int g_prevHoverTX = -1, g_prevHoverTY = -1;
+	tile::FaceDir g_prevHoverFace = tile::FaceDir::COUNT;
+	const glm::vec4 HOVER_PINK{1.5f, 0.3f, 0.8f, 1.0f};
 }
 
 //=============================================================================
 static void RebuildTileMesh()
 {
 	g_tileMeshCPU.BuildFromMap(g_tileMap, 4, g_selTX, g_selTY, 6);
+
+	// Apply hover highlighting directly into CPU mesh colors
+	if (g_hoverTX >= 0)
+	{
+		g_tileMeshCPU.SetFaceColor(g_hoverTX, g_hoverTY,
+			static_cast<int>(g_hoverFace), HOVER_PINK);
+	}
 
 	if (g_tileModelNode)
 	{
@@ -268,12 +286,9 @@ static bool GameInit()
 		if (!gpu::program::IsValid(g_depthShader)) { core::Error("failed ShadowDepth"); return false; }
 	}
 
-	// --- Tile map — single tile for debugging ---
-	g_tileMap.Resize(1, 1);
-	g_tileMap.SetAll(tile::TileSpaceType::SOLID);
-	g_tileMap.Get(0, 0).floorTex = 1;
-	g_tileMap.Get(0, 0).ceilTex  = 2;
-	g_tileMap.Get(0, 0).wallTex  = 0;
+	// --- Tile map — procedural dungeon ---
+	g_tileMap.Resize(g_mapWidth, g_mapHeight);
+	g_tileMap.GenerateRandom(++g_genSeed);
 
 	// --- Atlas texture ---
 	g_atlasTex = tile::CreateTileAtlas(64, 4);
@@ -354,6 +369,7 @@ static void GameClose()
 static void GameUpdate()
 {
 	const float speed = 10.0f * app::GetDeltaTime();
+	bool wantCaptureMouse = ImGui::GetIO().WantCaptureMouse;
 
 	if (input::IsKeyDown(KeyboardType::KEY_W)) g_camera.Move(gr::Movement::Forward,  speed);
 	if (input::IsKeyDown(KeyboardType::KEY_S)) g_camera.Move(gr::Movement::Backward, speed);
@@ -362,7 +378,7 @@ static void GameUpdate()
 	if (input::IsKeyDown(KeyboardType::KEY_Q)) g_camera.Move(gr::Movement::Down,     speed);
 	if (input::IsKeyDown(KeyboardType::KEY_E)) g_camera.Move(gr::Movement::Up,       speed);
 
-	if (input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
+	if (!wantCaptureMouse && input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
 		g_mouseLook.OnRightDown();
 	else
 		g_mouseLook.OnRightUp();
@@ -382,18 +398,105 @@ static void GameUpdate()
 		g_dirtyMesh = true;
 	}
 
-	// Left click picking
+	// Mouse-dependent scene interaction (blocked when ImGui wants the mouse)
 	static bool prevLMB = false;
 	bool lmb = input::IsMouseDown(MouseType::MOUSE_BUTTON_LEFT);
-	if (lmb && !prevLMB && g_scene->activeCamera)
+	bool lmbPressed = lmb && !prevLMB;
+
+	if (!wantCaptureMouse)
 	{
-		auto mp = input::GetMousePosition();
-		auto vp = g_scene->activeCamera->GetViewProjectionMatrix();
-		float ww = static_cast<float>(window::GetWidth());
-		float wh = static_cast<float>(window::GetHeight());
-		glm::vec3 rayDir = tile::ScreenToRay(vp, static_cast<float>(mp.x), static_cast<float>(mp.y), ww, wh);
-		glm::vec3 camPos = g_scene->activeCamera->GetPosition();
-		PickTile(camPos, rayDir);
+		// Left click picking
+		if (lmbPressed && g_scene->activeCamera)
+		{
+			auto mp = input::GetMousePosition();
+			auto vp = g_scene->activeCamera->GetViewProjectionMatrix();
+			float ww = static_cast<float>(window::GetWidth());
+			float wh = static_cast<float>(window::GetHeight());
+			glm::vec3 rayDir = tile::ScreenToRay(vp, static_cast<float>(mp.x), static_cast<float>(mp.y), ww, wh);
+			glm::vec3 camPos = g_scene->activeCamera->GetPosition();
+			PickTile(camPos, rayDir);
+		}
+
+		// Face hover highlighting (raycast every frame)
+		{
+			tile::HitInfo hit;
+			if (g_scene->activeCamera)
+			{
+				auto mp = input::GetMousePosition();
+				auto vp = g_scene->activeCamera->GetViewProjectionMatrix();
+				float ww = static_cast<float>(window::GetWidth());
+				float wh = static_cast<float>(window::GetHeight());
+				glm::vec3 rayDir = tile::ScreenToRay(vp, static_cast<float>(mp.x), static_cast<float>(mp.y), ww, wh);
+				glm::vec3 camPos = g_scene->activeCamera->GetPosition();
+
+				if (g_tileMeshCPU.RayIntersect(camPos, rayDir, hit))
+				{
+					g_hoverTX = hit.tileX;
+					g_hoverTY = hit.tileY;
+					g_hoverFace = hit.face;
+				}
+				else
+				{
+					g_hoverTX = g_hoverTY = -1;
+					g_hoverFace = tile::FaceDir::COUNT;
+				}
+			}
+
+			if (g_hoverTX != g_prevHoverTX || g_hoverTY != g_prevHoverTY ||
+				g_hoverFace != g_prevHoverFace)
+			{
+				g_dirtyMesh = true;
+				g_prevHoverTX = g_hoverTX;
+				g_prevHoverTY = g_hoverTY;
+				g_prevHoverFace = g_hoverFace;
+			}
+		}
+
+		// Apply brush on click in TILE mode
+		if (lmbPressed && g_editMode == EditMode::TILE &&
+			g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY))
+		{
+			auto& t = g_tileMap.Get(g_selTX, g_selTY);
+			if (g_brushSolid)
+			{
+				t.spaceType   = tile::TileSpaceType::SOLID;
+				t.renderSolid = true;
+				t.wallTex     = static_cast<uint8_t>(g_brushWallTex);
+				t.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
+				t.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+			}
+			else
+			{
+				t.spaceType   = tile::TileSpaceType::EMPTY;
+				t.renderSolid = false;
+			}
+			g_dirtyMesh = true;
+		}
+
+		// Scroll to adjust height in VERTEX mode
+		{
+			static float scrollAccum = 0.0f;
+			float md = input::GetMouseDelta();
+			if (g_editMode == EditMode::VERTEX && g_selTX >= 0 && g_selCorner >= 0 && fabsf(md) > 0.5f)
+			{
+				scrollAccum += md * 0.01f;
+				if (fabsf(scrollAccum) > 0.05f)
+				{
+					float delta = (scrollAccum > 0 ? 0.1f : -0.1f);
+					auto& t = g_tileMap.Get(g_selTX, g_selTY);
+					switch (g_selCorner)
+					{
+						case 0: t.slopeNW += delta; break;
+						case 1: t.slopeNE += delta; break;
+						case 2: t.slopeSE += delta; break;
+						case 3: t.slopeSW += delta; break;
+					}
+					g_dirtyMesh = true;
+					scrollAccum = 0.0f;
+				}
+			}
+			else scrollAccum = 0.0f;
+		}
 	}
 	prevLMB = lmb;
 
@@ -401,53 +504,10 @@ static void GameUpdate()
 	if (g_scene->activeCamera)
 		g_scene->activeCamera->aspectRatio = window::GetAspectRatio();
 
-	// Scroll to adjust height in VERTEX mode
+	if (g_dirtyMesh)
 	{
-		static float scrollAccum = 0.0f;
-		float md = input::GetMouseDelta();
-		if (g_editMode == EditMode::VERTEX && g_selTX >= 0 && g_selCorner >= 0 && fabsf(md) > 0.5f)
-		{
-			scrollAccum += md * 0.01f;
-			if (fabsf(scrollAccum) > 0.05f)
-			{
-				float delta = (scrollAccum > 0 ? 0.1f : -0.1f);
-				auto& t = g_tileMap.Get(g_selTX, g_selTY);
-				switch (g_selCorner)
-				{
-					case 0: t.slopeNW += delta; break;
-					case 1: t.slopeNE += delta; break;
-					case 2: t.slopeSE += delta; break;
-					case 3: t.slopeSW += delta; break;
-				}
-				g_dirtyMesh = true;
-				scrollAccum = 0.0f;
-			}
-		}
-		else scrollAccum = 0.0f;
+		RebuildTileMesh();
 	}
-
-	// Apply brush on Ctrl+click in TILE mode
-	if (lmb && !prevLMB && g_editMode == EditMode::TILE &&
-		g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY))
-	{
-		auto& t = g_tileMap.Get(g_selTX, g_selTY);
-		if (g_brushSolid)
-		{
-			t.spaceType   = tile::TileSpaceType::SOLID;
-			t.renderSolid = true;
-			t.wallTex     = static_cast<uint8_t>(g_brushWallTex);
-			t.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
-			t.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
-		}
-		else
-		{
-			t.spaceType   = tile::TileSpaceType::EMPTY;
-			t.renderSolid = false;
-		}
-		g_dirtyMesh = true;
-	}
-
-	if (g_dirtyMesh) RebuildTileMesh();
 
 	g_scene->Update();
 }
@@ -493,9 +553,172 @@ static void GameRender()
 //=============================================================================
 static void GameRenderUI()
 {
+	// --- Main Menu Bar (Delver Engine style) ---
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("File"))
+		{
+			if (ImGui::MenuItem("New", "Ctrl+N")) {}
+			if (ImGui::BeginMenu("Open Recent"))
+			{
+				ImGui::Text("(empty)");
+				ImGui::EndMenu();
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Save", "Ctrl+S")) {}
+			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Exit")) {}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Edit"))
+		{
+			if (ImGui::MenuItem("Undo", "Ctrl+Z")) {}
+			if (ImGui::MenuItem("Redo", "Ctrl+Y")) {}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Copy", "Ctrl+C")) {}
+			if (ImGui::MenuItem("Paste", "Ctrl+V")) {}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Tile"))
+		{
+			if (ImGui::MenuItem("Carve", "Enter")) {}
+			if (ImGui::MenuItem("Paint", "Shift+Enter")) {}
+			if (ImGui::MenuItem("Delete", "Del")) {}
+			if (ImGui::MenuItem("Deselect", "Escape")) {}
+			ImGui::Separator();
+
+			if (ImGui::BeginMenu("Height Edit Mode"))
+			{
+				if (ImGui::MenuItem("Plane")) {}
+				if (ImGui::MenuItem("Vertex")) {}
+				if (ImGui::MenuItem("Toggle", "V")) {}
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::BeginMenu("Raise/Lower"))
+			{
+				if (ImGui::MenuItem("Raise Floor", "3")) {}
+				if (ImGui::MenuItem("Lower Floor", "Shift+3")) {}
+				if (ImGui::MenuItem("Raise Ceiling", "4")) {}
+				if (ImGui::MenuItem("Lower Ceiling", "Shift+4")) {}
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::BeginMenu("Move"))
+			{
+				if (ImGui::MenuItem("Move North", "Shift+Up")) {}
+				if (ImGui::MenuItem("Move South", "Shift+Down")) {}
+				if (ImGui::MenuItem("Move East", "Shift+Left")) {}
+				if (ImGui::MenuItem("Move West", "Shift+Right")) {}
+				if (ImGui::MenuItem("Move Up", "Shift+E")) {}
+				if (ImGui::MenuItem("Move Down", "Shift+Q")) {}
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::MenuItem("Rotate Wall Angle", "U")) {}
+			ImGui::Separator();
+
+			if (ImGui::BeginMenu("Flatten"))
+			{
+				if (ImGui::MenuItem("Floor", "F")) {}
+				if (ImGui::MenuItem("Ceiling", "Shift+F")) {}
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::MenuItem("Pick Textures", "G")) {}
+			ImGui::Separator();
+
+			if (ImGui::BeginMenu("Rotate Texture"))
+			{
+				if (ImGui::MenuItem("Floor", "T")) {}
+				if (ImGui::MenuItem("Ceiling", "Shift+T")) {}
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::BeginMenu("Surface"))
+			{
+				if (ImGui::MenuItem("Paint Surface Texture", "1")) {}
+				if (ImGui::MenuItem("Grab Surface Texture", "2")) {}
+				if (ImGui::MenuItem("Pick Surface Texture", "Shift+2")) {}
+				if (ImGui::MenuItem("Flood Fill Surface Texture", "Shift+1")) {}
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Entity"))
+		{
+			if (ImGui::MenuItem("Delete", "Del")) {}
+			if (ImGui::MenuItem("Deselect", "Escape")) {}
+			ImGui::Separator();
+
+			if (ImGui::BeginMenu("Move"))
+			{
+				if (ImGui::MenuItem("Constrain to X-axis", "X")) {}
+				if (ImGui::MenuItem("Constrain to Y-axis", "Y")) {}
+				if (ImGui::MenuItem("Constrain to Z-axis", "Z")) {}
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::MenuItem("Rotate", "R")) {}
+
+			if (ImGui::BeginMenu("Turn"))
+			{
+				if (ImGui::MenuItem("Clockwise", "Ctrl+Left")) {}
+				if (ImGui::MenuItem("Counter-clockwise", "Ctrl+Right")) {}
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("View"))
+		{
+			if (ImGui::MenuItem("Toggle Simulation", "B")) {}
+			if (ImGui::MenuItem("Toggle Gizmos")) {}
+			if (ImGui::MenuItem("Toggle Lights", "L")) {}
+			ImGui::Separator();
+			if (ImGui::MenuItem("View Selected", "Space")) {}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Level"))
+		{
+			if (ImGui::MenuItem("Play From Camera", "P")) {}
+			if (ImGui::MenuItem("Play From Start", "Shift+P")) {}
+			ImGui::Separator();
+
+			if (ImGui::BeginMenu("Rotate Level"))
+			{
+				if (ImGui::MenuItem("Clockwise")) {}
+				if (ImGui::MenuItem("Counter-clockwise")) {}
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::MenuItem("Resize Level")) {}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Set Theme")) {}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Generate Room")) {}
+			if (ImGui::MenuItem("Generate Level")) {}
+			ImGui::EndMenu();
+		}
+
+		// Play button (right-aligned)
+		ImGui::SameLine(ImGui::GetWindowWidth() - 40);
+		if (ImGui::Button(">")) {}
+
+		ImGui::EndMainMenuBar();
+	}
+
+	// --- Editor panel (tool window) ---
 	ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 
-	ImGui::Text("Controls: WASD=move RMB=look 1/2/3=Mode R=Regen");
+	ImGui::Text("WASD=move  RMB=look  1/2/3=Mode  R=Regen");
 	ImGui::Separator();
 
 	// Mode
@@ -534,7 +757,6 @@ static void GameRenderUI()
 			if (ImGui::SliderInt("Floor", &ft, 0, 15)) { t.floorTex = static_cast<uint8_t>(ft); g_dirtyMesh = true; }
 			if (ImGui::SliderInt("Ceil",  &ct, 0, 15)) { t.ceilTex  = static_cast<uint8_t>(ct); g_dirtyMesh = true; }
 
-			// Remove / Place buttons
 			if (ImGui::Button("Remove Tile"))
 			{
 				t.spaceType   = tile::TileSpaceType::EMPTY;
@@ -623,7 +845,7 @@ static void GameRenderUI()
 		g_dirtyMesh = true;
 	}
 
-	// Performance
+	// Stats
 	ImGui::Separator();
 	ImGui::Text("Verts: %zu", g_tileMeshCPU.positions.size());
 	ImGui::Text("Tris:  %zu", g_tileMeshCPU.indices.size() / 3);
