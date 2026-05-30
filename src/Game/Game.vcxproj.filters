@@ -6,18 +6,23 @@
     <ClCompile Include="GameApp.cpp">
       <Filter>Game</Filter>
     </ClCompile>
-    <ClCompile Include="tile.cpp">
-      <Filter>Game</Filter>
-    </ClCompile>
-    <ClCompile Include="GameAppTile.cpp">
-      <Filter>Game</Filter>
-    </ClCompile>
+    <ClCompile Include="editor\Editor.cpp" />
+    <ClCompile Include="editor\EditorActions.cpp" />
+    <ClCompile Include="editor\EditorApp.cpp" />
+    <ClCompile Include="editor\EditorUI.cpp" />
+    <ClCompile Include="tile\TileAtlas.cpp" />
+    <ClCompile Include="tile\TileMap.cpp" />
+    <ClCompile Include="tile\TileMeshGen.cpp" />
+    <ClCompile Include="tile\TilePicking.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="tile.h">
-      <Filter>Game</Filter>
-    </ClInclude>
+    <ClInclude Include="editor\Editor.h" />
+    <ClInclude Include="tile\TileAtlas.h" />
+    <ClInclude Include="tile\TileMap.h" />
+    <ClInclude Include="tile\TileMeshGen.h" />
+    <ClInclude Include="tile\TilePicking.h" />
+    <ClInclude Include="tile\TileTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Game">

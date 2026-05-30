@@ -15,6 +15,9 @@
     <ClCompile Include="gpu004_reflection.cpp">
       <Filter>GPUExamples</Filter>
     </ClCompile>
+    <ClCompile Include="demo001.cpp">
+      <Filter>demo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
@@ -22,6 +25,9 @@
   <ItemGroup>
     <Filter Include="GPUExamples">
       <UniqueIdentifier>{4e21f915-3420-400c-91ae-c6e0fae0498d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="demo">
+      <UniqueIdentifier>{38834ba1-164a-46e2-a83b-9ee8d2b5c813}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

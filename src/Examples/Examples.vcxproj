@@ -92,6 +92,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="demo001.cpp" />
     <ClCompile Include="gpu001_cube.cpp" />
     <ClCompile Include="gpu002_cubeSkybox.cpp" />
     <ClCompile Include="gpu003_spherePhong.cpp" />
