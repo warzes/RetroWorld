@@ -31,8 +31,11 @@ bool g_draggingCP = false;
 int  g_dragCPType = 0;
 int  g_dragCorner = 0;
 float g_dragStartMouseY = 0;
-float g_dragStartVal = 0;
+float g_lastAppliedDy = 0;
 float g_dragSlopes[4] = {};
+
+float g_heightStep = 0.15f;
+int   g_hoverCPIdx = -1;
 
 int  g_brushWallTex   = 0;
 int  g_brushFloorTex  = 1;

@@ -44,14 +44,29 @@ extern bool g_dirtyMesh;
 // Height edit sub-mode for TILE mode
 enum class HeightEditMode { PLANE, VERTEX };
 
+// Control point types for Plane mode (10 markers)
+enum class CPType : int {
+	FloorCenter = 0,
+	CeilCenter,
+	FloorNorth, FloorSouth, FloorWest, FloorEast,
+	CeilNorth, CeilSouth, CeilWest, CeilEast,
+	Corner,  // VERTEX mode corner
+	COUNT
+};
+
 extern gpu::program::ShaderProgramPtr g_debugProgram;
 extern HeightEditMode g_heightEditMode;
+
 extern bool g_draggingCP;
-extern int  g_dragCPType; // 0=floor center, 1=ceil center, 2=corner
-extern int  g_dragCorner;
+extern int  g_dragCPType;  // CPType as int
+extern int  g_dragCorner;  // for VERTEX mode corner index
 extern float g_dragStartMouseY;
-extern float g_dragStartVal;
+extern float g_lastAppliedDy;
 extern float g_dragSlopes[4];
+
+// Plane mode config
+extern float g_heightStep;
+extern int  g_hoverCPIdx;  // -1 = none
 
 extern int  g_brushWallTex;
 extern int  g_brushFloorTex;

@@ -1,6 +1,67 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Editor.h"
 #include <cmath>
+
+namespace
+{
+	// Fill positions for all 10 Plane-mode control points.
+	// Returns the number of positions written (10 in PLANE mode, 4 in VERTEX mode).
+	int GetCPPositions(glm::vec3* dst, int maxDst, const tile::Tile& t, float fx, float fz, HeightEditMode mode) noexcept
+	{
+		float fh = t.floorHeight;
+		float ch = t.ceilHeight;
+		float avgSlope = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
+
+		if (mode == HeightEditMode::PLANE)
+		{
+			if (maxDst < 10) return 0;
+			dst[0] = { fx, fh + avgSlope, fz };                                    // FloorCenter
+			dst[1] = { fx, ch + avgSlope, fz };                                    // CeilCenter
+			dst[2] = { fx,        fh + (t.slopeNW + t.slopeNE) * 0.5f, fz - 0.5f }; // FloorNorth
+			dst[3] = { fx,        fh + (t.slopeSW + t.slopeSE) * 0.5f, fz + 0.5f }; // FloorSouth
+			dst[4] = { fx - 0.5f, fh + (t.slopeNW + t.slopeSW) * 0.5f, fz };       // FloorWest
+			dst[5] = { fx + 0.5f, fh + (t.slopeNE + t.slopeSE) * 0.5f, fz };       // FloorEast
+			dst[6] = { fx,        ch + (t.slopeNW + t.slopeNE) * 0.5f, fz - 0.5f }; // CeilNorth
+			dst[7] = { fx,        ch + (t.slopeSW + t.slopeSE) * 0.5f, fz + 0.5f }; // CeilSouth
+			dst[8] = { fx - 0.5f, ch + (t.slopeNW + t.slopeSW) * 0.5f, fz };       // CeilWest
+			dst[9] = { fx + 0.5f, ch + (t.slopeNE + t.slopeSE) * 0.5f, fz };       // CeilEast
+			return 10;
+		}
+		else // VERTEX
+		{
+			if (maxDst < 4) return 0;
+			dst[0] = { fx - 0.5f, fh + t.slopeNW, fz - 0.5f };
+			dst[1] = { fx + 0.5f, fh + t.slopeNE, fz - 0.5f };
+			dst[2] = { fx + 0.5f, fh + t.slopeSE, fz + 0.5f };
+			dst[3] = { fx - 0.5f, fh + t.slopeSW, fz + 0.5f };
+			return 4;
+		}
+	}
+
+	void ApplyHeightStep(tile::Tile& t, int cpType, float delta) noexcept
+	{
+		switch (static_cast<CPType>(cpType))
+		{
+		case CPType::FloorCenter: t.floorHeight += delta; break;
+		case CPType::CeilCenter:  t.ceilHeight  += delta; break;
+		case CPType::FloorNorth:
+		case CPType::CeilNorth:   t.slopeNW += delta; t.slopeNE += delta; break;
+		case CPType::FloorSouth:
+		case CPType::CeilSouth:   t.slopeSE += delta; t.slopeSW += delta; break;
+		case CPType::FloorWest:
+		case CPType::CeilWest:    t.slopeNW += delta; t.slopeSW += delta; break;
+		case CPType::FloorEast:
+		case CPType::CeilEast:    t.slopeNE += delta; t.slopeSE += delta; break;
+		default: break;
+		}
+	}
+
+	// Marker colors
+	constexpr glm::vec4 COLOR_FLOOR(1.0f, 0.6f, 0.0f, 1.0f);   // orange
+	constexpr glm::vec4 COLOR_CEIL(0.3f, 0.6f, 1.0f, 1.0f);    // blue
+	constexpr glm::vec4 COLOR_HOVER(1.0f, 1.0f, 1.0f, 1.0f);   // white
+	constexpr glm::vec4 COLOR_CORNER(0.3f, 1.0f, 0.3f, 1.0f);  // green
+}
 
 namespace
 {
@@ -342,111 +403,83 @@ void GameUpdate()
 
 	if (!wantCaptureMouse)
 	{
-		// Left click picking
-		if (lmbPressed && g_scene->activeCamera)
+		// Pre-compute ray and mouse state for all picking/hover ops
+		glm::vec3 rayDir{};
+		glm::vec3 camPos{};
+		glm::vec2 mousePos{};
+		if (g_scene->activeCamera)
 		{
-			auto mp = input::GetMousePosition();
+			mousePos = { input::GetMousePosition().x, input::GetMousePosition().y };
 			auto vp = g_scene->activeCamera->GetViewProjectionMatrix();
 			float ww = static_cast<float>(window::GetWidth());
 			float wh = static_cast<float>(window::GetHeight());
-			glm::vec3 rayDir = tile::ScreenToRay(vp, static_cast<float>(mp.x), static_cast<float>(mp.y), ww, wh);
-			glm::vec3 camPos = g_scene->activeCamera->GetPosition();
+			rayDir = tile::ScreenToRay(vp, mousePos.x, mousePos.y, ww, wh);
+			camPos = g_scene->activeCamera->GetPosition();
+		}
 
+		// --- CP hover detection ---
+		g_hoverCPIdx = -1;
+		if (g_editMode == EditMode::TILE && g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY) && g_scene->activeCamera)
+		{
+			auto& t = g_tileMap.Get(g_selTX, g_selTY);
+			float fx = static_cast<float>(g_selTX);
+			float fz = static_cast<float>(g_selTY);
+
+			glm::vec3 cps[10];
+			int n = GetCPPositions(cps, 10, t, fx, fz, g_heightEditMode);
+
+			float bestDist = 0.28f; // hit radius
+			for (int i = 0; i < n; ++i)
+			{
+				glm::vec3 d = cps[i] - camPos;
+				float td = glm::dot(d, rayDir);
+				if (td <= 0) continue;
+				float dist = glm::distance(cps[i], camPos + rayDir * td);
+				if (dist < bestDist)
+				{
+					bestDist = dist;
+					g_hoverCPIdx = i;
+				}
+			}
+		}
+
+		// --- Left click ---
+		if (lmbPressed && g_scene->activeCamera)
+		{
 			bool cpPicked = false;
 
-			// TILE mode: try picking a control point for height editing
-			if (g_editMode == EditMode::TILE && g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY))
+			if (g_hoverCPIdx >= 0)
 			{
+				// Start dragging the hovered CP
 				auto& t = g_tileMap.Get(g_selTX, g_selTY);
-				float fx = static_cast<float>(g_selTX);
-				float fz = static_cast<float>(g_selTY);
-				float avgSlope = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
-
-				auto rayDist = [&](const glm::vec3& pt) -> float {
-					glm::vec3 d = pt - camPos;
-					float td = glm::dot(d, rayDir);
-					if (td <= 0) return FLT_MAX;
-					return glm::distance(pt, camPos + rayDir * td);
-				};
-
-				const float thresh = 0.4f;
-
-				if (g_heightEditMode == HeightEditMode::PLANE)
-				{
-					glm::vec3 fc{ fx, t.floorHeight + avgSlope, fz };
-					glm::vec3 cc{ fx, t.ceilHeight + avgSlope, fz };
-
-					if (rayDist(fc) < thresh)
-					{
-						g_draggingCP = true;
-						g_dragCPType = 0;
-						g_dragStartMouseY = static_cast<float>(mp.y);
-						g_dragStartVal = t.floorHeight;
-						cpPicked = true;
-					}
-					else if (rayDist(cc) < thresh)
-					{
-						g_draggingCP = true;
-						g_dragCPType = 1;
-						g_dragStartMouseY = static_cast<float>(mp.y);
-						g_dragStartVal = t.ceilHeight;
-						cpPicked = true;
-					}
-				}
-				else // VERTEX
-				{
-					glm::vec3 corners[4] = {
-						{ fx - 0.5f, t.floorHeight + t.slopeNW, fz - 0.5f },
-						{ fx + 0.5f, t.floorHeight + t.slopeNE, fz - 0.5f },
-						{ fx + 0.5f, t.floorHeight + t.slopeSE, fz + 0.5f },
-						{ fx - 0.5f, t.floorHeight + t.slopeSW, fz + 0.5f },
-					};
-					for (int i = 0; i < 4; ++i)
-					{
-						if (rayDist(corners[i]) < thresh)
-						{
-							g_draggingCP = true;
-							g_dragCPType = 2;
-							g_dragCorner = i;
-							g_dragStartMouseY = static_cast<float>(mp.y);
-							g_dragSlopes[0] = t.slopeNW;
-							g_dragSlopes[1] = t.slopeNE;
-							g_dragSlopes[2] = t.slopeSE;
-							g_dragSlopes[3] = t.slopeSW;
-							cpPicked = true;
-							break;
-						}
-					}
-				}
+				g_draggingCP = true;
+				g_dragCPType = g_hoverCPIdx;
+				g_dragStartMouseY = mousePos.y;
+				g_lastAppliedDy = 0;
+				g_dragSlopes[0] = t.slopeNW;
+				g_dragSlopes[1] = t.slopeNE;
+				g_dragSlopes[2] = t.slopeSE;
+				g_dragSlopes[3] = t.slopeSW;
+				cpPicked = true;
 			}
 
 			if (!cpPicked)
 				PickTile(camPos, rayDir);
 		}
 
-		// Face hover highlighting
+		// --- Face hover ---
 		{
 			tile::HitInfo hit;
-			if (g_scene->activeCamera)
+			if (g_scene->activeCamera && g_tileMeshCPU.RayIntersect(camPos, rayDir, hit))
 			{
-				auto mp = input::GetMousePosition();
-				auto vp = g_scene->activeCamera->GetViewProjectionMatrix();
-				float ww = static_cast<float>(window::GetWidth());
-				float wh = static_cast<float>(window::GetHeight());
-				glm::vec3 rayDir = tile::ScreenToRay(vp, static_cast<float>(mp.x), static_cast<float>(mp.y), ww, wh);
-				glm::vec3 camPos = g_scene->activeCamera->GetPosition();
-
-				if (g_tileMeshCPU.RayIntersect(camPos, rayDir, hit))
-				{
-					g_hoverTX = hit.tileX;
-					g_hoverTY = hit.tileY;
-					g_hoverFace = hit.face;
-				}
-				else
-				{
-					g_hoverTX = g_hoverTY = -1;
-					g_hoverFace = tile::FaceDir::COUNT;
-				}
+				g_hoverTX = hit.tileX;
+				g_hoverTY = hit.tileY;
+				g_hoverFace = hit.face;
+			}
+			else
+			{
+				g_hoverTX = g_hoverTY = -1;
+				g_hoverFace = tile::FaceDir::COUNT;
 			}
 
 			if (g_hoverTX != g_prevHoverTX || g_hoverTY != g_prevHoverTY ||
@@ -459,27 +492,36 @@ void GameUpdate()
 			}
 		}
 
-		// CP dragging (continuous while LMB held)
+		// --- CP dragging (step-based) ---
 		if (g_editMode == EditMode::TILE && g_draggingCP && lmb && g_selTX >= 0)
 		{
-			auto mp = input::GetMousePosition();
-			float dy = -(static_cast<float>(mp.y) - g_dragStartMouseY) * 0.02f;
-			auto& t = g_tileMap.Get(g_selTX, g_selTY);
+			float totalDy = -(mousePos.y - g_dragStartMouseY) * 0.02f;
 
-			if (g_dragCPType == 0)
+			// Snap to nearest multiple of step
+			int numSteps;
+			if (totalDy >= 0)
+				numSteps = static_cast<int>(totalDy / g_heightStep);
+			else
+				numSteps = -static_cast<int>(-totalDy / g_heightStep);
+			float snappedDy = static_cast<float>(numSteps) * g_heightStep;
+
+			float delta = snappedDy - g_lastAppliedDy;
+			if (fabsf(delta) >= 1e-5f)
 			{
-				t.floorHeight = g_dragStartVal + dy;
-				g_dirtyMesh = true;
-			}
-			else if (g_dragCPType == 1)
-			{
-				t.ceilHeight = g_dragStartVal + dy;
-				g_dirtyMesh = true;
-			}
-			else if (g_dragCPType == 2)
-			{
-				float* dst[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
-				*dst[g_dragCorner] = g_dragSlopes[g_dragCorner] + dy;
+				auto& t = g_tileMap.Get(g_selTX, g_selTY);
+
+				if (g_dragCPType < static_cast<int>(CPType::Corner))
+				{
+					// Plane mode CP types
+					ApplyHeightStep(t, g_dragCPType, delta);
+				}
+				else
+				{
+					// VERTEX mode corner
+					float* dst[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
+					*dst[g_dragCorner] = g_dragSlopes[g_dragCorner] + snappedDy;
+				}
+				g_lastAppliedDy = snappedDy;
 				g_dirtyMesh = true;
 			}
 		}
@@ -488,7 +530,7 @@ void GameUpdate()
 		if (!lmb && g_draggingCP)
 			g_draggingCP = false;
 
-		// Scroll to adjust height in VERTEX mode
+		// Scroll to adjust height in VERTEX mode (slope adjustment)
 		{
 			static float scrollAccum = 0.0f;
 			float md = input::GetMouseDelta();
@@ -553,7 +595,14 @@ void DrawDebugOverlay()
 		{ fx - 0.5f, ch + t.slopeSW, fz + 0.5f },
 	};
 
+	// Camera basis vectors for billboarding (extracted from view matrix)
+	glm::mat4 camView = g_scene->activeCamera->GetViewMatrix();
+	glm::vec3 camRight = glm::normalize(glm::vec3(camView[0][0], camView[1][0], camView[2][0]));
+	glm::vec3 camUp    = glm::normalize(glm::vec3(camView[0][1], camView[1][1], camView[2][1]));
+	const float markerHalf = 0.13f; // half-size of marker rectangle
+
 	std::vector<gr::MeshVertex> lines;
+	std::vector<gr::MeshVertex> tris;
 	glm::vec4 wireColor(0.8f, 0.8f, 0.8f, 0.6f);
 
 	auto addLine = [&](glm::vec3 a, glm::vec3 b, glm::vec4 c) {
@@ -561,50 +610,59 @@ void DrawDebugOverlay()
 		lines.push_back({ b, {}, {}, c });
 	};
 
-	// Bottom face
+	// Wireframe: bottom face
 	for (int i = 0; i < 4; ++i)
 		addLine(cb[i], cb[(i + 1) % 4], wireColor);
-	// Top face
+	// Wireframe: top face
 	for (int i = 0; i < 4; ++i)
 		addLine(ct[i], ct[(i + 1) % 4], wireColor);
-	// Vertical edges
+	// Wireframe: vertical edges
 	for (int i = 0; i < 4; ++i)
 		addLine(cb[i], ct[i], wireColor);
 
-	// Control point markers
-	float avgSlope = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
-	glm::vec3 fc{ fx, fh + avgSlope, fz };
-	glm::vec3 cc{ fx, ch + avgSlope, fz };
-	float ms = 0.15f;
+	// Helper: add a camera-facing rectangle as 2 triangles
+	auto addRect = [&](const glm::vec3& center, const glm::vec4& color) {
+		glm::vec3 r = camRight * markerHalf;
+		glm::vec3 u = camUp * markerHalf;
+		glm::vec3 p0 = center - r - u;
+		glm::vec3 p1 = center + r - u;
+		glm::vec3 p2 = center + r + u;
+		glm::vec3 p3 = center - r + u;
+		tris.push_back({ p0, {}, {}, color });
+		tris.push_back({ p1, {}, {}, color });
+		tris.push_back({ p2, {}, {}, color });
+		tris.push_back({ p0, {}, {}, color });
+		tris.push_back({ p2, {}, {}, color });
+		tris.push_back({ p3, {}, {}, color });
+	};
 
+	// Control point markers
 	if (g_heightEditMode == HeightEditMode::PLANE)
 	{
-		// Floor center (orange)
-		glm::vec4 orange(1.0f, 0.6f, 0.0f, 1.0f);
-		addLine(fc + glm::vec3(-ms, 0, 0), fc + glm::vec3(ms, 0, 0), orange);
-		addLine(fc + glm::vec3(0, -ms, 0), fc + glm::vec3(0, ms, 0), orange);
-		addLine(fc + glm::vec3(0, 0, -ms), fc + glm::vec3(0, 0, ms), orange);
+		glm::vec3 cps[10];
+		int n = GetCPPositions(cps, 10, t, fx, fz, HeightEditMode::PLANE);
 
-		// Ceiling center (blue)
-		glm::vec4 blue(0.3f, 0.6f, 1.0f, 1.0f);
-		addLine(cc + glm::vec3(-ms, 0, 0), cc + glm::vec3(ms, 0, 0), blue);
-		addLine(cc + glm::vec3(0, -ms, 0), cc + glm::vec3(0, ms, 0), blue);
-		addLine(cc + glm::vec3(0, 0, -ms), cc + glm::vec3(0, 0, ms), blue);
+		// Floor markers: orange; Ceiling markers: blue; Hovered: white
+		for (int i = 0; i < n; ++i)
+		{
+			bool isFloor = (i <= static_cast<int>(CPType::FloorEast));
+			bool hovered = (g_hoverCPIdx == i);
+			glm::vec4 col = hovered ? COLOR_HOVER : (isFloor ? COLOR_FLOOR : COLOR_CEIL);
+			addRect(cps[i], col);
+		}
 	}
 	else // VERTEX
 	{
-		// Per-corner markers (green)
-		glm::vec4 green(0.3f, 1.0f, 0.3f, 1.0f);
+		// Corner markers: green
 		for (int i = 0; i < 4; ++i)
 		{
-			auto& p = cb[i];
-			addLine(p + glm::vec3(-ms, 0, 0), p + glm::vec3(ms, 0, 0), green);
-			addLine(p + glm::vec3(0, -ms, 0), p + glm::vec3(0, ms, 0), green);
-			addLine(p + glm::vec3(0, 0, -ms), p + glm::vec3(0, 0, ms), green);
+			bool hovered = (g_hoverCPIdx == i);
+			glm::vec4 col = hovered ? COLOR_HOVER : COLOR_CORNER;
+			addRect(cb[i], col);
 		}
 	}
 
-	if (lines.empty()) return;
+	if (lines.empty() && tris.empty()) return;
 
 	static gpu::vao::VertexArrayPtr s_vao;
 	static gpu::buffer::BufferPtr s_vbo;
@@ -613,15 +671,26 @@ void DrawDebugOverlay()
 	if (!s_vao)
 		s_vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
 
-	size_t needed = lines.size() * sizeof(gr::MeshVertex);
+	// Gather all verts into one buffer (lines first, then tris)
+	size_t lineVerts = lines.size();
+	size_t triVerts  = tris.size();
+	size_t totalVerts = lineVerts + triVerts;
+	size_t needed = totalVerts * sizeof(gr::MeshVertex);
+
 	if (!s_vbo || s_capacity < needed)
 	{
 		s_vbo = gpu::buffer::CreateBuffer(needed,
-			gpu::buffer::BufferStorageFlag::DynamicStorage, "debug_lines");
+			gpu::buffer::BufferStorageFlag::DynamicStorage, "debug_overlay");
 		s_capacity = needed;
 	}
 
-	gpu::buffer::UpdateData(s_vbo, lines.data(), needed, 0);
+	// Upload lines
+	if (lineVerts > 0)
+		gpu::buffer::UpdateData(s_vbo, lines.data(), lineVerts * sizeof(gr::MeshVertex), 0);
+	// Upload tris (appended after lines)
+	if (triVerts > 0)
+		gpu::buffer::UpdateData(s_vbo, tris.data(), triVerts * sizeof(gr::MeshVertex),
+			lineVerts * sizeof(gr::MeshVertex));
 
 	glLineWidth(2.0f);
 
@@ -633,8 +702,18 @@ void DrawDebugOverlay()
 	int loc = gpu::program::GetUniformLocation(g_debugProgram, "u_viewProj");
 	gpu::program::SetUniform(g_debugProgram, loc, vp);
 
-	gpu::cmd::SetTopology(gpu::PrimitiveTopology::LineList);
-	gpu::cmd::Draw(static_cast<uint32_t>(lines.size()), 1, 0, 0);
+	// Draw lines
+	if (lineVerts > 0)
+	{
+		gpu::cmd::SetTopology(gpu::PrimitiveTopology::LineList);
+		gpu::cmd::Draw(static_cast<uint32_t>(lineVerts), 1, 0, 0);
+	}
+	// Draw triangles
+	if (triVerts > 0)
+	{
+		gpu::cmd::SetTopology(gpu::PrimitiveTopology::TriangleList);
+		gpu::cmd::Draw(static_cast<uint32_t>(triVerts), 1, static_cast<uint32_t>(lineVerts), 0);
+	}
 	gpu::cmd::SetTopology(gpu::PrimitiveTopology::TriangleList);
 }
 

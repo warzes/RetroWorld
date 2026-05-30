@@ -199,6 +199,7 @@ void GameRenderUI()
 
 		ImGui::Separator();
 		ImGui::Text("Click tile to select.");
+		ImGui::SliderFloat("Height Step", &g_heightStep, 0.01f, 1.0f, "%.2f");
 		ImGui::Text("Drag orange/blue markers to adjust height.");
 		if (g_heightEditMode == HeightEditMode::VERTEX)
 			ImGui::Text("Drag green corner markers to adjust slope.");
