@@ -40,6 +40,7 @@ namespace tile
 		float ceilHeight  =  0.5f;
 
 		float slopeNW = 0.0f, slopeNE = 0.0f, slopeSE = 0.0f, slopeSW = 0.0f;
+		float ceilSlopeNW = 0.0f, ceilSlopeNE = 0.0f, ceilSlopeSE = 0.0f, ceilSlopeSW = 0.0f;
 	};
 
 	struct HitInfo final

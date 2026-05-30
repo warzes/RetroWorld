@@ -10,21 +10,22 @@ namespace
 	{
 		float fh = t.floorHeight;
 		float ch = t.ceilHeight;
-		float avgSlope = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
+		float avgFloorSlope = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
+		float avgCeilSlope = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
 
 		if (mode == HeightEditMode::PLANE)
 		{
 			if (maxDst < 10) return 0;
-			dst[0] = { fx, fh + avgSlope, fz };                                    // FloorCenter
-			dst[1] = { fx, ch + avgSlope, fz };                                    // CeilCenter
-			dst[2] = { fx,        fh + (t.slopeNW + t.slopeNE) * 0.5f, fz - 0.5f }; // FloorNorth
-			dst[3] = { fx,        fh + (t.slopeSW + t.slopeSE) * 0.5f, fz + 0.5f }; // FloorSouth
-			dst[4] = { fx - 0.5f, fh + (t.slopeNW + t.slopeSW) * 0.5f, fz };       // FloorWest
-			dst[5] = { fx + 0.5f, fh + (t.slopeNE + t.slopeSE) * 0.5f, fz };       // FloorEast
-			dst[6] = { fx,        ch + (t.slopeNW + t.slopeNE) * 0.5f, fz - 0.5f }; // CeilNorth
-			dst[7] = { fx,        ch + (t.slopeSW + t.slopeSE) * 0.5f, fz + 0.5f }; // CeilSouth
-			dst[8] = { fx - 0.5f, ch + (t.slopeNW + t.slopeSW) * 0.5f, fz };       // CeilWest
-			dst[9] = { fx + 0.5f, ch + (t.slopeNE + t.slopeSE) * 0.5f, fz };       // CeilEast
+			dst[0] = { fx, fh + avgFloorSlope, fz };                                    // FloorCenter
+			dst[1] = { fx, ch + avgCeilSlope, fz };                                     // CeilCenter
+			dst[2] = { fx,        fh + (t.slopeNW + t.slopeNE) * 0.5f, fz - 0.5f };      // FloorNorth
+			dst[3] = { fx,        fh + (t.slopeSW + t.slopeSE) * 0.5f, fz + 0.5f };      // FloorSouth
+			dst[4] = { fx - 0.5f, fh + (t.slopeNW + t.slopeSW) * 0.5f, fz };            // FloorWest
+			dst[5] = { fx + 0.5f, fh + (t.slopeNE + t.slopeSE) * 0.5f, fz };            // FloorEast
+			dst[6] = { fx,        ch + (t.ceilSlopeNW + t.ceilSlopeNE) * 0.5f, fz - 0.5f }; // CeilNorth
+			dst[7] = { fx,        ch + (t.ceilSlopeSW + t.ceilSlopeSE) * 0.5f, fz + 0.5f }; // CeilSouth
+			dst[8] = { fx - 0.5f, ch + (t.ceilSlopeNW + t.ceilSlopeSW) * 0.5f, fz };       // CeilWest
+			dst[9] = { fx + 0.5f, ch + (t.ceilSlopeNE + t.ceilSlopeSE) * 0.5f, fz };       // CeilEast
 			return 10;
 		}
 		else // VERTEX
@@ -44,21 +45,21 @@ namespace
 		{
 		case CPType::FloorCenter: t.floorHeight += delta; break;
 		case CPType::CeilCenter:  t.ceilHeight  += delta; break;
-		case CPType::FloorNorth:
-		case CPType::CeilNorth:   t.slopeNW += delta; t.slopeNE += delta; break;
-		case CPType::FloorSouth:
-		case CPType::CeilSouth:   t.slopeSE += delta; t.slopeSW += delta; break;
-		case CPType::FloorWest:
-		case CPType::CeilWest:    t.slopeNW += delta; t.slopeSW += delta; break;
-		case CPType::FloorEast:
-		case CPType::CeilEast:    t.slopeNE += delta; t.slopeSE += delta; break;
+		case CPType::FloorNorth:   t.slopeNW += delta; t.slopeNE += delta; break;
+		case CPType::CeilNorth:    t.ceilSlopeNW += delta; t.ceilSlopeNE += delta; break;
+		case CPType::FloorSouth:   t.slopeSE += delta; t.slopeSW += delta; break;
+		case CPType::CeilSouth:    t.ceilSlopeSE += delta; t.ceilSlopeSW += delta; break;
+		case CPType::FloorWest:    t.slopeNW += delta; t.slopeSW += delta; break;
+		case CPType::CeilWest:     t.ceilSlopeNW += delta; t.ceilSlopeSW += delta; break;
+		case CPType::FloorEast:    t.slopeNE += delta; t.slopeSE += delta; break;
+		case CPType::CeilEast:     t.ceilSlopeNE += delta; t.ceilSlopeSE += delta; break;
 		default: break;
 		}
 	}
 
 	// Marker colors
-	constexpr glm::vec4 COLOR_FLOOR(1.0f, 0.6f, 0.0f, 1.0f);   // orange
-	constexpr glm::vec4 COLOR_CEIL(0.3f, 0.6f, 1.0f, 1.0f);    // blue
+	constexpr glm::vec4 COLOR_CENTER(1.0f, 1.0f, 0.0f, 1.0f);  // yellow for center markers
+	constexpr glm::vec4 COLOR_EDGE(0.3f, 0.6f, 1.0f, 1.0f);    // blue for edge markers
 	constexpr glm::vec4 COLOR_HOVER(1.0f, 1.0f, 1.0f, 1.0f);   // white
 	constexpr glm::vec4 COLOR_CORNER(0.3f, 1.0f, 0.3f, 1.0f);  // green
 }
@@ -589,10 +590,10 @@ void DrawDebugOverlay()
 		{ fx - 0.5f, fh + t.slopeSW, fz + 0.5f },
 	};
 	glm::vec3 ct[4] = {
-		{ fx - 0.5f, ch + t.slopeNW, fz - 0.5f },
-		{ fx + 0.5f, ch + t.slopeNE, fz - 0.5f },
-		{ fx + 0.5f, ch + t.slopeSE, fz + 0.5f },
-		{ fx - 0.5f, ch + t.slopeSW, fz + 0.5f },
+		{ fx - 0.5f, ch + t.ceilSlopeNW, fz - 0.5f },
+		{ fx + 0.5f, ch + t.ceilSlopeNE, fz - 0.5f },
+		{ fx + 0.5f, ch + t.ceilSlopeSE, fz + 0.5f },
+		{ fx - 0.5f, ch + t.ceilSlopeSW, fz + 0.5f },
 	};
 
 	// Camera basis vectors for billboarding (extracted from view matrix)
@@ -642,12 +643,12 @@ void DrawDebugOverlay()
 		glm::vec3 cps[10];
 		int n = GetCPPositions(cps, 10, t, fx, fz, HeightEditMode::PLANE);
 
-		// Floor markers: orange; Ceiling markers: blue; Hovered: white
+		// Center markers (0,1): yellow; Edge markers (2-9): blue; Hovered: white
 		for (int i = 0; i < n; ++i)
 		{
-			bool isFloor = (i <= static_cast<int>(CPType::FloorEast));
+			bool isCenter = (i <= static_cast<int>(CPType::CeilCenter));
 			bool hovered = (g_hoverCPIdx == i);
-			glm::vec4 col = hovered ? COLOR_HOVER : (isFloor ? COLOR_FLOOR : COLOR_CEIL);
+			glm::vec4 col = hovered ? COLOR_HOVER : (isCenter ? COLOR_CENTER : COLOR_EDGE);
 			addRect(cps[i], col);
 		}
 	}

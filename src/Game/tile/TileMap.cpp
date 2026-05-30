@@ -59,10 +59,10 @@ namespace tile
 		const auto& t = Get(tx, ty);
 		switch (corner)
 		{
-			case 0: return t.ceilHeight + t.slopeNW;
-			case 1: return t.ceilHeight + t.slopeNE;
-			case 2: return t.ceilHeight + t.slopeSE;
-			case 3: return t.ceilHeight + t.slopeSW;
+			case 0: return t.ceilHeight + t.ceilSlopeNW;
+			case 1: return t.ceilHeight + t.ceilSlopeNE;
+			case 2: return t.ceilHeight + t.ceilSlopeSE;
+			case 3: return t.ceilHeight + t.ceilSlopeSW;
 			default: return t.ceilHeight;
 		}
 	}
