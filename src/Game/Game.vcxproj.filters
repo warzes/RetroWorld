@@ -3,9 +3,6 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="GameApp.cpp">
-      <Filter>Game</Filter>
-    </ClCompile>
     <ClCompile Include="editor\Editor.cpp" />
     <ClCompile Include="editor\EditorActions.cpp" />
     <ClCompile Include="editor\EditorApp.cpp" />

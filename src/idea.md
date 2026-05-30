@@ -19,6 +19,3 @@ https://www.youtube.com/watch?v=DBjd7NHMgOE
 // В D:\project2026_11\Engine очень мощный терейн (небо, вода, трава, деревья, терейн через марши)
 //	https://www.youtube.com/user/Lemmitbh/videos
 // RPG Paper Maker 3.0
-
-// В D:\project2026_11\Engine очень мощный терейн (небо, вода, трава, деревья, терейн через марши)
-//	https://www.youtube.com/user/Lemmitbh/videos
