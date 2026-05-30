@@ -545,7 +545,7 @@ namespace tile
 		return static_cast<uint8_t>(h & 0xFF);
 	}
 
-	static void fillCheckerPattern(uint8_t* rgba, int w, int h, int cellSize,
+	static void fillCheckerPattern(uint8_t* rgba, int w, int h, int stride, int cellSize,
 		uint8_t r0, uint8_t g0, uint8_t b0,
 		uint8_t r1, uint8_t g1, uint8_t b1)
 	{
@@ -553,7 +553,7 @@ namespace tile
 		{
 			for (int x = 0; x < w; ++x)
 			{
-				int idx = (y * w + x) * 4;
+				int idx = (y * stride + x) * 4;
 				bool c = ((x / cellSize) + (y / cellSize)) & 1;
 				if (c) { rgba[idx] = r1; rgba[idx + 1] = g1; rgba[idx + 2] = b1; }
 				else   { rgba[idx] = r0; rgba[idx + 1] = g0; rgba[idx + 2] = b0; }
@@ -562,14 +562,14 @@ namespace tile
 		}
 	}
 
-	static void fillStonePattern(uint8_t* rgba, int w, int h, int seed,
+	static void fillStonePattern(uint8_t* rgba, int w, int h, int stride, int seed,
 		uint8_t baseR, uint8_t baseG, uint8_t baseB)
 	{
 		for (int y = 0; y < h; ++y)
 		{
 			for (int x = 0; x < w; ++x)
 			{
-				int idx = (y * w + x) * 4;
+				int idx = (y * stride + x) * 4;
 				uint8_t n = valueNoise(x, y, seed);
 				int v = (static_cast<int>(n) - 128) / 4;
 				rgba[idx]     = static_cast<uint8_t>(std::clamp(baseR + v, 0, 255));
@@ -583,7 +583,7 @@ namespace tile
 		{
 			for (int x = 0; x < w; ++x)
 			{
-				int idx = (y * w + x) * 4;
+				int idx = (y * stride + x) * 4;
 				rgba[idx]     = static_cast<uint8_t>(rgba[idx] * 3 / 4);
 				rgba[idx + 1] = static_cast<uint8_t>(rgba[idx + 1] * 3 / 4);
 				rgba[idx + 2] = static_cast<uint8_t>(rgba[idx + 2] * 3 / 4);
@@ -593,7 +593,7 @@ namespace tile
 		{
 			for (int y = 0; y < h; ++y)
 			{
-				int idx = (y * w + x) * 4;
+				int idx = (y * stride + x) * 4;
 				rgba[idx]     = static_cast<uint8_t>(rgba[idx] * 3 / 4);
 				rgba[idx + 1] = static_cast<uint8_t>(rgba[idx + 1] * 3 / 4);
 				rgba[idx + 2] = static_cast<uint8_t>(rgba[idx + 2] * 3 / 4);
@@ -610,37 +610,37 @@ namespace tile
 		// tex 0 = wall (gray stone)
 		{
 			int ox = 0, oy = 0;
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, 42, 140, 130, 120);
+			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 42, 140, 130, 120);
 		}
 		// tex 1 = floor (brown checker)
 		{
 			int ox = tileSize * 1, oy = 0;
-			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, 8, 180, 140, 100, 160, 120, 80);
+			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 8, 180, 140, 100, 160, 120, 80);
 		}
 		// tex 2 = ceiling (dark gray)
 		{
 			int ox = tileSize * 2, oy = 0;
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, 99, 60, 60, 65);
+			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 99, 60, 60, 65);
 		}
 		// tex 3 = selected (yellow)
 		{
 			int ox = tileSize * 3, oy = 0;
-			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, 4, 255, 255, 0, 200, 200, 0);
+			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 4, 255, 255, 0, 200, 200, 0);
 		}
 		// tex 4 = red brick
 		{
 			int ox = 0, oy = tileSize;
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, 17, 180, 60, 50);
+			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 17, 180, 60, 50);
 		}
 		// tex 5 = blue
 		{
 			int ox = tileSize * 1, oy = tileSize;
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, 33, 60, 100, 180);
+			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 33, 60, 100, 180);
 		}
 		// tex 6 = green
 		{
 			int ox = tileSize * 2, oy = tileSize;
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, 55, 80, 160, 70);
+			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 55, 80, 160, 70);
 		}
 		// tex 7+ fill remaining with random colors
 		for (int idx = 7; idx < atlasDim * atlasDim; ++idx)
@@ -651,7 +651,7 @@ namespace tile
 			uint8_t r = static_cast<uint8_t>((h >> 16) & 0xFF);
 			uint8_t g = static_cast<uint8_t>((h >> 8) & 0xFF);
 			uint8_t b = static_cast<uint8_t>(h & 0xFF);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, idx * 37, r, g, b);
+			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, idx * 37, r, g, b);
 		}
 
 		auto tex = gpu::texture::CreateTexture2D(
