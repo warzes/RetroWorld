@@ -41,6 +41,18 @@ extern tile::FaceDir g_selFace;
 extern int  g_selCorner;
 extern bool g_dirtyMesh;
 
+// Height edit sub-mode for TILE mode
+enum class HeightEditMode { PLANE, VERTEX };
+
+extern gpu::program::ShaderProgramPtr g_debugProgram;
+extern HeightEditMode g_heightEditMode;
+extern bool g_draggingCP;
+extern int  g_dragCPType; // 0=floor center, 1=ceil center, 2=corner
+extern int  g_dragCorner;
+extern float g_dragStartMouseY;
+extern float g_dragStartVal;
+extern float g_dragSlopes[4];
+
 extern int  g_brushWallTex;
 extern int  g_brushFloorTex;
 extern int  g_brushCeilTex;
@@ -59,6 +71,7 @@ inline const glm::vec4 HOVER_PINK{1.5f, 0.3f, 0.8f, 1.0f};
 // ---- Functions ----
 void RebuildTileMesh();
 void PickTile(const glm::vec3& rayOrigin, const glm::vec3& rayDir);
+void DrawDebugOverlay();
 
 bool GameInit();
 void GameClose();

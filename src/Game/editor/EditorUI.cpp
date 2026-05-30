@@ -43,9 +43,15 @@ void GameRenderUI()
 
 			if (ImGui::BeginMenu("Height Edit Mode"))
 			{
-				if (ImGui::MenuItem("Plane")) {}
-				if (ImGui::MenuItem("Vertex")) {}
-				if (ImGui::MenuItem("Toggle", "V")) {}
+				bool isPlane = (g_heightEditMode == HeightEditMode::PLANE);
+				if (ImGui::MenuItem("Plane", nullptr, &isPlane))
+					g_heightEditMode = HeightEditMode::PLANE;
+				bool isVertex = (g_heightEditMode == HeightEditMode::VERTEX);
+				if (ImGui::MenuItem("Vertex", nullptr, &isVertex))
+					g_heightEditMode = HeightEditMode::VERTEX;
+				if (ImGui::MenuItem("Toggle", "V"))
+					g_heightEditMode = (g_heightEditMode == HeightEditMode::PLANE)
+						? HeightEditMode::VERTEX : HeightEditMode::PLANE;
 				ImGui::EndMenu();
 			}
 
@@ -181,6 +187,10 @@ void GameRenderUI()
 
 	if (g_editMode == EditMode::TILE)
 	{
+		ImGui::Text("Height Edit Mode: %s  [V]", 
+			g_heightEditMode == HeightEditMode::PLANE ? "Plane" : "Vertex");
+		ImGui::Separator();
+
 		ImGui::Text("Brush:");
 		ImGui::Checkbox("Solid", &g_brushSolid);
 		ImGui::SliderInt("Wall Tex",  &g_brushWallTex,  0, 63);
@@ -188,7 +198,10 @@ void GameRenderUI()
 		ImGui::SliderInt("Ceil Tex",  &g_brushCeilTex,  0, 63);
 
 		ImGui::Separator();
-		ImGui::Text("Click tile to select, then change brush & click again to place.");
+		ImGui::Text("Click tile to select.");
+		ImGui::Text("Drag orange/blue markers to adjust height.");
+		if (g_heightEditMode == HeightEditMode::VERTEX)
+			ImGui::Text("Drag green corner markers to adjust slope.");
 
 		if (g_selTX >= 0)
 		{
@@ -205,6 +218,11 @@ void GameRenderUI()
 			if (ImGui::SliderInt("Wall",  &wt, 0, 63)) { t.wallTex  = static_cast<uint8_t>(wt); g_dirtyMesh = true; }
 			if (ImGui::SliderInt("Floor", &ft, 0, 63)) { t.floorTex = static_cast<uint8_t>(ft); g_dirtyMesh = true; }
 			if (ImGui::SliderInt("Ceil",  &ct, 0, 63)) { t.ceilTex  = static_cast<uint8_t>(ct); g_dirtyMesh = true; }
+
+			ImGui::Text("Floor: %.2f", t.floorHeight);
+			ImGui::Text("Ceil:  %.2f", t.ceilHeight);
+			ImGui::Text("Slopes: NW=%.2f NE=%.2f SE=%.2f SW=%.2f",
+				t.slopeNW, t.slopeNE, t.slopeSE, t.slopeSW);
 
 			if (ImGui::Button("Remove Tile"))
 			{

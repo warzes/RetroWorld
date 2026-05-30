@@ -25,6 +25,15 @@ tile::FaceDir g_selFace = tile::FaceDir::COUNT;
 int  g_selCorner = -1;
 bool g_dirtyMesh = true;
 
+gpu::program::ShaderProgramPtr g_debugProgram;
+HeightEditMode g_heightEditMode = HeightEditMode::PLANE;
+bool g_draggingCP = false;
+int  g_dragCPType = 0;
+int  g_dragCorner = 0;
+float g_dragStartMouseY = 0;
+float g_dragStartVal = 0;
+float g_dragSlopes[4] = {};
+
 int  g_brushWallTex   = 0;
 int  g_brushFloorTex  = 1;
 int  g_brushCeilTex   = 2;
