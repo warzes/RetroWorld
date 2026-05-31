@@ -39,6 +39,7 @@ enum class EditMode { TILE, FACE, VERTEX };
 extern EditMode g_editMode;
 extern int  g_selTX, g_selTY;     // top-left of selection rect
 extern int  g_selW, g_selH;       // selection dimensions (default 1×1)
+extern int  g_anchorTX, g_anchorTY; // tile the user first clicked (persistent anchor for heights)
 extern tile::FaceDir g_selFace;
 extern int  g_selCorner;
 extern bool g_dirtyMesh;
@@ -91,6 +92,8 @@ extern int  g_hoverTX, g_hoverTY;
 extern tile::FaceDir g_hoverFace;
 extern int  g_prevHoverTX, g_prevHoverTY;
 extern tile::FaceDir g_prevHoverFace;
+extern bool g_hoverDirty;
+extern std::vector<glm::vec4> g_tileCleanColors;
 inline const glm::vec4 HOVER_PINK{1.5f, 0.3f, 0.8f, 1.0f};
 
 // Height clamping helpers (used by EditorApp.cpp and EditorUI.cpp)
@@ -108,6 +111,7 @@ inline void clampCeilVertex(float& cSlope, float ch, float fSlope, float fh) noe
 
 // ---- Functions ----
 void RebuildTileMesh();
+void UpdateHoverHighlight();
 void PickTile(const glm::vec3& rayOrigin, const glm::vec3& rayDir);
 void DrawDebugOverlay();
 

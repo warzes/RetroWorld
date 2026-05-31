@@ -22,6 +22,7 @@ scene::ModelNode* g_tileModelNode = nullptr;
 EditMode g_editMode = EditMode::TILE;
 int  g_selTX = -1, g_selTY = -1;
 int  g_selW = 1, g_selH = 1;
+int  g_anchorTX = -1, g_anchorTY = -1;
 tile::FaceDir g_selFace = tile::FaceDir::COUNT;
 int  g_selCorner = -1;
 bool g_dirtyMesh = true;
@@ -59,6 +60,8 @@ int  g_hoverTX = -1, g_hoverTY = -1;
 tile::FaceDir g_hoverFace = tile::FaceDir::COUNT;
 int  g_prevHoverTX = -1, g_prevHoverTY = -1;
 tile::FaceDir g_prevHoverFace = tile::FaceDir::COUNT;
+bool g_hoverDirty = false;
+std::vector<glm::vec4> g_tileCleanColors;
 
 // ---- Entry point ----
 void GameAppTile()

@@ -65,11 +65,42 @@ void GameRenderUI()
 							auto& tt = g_tileMap.Get(tx, ty);
 							tt.spaceType   = tile::TileSpaceType::EMPTY;
 							tt.renderSolid = false;
+							tt.floorHeight = -0.5f;
+							tt.ceilHeight  =  0.5f;
+							tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
+							tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
 						}
 					g_dirtyMesh = true;
 				}
 			}
-			if (ImGui::MenuItem("Deselect", "Escape")) {}
+			if (ImGui::MenuItem("Deselect", "Escape"))
+			{
+				g_selTX = g_selTY = -1;
+				g_anchorTX = g_anchorTY = -1;
+				g_selW = 1; g_selH = 1;
+				g_selFace = tile::FaceDir::COUNT;
+				g_selCorner = -1;
+				g_draggingCP = false;
+				g_draggingSel = false;
+				g_hoverCPIdx = -1;
+				g_dragVtxRefCount = 0;
+			}
+			if (ImGui::MenuItem("Reset"))
+			{
+				if (g_selTX >= 0) {
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tt = g_tileMap.Get(tx, ty);
+							tt.floorHeight = -0.5f;
+							tt.ceilHeight  =  0.5f;
+							tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
+							tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
+						}
+					g_dirtyMesh = true;
+				}
+			}
 			ImGui::Separator();
 
 			if (ImGui::BeginMenu("Height Edit Mode"))
@@ -311,6 +342,10 @@ void GameRenderUI()
 						auto& tt = g_tileMap.Get(tx, ty);
 						tt.spaceType   = tile::TileSpaceType::EMPTY;
 						tt.renderSolid = false;
+						tt.floorHeight = -0.5f;
+						tt.ceilHeight  =  0.5f;
+						tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
+						tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
 					}
 				g_dirtyMesh = true;
 			}

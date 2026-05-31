@@ -686,6 +686,20 @@ void GameUpdate()
 			? HeightEditMode::VERTEX : HeightEditMode::PLANE;
 	}
 
+	// Escape deselects
+	if (input::IsKeyDown(KeyboardType::KEY_ESCAPE))
+	{
+		g_selTX = g_selTY = -1;
+		g_anchorTX = g_anchorTY = -1;
+		g_selW = 1; g_selH = 1;
+		g_selFace = tile::FaceDir::COUNT;
+		g_selCorner = -1;
+		g_draggingCP = false;
+		g_draggingSel = false;
+		g_hoverCPIdx = -1;
+		g_dragVtxRefCount = 0;
+	}
+
 	// Regenerate
 	if (input::IsKeyDown(KeyboardType::KEY_R))
 	{
@@ -707,6 +721,10 @@ void GameUpdate()
 				auto& tt = g_tileMap.Get(tx, ty);
 				tt.spaceType   = tile::TileSpaceType::EMPTY;
 				tt.renderSolid = false;
+				tt.floorHeight = -0.5f;
+				tt.ceilHeight  =  0.5f;
+				tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
+				tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
 			}
 		g_dirtyMesh = true;
 	}
@@ -714,17 +732,34 @@ void GameUpdate()
 	// Enter key — carve (place) empty tiles in selection
 	if ((input::IsKeyDown(KeyboardType::KEY_ENTER) || input::IsKeyDown(KeyboardType::KEY_KP_ENTER)) && g_selTX >= 0)
 	{
+		int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
+		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
+		auto& refTile = g_tileMap.Get(refTX, refTY);
 		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
 			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 			{
 				if (!g_tileMap.InBounds(tx, ty)) continue;
 				auto& tt = g_tileMap.Get(tx, ty);
-				if (tt.spaceType == tile::TileSpaceType::SOLID) continue;
-				tt.spaceType   = tile::TileSpaceType::SOLID;
-				tt.renderSolid = true;
-				tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
-				tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
-				tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+				// Convert EMPTY -> SOLID
+				if (tt.spaceType != tile::TileSpaceType::SOLID)
+				{
+					tt.spaceType   = tile::TileSpaceType::SOLID;
+					tt.renderSolid = true;
+					tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
+					tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
+					tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+				}
+				// Apply anchor tile's heights and slopes to ALL tiles in selection
+				tt.floorHeight  = refTile.floorHeight;
+				tt.ceilHeight   = refTile.ceilHeight;
+				tt.slopeNW      = refTile.slopeNW;
+				tt.slopeNE      = refTile.slopeNE;
+				tt.slopeSE      = refTile.slopeSE;
+				tt.slopeSW      = refTile.slopeSW;
+				tt.ceilSlopeNW  = refTile.ceilSlopeNW;
+				tt.ceilSlopeNE  = refTile.ceilSlopeNE;
+				tt.ceilSlopeSE  = refTile.ceilSlopeSE;
+				tt.ceilSlopeSW  = refTile.ceilSlopeSW;
 			}
 		g_dirtyMesh = true;
 	}
@@ -753,7 +788,9 @@ void GameUpdate()
 		g_hoverCPIdx = -1;
 		if (g_editMode == EditMode::TILE && g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY) && g_scene->activeCamera)
 		{
-			auto& t = g_tileMap.Get(g_selTX, g_selTY);
+			int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
+			int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
+			auto& t = g_tileMap.Get(refTX, refTY);
 			if (t.spaceType == tile::TileSpaceType::SOLID)
 			{
 				float fx = static_cast<float>(g_selTX);
@@ -840,7 +877,9 @@ void GameUpdate()
 				}
 				else // PLANE
 				{
-					auto& t = g_tileMap.Get(g_selTX, g_selTY);
+					int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
+					int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
+					auto& t = g_tileMap.Get(refTX, refTY);
 					g_draggingCP = true;
 					g_dragCPType = g_hoverCPIdx;
 					g_dragStartMouseY = mousePos.y;
@@ -863,6 +902,8 @@ void GameUpdate()
 				// Start tile-rect drag
 				if (g_selTX >= 0)
 				{
+					g_anchorTX = g_selTX;
+					g_anchorTY = g_selTY;
 					g_draggingSel = true;
 					g_dragStartTX = g_selTX;
 					g_dragStartTY = g_selTY;
@@ -926,10 +967,7 @@ void GameUpdate()
 			if (g_hoverTX != g_prevHoverTX || g_hoverTY != g_prevHoverTY ||
 				g_hoverFace != g_prevHoverFace)
 			{
-				g_dirtyMesh = true;
-				g_prevHoverTX = g_hoverTX;
-				g_prevHoverTY = g_hoverTY;
-				g_prevHoverFace = g_hoverFace;
+				g_hoverDirty = true;
 			}
 		}
 
@@ -1167,6 +1205,9 @@ void GameUpdate()
 	if (g_scene->activeCamera)
 		g_scene->activeCamera->aspectRatio = window::GetAspectRatio();
 
+	if (g_hoverDirty)
+		UpdateHoverHighlight();
+
 	if (g_dirtyMesh)
 		RebuildTileMesh();
 
@@ -1217,8 +1258,10 @@ void DrawDebugOverlay()
 	// Wireframe and CP markers
 	if (g_heightEditMode == HeightEditMode::PLANE)
 	{
+		int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
+		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
 		// Bounding-box wireframe for the whole selection
-		auto& t = g_tileMap.Get(g_selTX, g_selTY);
+		auto& t = g_tileMap.Get(refTX, refTY);
 		float fx = static_cast<float>(g_selTX);
 		float fz = static_cast<float>(g_selTY);
 		float left  = fx - 0.5f;
