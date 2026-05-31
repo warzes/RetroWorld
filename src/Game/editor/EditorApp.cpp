@@ -39,20 +39,92 @@ namespace
 		}
 	}
 
+	// Clamp helpers — clamp the edited side so ceiling ≥ floor + MIN_GAP
+	constexpr float MIN_GAP = 0.02f;
+
+	void clampFloorVertex(float& fSlope, float fh, float cSlope, float ch) noexcept
+	{
+		float maxY = (ch + cSlope) - MIN_GAP;
+		fSlope = std::min(fSlope, maxY - fh);
+	}
+
+	void clampCeilVertex(float& cSlope, float ch, float fSlope, float fh) noexcept
+	{
+		float minY = (fh + fSlope) + MIN_GAP;
+		cSlope = std::max(cSlope, minY - ch);
+	}
+
+	void clampFloorCenter(float& fh, const float* slopes, const float* ceilSlopes, float ch) noexcept
+	{
+		float maxFH = ch - MIN_GAP;
+		for (int i = 0; i < 4; ++i)
+			maxFH = std::min(maxFH, ch + ceilSlopes[i] - slopes[i] - MIN_GAP);
+		fh = std::min(fh, maxFH);
+	}
+
+	void clampCeilCenter(float& ch, const float* ceilSlopes, const float* slopes, float fh) noexcept
+	{
+		float minCH = fh + MIN_GAP;
+		for (int i = 0; i < 4; ++i)
+			minCH = std::max(minCH, fh + slopes[i] - ceilSlopes[i] + MIN_GAP);
+		ch = std::max(ch, minCH);
+	}
+
 	void ApplyHeightStep(tile::Tile& t, int cpType, float delta) noexcept
 	{
+		float slopes[4] = { t.slopeNW, t.slopeNE, t.slopeSE, t.slopeSW };
+		float ceilSlopes[4] = { t.ceilSlopeNW, t.ceilSlopeNE, t.ceilSlopeSE, t.ceilSlopeSW };
+
 		switch (static_cast<CPType>(cpType))
 		{
-		case CPType::FloorCenter: t.floorHeight += delta; break;
-		case CPType::CeilCenter:  t.ceilHeight  += delta; break;
-		case CPType::FloorNorth:   t.slopeNW += delta; t.slopeNE += delta; break;
-		case CPType::CeilNorth:    t.ceilSlopeNW += delta; t.ceilSlopeNE += delta; break;
-		case CPType::FloorSouth:   t.slopeSE += delta; t.slopeSW += delta; break;
-		case CPType::CeilSouth:    t.ceilSlopeSE += delta; t.ceilSlopeSW += delta; break;
-		case CPType::FloorWest:    t.slopeNW += delta; t.slopeSW += delta; break;
-		case CPType::CeilWest:     t.ceilSlopeNW += delta; t.ceilSlopeSW += delta; break;
-		case CPType::FloorEast:    t.slopeNE += delta; t.slopeSE += delta; break;
-		case CPType::CeilEast:     t.ceilSlopeNE += delta; t.ceilSlopeSE += delta; break;
+		case CPType::FloorCenter:
+			t.floorHeight += delta;
+			clampFloorCenter(t.floorHeight, slopes, ceilSlopes, t.ceilHeight);
+			break;
+		case CPType::CeilCenter:
+			t.ceilHeight += delta;
+			clampCeilCenter(t.ceilHeight, ceilSlopes, slopes, t.floorHeight);
+			break;
+		case CPType::FloorNorth:
+			t.slopeNW += delta; t.slopeNE += delta;
+			clampFloorVertex(t.slopeNW, t.floorHeight, t.ceilSlopeNW, t.ceilHeight);
+			clampFloorVertex(t.slopeNE, t.floorHeight, t.ceilSlopeNE, t.ceilHeight);
+			break;
+		case CPType::CeilNorth:
+			t.ceilSlopeNW += delta; t.ceilSlopeNE += delta;
+			clampCeilVertex(t.ceilSlopeNW, t.ceilHeight, t.slopeNW, t.floorHeight);
+			clampCeilVertex(t.ceilSlopeNE, t.ceilHeight, t.slopeNE, t.floorHeight);
+			break;
+		case CPType::FloorSouth:
+			t.slopeSE += delta; t.slopeSW += delta;
+			clampFloorVertex(t.slopeSE, t.floorHeight, t.ceilSlopeSE, t.ceilHeight);
+			clampFloorVertex(t.slopeSW, t.floorHeight, t.ceilSlopeSW, t.ceilHeight);
+			break;
+		case CPType::CeilSouth:
+			t.ceilSlopeSE += delta; t.ceilSlopeSW += delta;
+			clampCeilVertex(t.ceilSlopeSE, t.ceilHeight, t.slopeSE, t.floorHeight);
+			clampCeilVertex(t.ceilSlopeSW, t.ceilHeight, t.slopeSW, t.floorHeight);
+			break;
+		case CPType::FloorWest:
+			t.slopeNW += delta; t.slopeSW += delta;
+			clampFloorVertex(t.slopeNW, t.floorHeight, t.ceilSlopeNW, t.ceilHeight);
+			clampFloorVertex(t.slopeSW, t.floorHeight, t.ceilSlopeSW, t.ceilHeight);
+			break;
+		case CPType::CeilWest:
+			t.ceilSlopeNW += delta; t.ceilSlopeSW += delta;
+			clampCeilVertex(t.ceilSlopeNW, t.ceilHeight, t.slopeNW, t.floorHeight);
+			clampCeilVertex(t.ceilSlopeSW, t.ceilHeight, t.slopeSW, t.floorHeight);
+			break;
+		case CPType::FloorEast:
+			t.slopeNE += delta; t.slopeSE += delta;
+			clampFloorVertex(t.slopeNE, t.floorHeight, t.ceilSlopeNE, t.ceilHeight);
+			clampFloorVertex(t.slopeSE, t.floorHeight, t.ceilSlopeSE, t.ceilHeight);
+			break;
+		case CPType::CeilEast:
+			t.ceilSlopeNE += delta; t.ceilSlopeSE += delta;
+			clampCeilVertex(t.ceilSlopeNE, t.ceilHeight, t.slopeNE, t.floorHeight);
+			clampCeilVertex(t.ceilSlopeSE, t.ceilHeight, t.slopeSE, t.floorHeight);
+			break;
 		default: break;
 		}
 	}
@@ -60,13 +132,15 @@ namespace
 	void ClampHeights(tile::Tile& t) noexcept
 	{
 		constexpr float MIN_GAP = 0.02f;
-		if (t.ceilHeight - t.floorHeight < MIN_GAP)
-		{
-			float mid = (t.ceilHeight + t.floorHeight) * 0.5f;
-			t.floorHeight = mid - MIN_GAP * 0.5f;
-			t.ceilHeight  = mid + MIN_GAP * 0.5f;
-		}
 
+		// Center-level safety: if gap too small, push only the ceiling up
+		float avgFS = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
+		float avgCS = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
+		float diff = (t.ceilHeight + avgCS) - (t.floorHeight + avgFS);
+		if (diff < MIN_GAP)
+			t.ceilHeight += (MIN_GAP - diff);
+
+		// Vertex-level safety: push ceiling up if gap is too small
 		for (int c = 0; c < 4; ++c)
 		{
 			float* fSlope;
@@ -83,9 +157,7 @@ namespace
 			float fY = t.floorHeight + *fSlope;
 			float cY = t.ceilHeight + *cSlope;
 			if (cY - fY < MIN_GAP)
-			{
 				*cSlope += (MIN_GAP - (cY - fY));
-			}
 		}
 	}
 
@@ -553,7 +625,9 @@ void GameUpdate()
 				{
 					// VERTEX mode corner
 					float* dst[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
+					float* cSlope[4] = { &t.ceilSlopeNW, &t.ceilSlopeNE, &t.ceilSlopeSE, &t.ceilSlopeSW };
 					*dst[g_dragCorner] = g_dragSlopes[g_dragCorner] + snappedDy;
+					clampFloorVertex(*dst[g_dragCorner], t.floorHeight, *cSlope[g_dragCorner], t.ceilHeight);
 				}
 				ClampHeights(t);
 				g_lastAppliedDy = snappedDy;
@@ -576,12 +650,19 @@ void GameUpdate()
 				{
 					float delta = (scrollAccum > 0 ? 0.1f : -0.1f);
 					auto& t = g_tileMap.Get(g_selTX, g_selTY);
+					float* fSlope = nullptr;
+					float* cSlope = nullptr;
 					switch (g_selCorner)
 					{
-						case 0: t.slopeNW += delta; break;
-						case 1: t.slopeNE += delta; break;
-						case 2: t.slopeSE += delta; break;
-						case 3: t.slopeSW += delta; break;
+						case 0: fSlope = &t.slopeNW; cSlope = &t.ceilSlopeNW; break;
+						case 1: fSlope = &t.slopeNE; cSlope = &t.ceilSlopeNE; break;
+						case 2: fSlope = &t.slopeSE; cSlope = &t.ceilSlopeSE; break;
+						case 3: fSlope = &t.slopeSW; cSlope = &t.ceilSlopeSW; break;
+					}
+					if (fSlope && cSlope)
+					{
+						*fSlope += delta;
+						clampFloorVertex(*fSlope, t.floorHeight, *cSlope, t.ceilHeight);
 					}
 					ClampHeights(t);
 					g_dirtyMesh = true;
