@@ -245,35 +245,37 @@ void PlayerController::Tick(float inDeltaTime)
 	if (m_state == State::Climbing)
 	{
 		handleClimb(inDeltaTime);
-		return; // ExtendedUpdate не вызываем во время climb — мы сами управляем позицией
+		// Не return — далее ExtendedUpdate отработает коллизию
 	}
 
-	// ---- Обычное движение ----
-	bool sprinting = wantSprint && len > 0.0f && m_onGround;
-	float speed = m_moveSpeed * (sprinting ? m_sprintMultiplier : 1.0f);
-	if (m_crouching) speed *= 0.5f;
-
-	// Гравитацию применяем всегда — ExtendedUpdate её не добавляет к скорости
-	float vertVel = m_character->GetLinearVelocity().GetY();
-	vertVel += GRAVITY * inDeltaTime;
-
-	// Jump overrides gravity
-	if (wantJump && m_onGround)
+	// ---- Обычное движение (не во время climb) ----
+	if (m_state != State::Climbing)
 	{
-		vertVel = m_jumpForce;
-		m_state = State::Jumping;
-	}
-	else if (m_onGround)
-	{
-		// На земле: мягкое прижатие вместо полной гравитации
-		// Предотвращает тряску и даёт плавный сход с уступа
-		constexpr float GROUND_PUSH = -0.02f;
-		vertVel = JPH::max(vertVel, GROUND_PUSH);
-	}
+		bool sprinting = wantSprint && len > 0.0f && m_onGround;
+		float speed = m_moveSpeed * (sprinting ? m_sprintMultiplier : 1.0f);
+		if (m_crouching) speed *= 0.5f;
 
-	JPH::Vec3 desiredVel(worldDX * speed, vertVel, worldDZ * speed);
+		// Гравитацию применяем всегда — ExtendedUpdate её не добавляет к скорости
+		float vertVel = m_character->GetLinearVelocity().GetY();
+		vertVel += GRAVITY * inDeltaTime;
 
-	m_character->SetLinearVelocity(desiredVel);
+		// Jump overrides gravity
+		if (wantJump && m_onGround)
+		{
+			vertVel = m_jumpForce;
+			m_state = State::Jumping;
+		}
+		else if (m_onGround)
+		{
+			// На земле: мягкое прижатие вместо полной гравитации
+			// Предотвращает тряску и даёт плавный сход с уступа
+			constexpr float GROUND_PUSH = -0.02f;
+			vertVel = JPH::max(vertVel, GROUND_PUSH);
+		}
+
+		JPH::Vec3 desiredVel(worldDX * speed, vertVel, worldDZ * speed);
+		m_character->SetLinearVelocity(desiredVel);
+	}
 
 	// ---- ExtendedUpdate ----
 	JPH::CharacterVirtual::ExtendedUpdateSettings euSettings{};
@@ -283,7 +285,7 @@ void PlayerController::Tick(float inDeltaTime)
 	JPH::TempAllocatorMalloc tempAlloc;
 	m_character->ExtendedUpdate(
 		inDeltaTime,
-		JPH::Vec3(0, -9.81f, 0), // gravity
+		JPH::Vec3(0, GRAVITY, 0),
 		euSettings,
 		JPH::BroadPhaseLayerFilter(),
 		JPH::ObjectLayerFilter(),
@@ -291,6 +293,43 @@ void PlayerController::Tick(float inDeltaTime)
 		JPH::ShapeFilter(),
 		tempAlloc
 	);
+
+	// ---- Climb → падение / mantle ----
+	if (m_state == State::Climbing)
+	{
+		JPH::Vec3 curVel = m_character->GetLinearVelocity();
+		JPH::RVec3 curPos = m_character->GetPosition();
+
+		// Если ExtendedUpdate заблокировал движение вверх
+		if (curVel.GetY() < CLIMB_SPEED_UP * 0.5f && curPos.GetY() > m_climbStartY + 0.3f)
+		{
+			// Пробуем mantle: ищем пол выше
+			float capsuleFullHeight = m_playerHeight * 2.0f;
+			JPH::Vec3 capsuleTop = JPH::Vec3(curPos) + JPH::Vec3(0, capsuleFullHeight, 0);
+			JPH::Vec3 downStart = capsuleTop + JPH::Vec3(m_climbNormal.x * 0.3f, 1.5f, m_climbNormal.z * 0.3f);
+			JPH::RRayCast downRay(JPH::RVec3(downStart), JPH::Vec3(0, -2.5f, 0));
+			JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> downCollector;
+			JPH::RayCastSettings rcSettings;
+			rcSettings.SetBackFaceMode(JPH::EBackFaceMode::CollideWithBackFaces);
+			joltSystem->GetNarrowPhaseQuery().CastRay(downRay, rcSettings, downCollector);
+
+			if (downCollector.HadHit())
+			{
+				float surfaceY = downRay.GetPointOnRay(downCollector.mHit.mFraction).GetY();
+				if (surfaceY > capsuleTop.GetY() + 0.15f)
+				{
+					// Нашли опору выше — становимся на неё
+					JPH::RVec3 mantlePos(curPos.GetX(), surfaceY, curPos.GetZ());
+					m_character->SetPosition(mantlePos);
+					m_character->SetLinearVelocity(JPH::Vec3::sZero());
+				}
+			}
+
+			// В любом случае прекращаем climb
+			m_state = State::Falling;
+			m_climbing = false;
+		}
+	}
 
 	// ---- Обновить состояние ----
 	updateGroundState();
@@ -342,7 +381,6 @@ void PlayerController::handleClimb(float inDeltaTime)
 	bool wantClimb = input::IsKeyDown(KeyboardType::KEY_LEFT_SHIFT);
 	if (!wantClimb)
 	{
-		// Отпустили Shift — падаем
 		m_state = State::Falling;
 		m_climbing = false;
 		return;
@@ -351,7 +389,6 @@ void PlayerController::handleClimb(float inDeltaTime)
 	JPH::RVec3 pos = m_character->GetPosition();
 	float climbHeight = pos.GetY() - m_climbStartY;
 
-	// Проверка: превышена максимальная высота
 	if (climbHeight >= CLIMB_MAX_HEIGHT)
 	{
 		m_state = State::Falling;
@@ -359,7 +396,6 @@ void PlayerController::handleClimb(float inDeltaTime)
 		return;
 	}
 
-	// Stamina
 	m_climbStamina -= inDeltaTime;
 	if (m_climbStamina <= 0.0f)
 	{
@@ -368,7 +404,6 @@ void PlayerController::handleClimb(float inDeltaTime)
 		return;
 	}
 
-	// Движение вверх + вдоль стены
 	float xm = 0.0f, zm = 0.0f;
 	if (input::IsKeyDown(KeyboardType::KEY_A)) xm -= 1.0f;
 	if (input::IsKeyDown(KeyboardType::KEY_D)) xm += 1.0f;
@@ -376,7 +411,6 @@ void PlayerController::handleClimb(float inDeltaTime)
 	float len = sqrtf(xm * xm + zm * zm);
 	if (len > 0.0f) { xm /= len; zm /= len; }
 
-	// Касательное направление вдоль стены (горизонтальная проекция нормали стены)
 	glm::vec3 tangent(0.0f);
 	if (fabsf(m_climbNormal.y) < 0.999f)
 	{
@@ -387,36 +421,9 @@ void PlayerController::handleClimb(float inDeltaTime)
 
 	glm::vec3 moveDir = tangent * (xm * 2.0f) + glm::vec3(0, CLIMB_SPEED_UP, 0);
 	JPH::Vec3 vel = ToJolt(moveDir);
-
 	m_character->SetLinearVelocity(vel);
-
-	// Вручную обновляем позицию (ExtendedUpdate не вызываем — climbs не поддерживает)
-	JPH::Vec3 newPos = pos + vel * inDeltaTime;
-	m_character->SetPosition(JPH::RVec3(newPos));
-
-	// Mantle check: рейкаст вверх + вперёд от головы
-	{
-		JPH::Vec3 headPos = newPos + JPH::Vec3(0, m_playerHeight * 1.0f, 0);
-		JPH::Vec3 mantleDir = JPH::Vec3(m_climbNormal.x, 1.0f, m_climbNormal.z).Normalized();
-		JPH::RRayCast mantleRay(JPH::RVec3(headPos), mantleDir * 0.6f);
-		JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> mantleCollector;
-		auto* joltSystem = m_physics->GetJoltSystem();
-
-		JPH::RayCastSettings mantleSettings;
-		mantleSettings.SetBackFaceMode(JPH::EBackFaceMode::CollideWithBackFaces);
-		joltSystem->GetNarrowPhaseQuery().CastRay(mantleRay, mantleSettings, mantleCollector);
-
-		if (!mantleCollector.HadHit())
-		{
-			// Путь наверх свободен — перелезаем
-			glm::vec3 groundPos = ToGlm(newPos) + ToGlm(mantleDir * 1.0f);
-			groundPos.y += 0.5f; // немножко над полом
-			m_character->SetPosition(ToRJolt(groundPos));
-			m_state = State::Falling;
-			m_climbing = false;
-			m_onGround = false; // пусть гравитация посадит на пол
-		}
-	}
+	// ExtendedUpdate вызывается в Tick() — коллизия и перемещение обрабатываются там
+	// (нет ручного SetPosition, ExtendedUpdate сам двигает персонажа по скорости)
 }
 
 // ---- canStandUp ----
