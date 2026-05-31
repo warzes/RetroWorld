@@ -265,13 +265,24 @@ void PlayerController::Tick(float inDeltaTime)
 			vertVel = m_jumpForce;
 			m_state = State::Jumping;
 		}
-		else if (m_onGround)
+	else if (m_onGround)
+	{
+		// Вычисляем Y-скорость из нормали поверхности, чтобы следовать за склоном
+		float desiredY = 0.0f;
+		JPH::Vec3 normal = m_character->GetGroundNormal();
+		// normal = (0,1,0) для плоской земли
+		// Для склона: пропорционально наклону в направлении движения
+		float ny = normal.GetY();
+		if (ny > 0.01f && len > 0.01f)
 		{
-			// На земле: мягкое прижатие вместо полной гравитации
-			// Предотвращает тряску и даёт плавный сход с уступа
-			constexpr float GROUND_PUSH = -0.02f;
-			vertVel = JPH::max(vertVel, GROUND_PUSH);
+			float nx = normal.GetX();
+			float nz = normal.GetZ();
+			// Проекция движения на поверхность:
+			// Y = -(worldDX * nx + worldDZ * nz) / ny * speed
+			desiredY = -(worldDX * nx + worldDZ * nz) / ny * speed;
 		}
+		vertVel = desiredY;
+	}
 
 		JPH::Vec3 desiredVel(worldDX * speed, vertVel, worldDZ * speed);
 		m_character->SetLinearVelocity(desiredVel);
@@ -279,7 +290,7 @@ void PlayerController::Tick(float inDeltaTime)
 
 	// ---- ExtendedUpdate ----
 	JPH::CharacterVirtual::ExtendedUpdateSettings euSettings{};
-	euSettings.mStickToFloorStepDown = JPH::Vec3::sZero();
+	euSettings.mStickToFloorStepDown = JPH::Vec3(0, 0.3f, 0);
 	euSettings.mWalkStairsStepUp = JPH::Vec3::sZero();
 
 	JPH::TempAllocatorMalloc tempAlloc;

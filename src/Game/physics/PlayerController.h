@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <glm/glm.hpp>
 
@@ -40,7 +40,7 @@ public:
 	bool              IsCrouching()  const noexcept { return m_crouching; }
 
 	// Настраиваемые параметры
-	float m_moveSpeed        = 5.0f;
+	float m_moveSpeed        = 3.0f;
 	float m_sprintMultiplier = 1.5f;
 	float m_jumpForce        = 3.0f;
 	float m_playerHeight     = 0.34f;
