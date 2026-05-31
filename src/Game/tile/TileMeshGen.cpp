@@ -249,6 +249,12 @@ namespace tile
 						// Solid neighbor: render only non-overlapping portions
 						float ourF[2], ourC[2], nF[2], nC[2];
 
+						// Determine if WE own each wall segment: the lower floor owns the lower wall,
+						// the lower ceiling owns the upper wall. This avoids duplicate geometry
+						// and ensures the exposed wall face uses the owning tile's texture.
+						bool ownLower = false;
+						bool ownUpper = false;
+
 						auto addSeg = [&](float b0, float b1, float t0, float t1, int tex)
 						{
 							float hBL = std::min(b0, t0);
@@ -264,12 +270,13 @@ namespace tile
 							{
 								glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
 								glm::vec3 pR{ ftx + 0.5f, 0, fty - 0.5f };
+								// bottom → bottom → top → top (CCW when viewed from inside)
 								addQuad(
-									{ pL.x, hTL, pL.z }, { pR.x, hTR, pR.z },
-									{ pR.x, hBR, pR.z }, { pL.x, hBL, pL.z },
+									{ pL.x, hBL, pL.z }, { pR.x, hBR, pR.z },
+									{ pR.x, hTR, pR.z }, { pL.x, hTL, pL.z },
 									{ 0, 0, -1 },
-									{ u0, wallV(hTL) }, { u1, wallV(hTR) },
-									{ u1, wallV(hBR) }, { u0, wallV(hBL) },
+									{ u0, wallV(hBL) }, { u1, wallV(hBR) },
+									{ u1, wallV(hTR) }, { u0, wallV(hTL) },
 									tx, ty, faceIdx);
 								break;
 							}
@@ -277,12 +284,13 @@ namespace tile
 							{
 								glm::vec3 pL{ ftx - 0.5f, 0, fty + 0.5f };
 								glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
+								// bottom → bottom → top → top (CCW when viewed from inside)
 								addQuad(
-									{ pR.x, hTR, pR.z }, { pL.x, hTL, pL.z },
-									{ pL.x, hBL, pL.z }, { pR.x, hBR, pR.z },
+									{ pR.x, hBR, pR.z }, { pL.x, hBL, pL.z },
+									{ pL.x, hTL, pL.z }, { pR.x, hTR, pR.z },
 									{ 0, 0, 1 },
-									{ u1, wallV(hTR) }, { u0, wallV(hTL) },
-									{ u0, wallV(hBL) }, { u1, wallV(hBR) },
+									{ u1, wallV(hBR) }, { u0, wallV(hBL) },
+									{ u0, wallV(hTL) }, { u1, wallV(hTR) },
 									tx, ty, faceIdx);
 								break;
 							}
@@ -290,12 +298,13 @@ namespace tile
 							{
 								glm::vec3 pL{ ftx + 0.5f, 0, fty - 0.5f };
 								glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
+								// south-bottom → south-top → north-top → north-bottom (CCW when viewed from inside)
 								addQuad(
-									{ pL.x, hBL, pL.z }, { pL.x, hTL, pL.z },
-									{ pR.x, hTR, pR.z }, { pR.x, hBR, pR.z },
+									{ pR.x, hBR, pR.z }, { pR.x, hTR, pR.z },
+									{ pL.x, hTL, pL.z }, { pL.x, hBL, pL.z },
 									{ 1, 0, 0 },
-									{ u0, wallV(hBL) }, { u0, wallV(hTL) },
-									{ u1, wallV(hTR) }, { u1, wallV(hBR) },
+									{ u0, wallV(hBR) }, { u0, wallV(hTR) },
+									{ u1, wallV(hTL) }, { u1, wallV(hBL) },
 									tx, ty, faceIdx);
 								break;
 							}
@@ -303,12 +312,14 @@ namespace tile
 							{
 								glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
 								glm::vec3 pR{ ftx - 0.5f, 0, fty + 0.5f };
+								// top → bottom → bottom → top... no, bottom → top → top → bottom
+								// Actually match non-solid: NW-bottom → NW-top → SW-top → SW-bottom
 								addQuad(
-									{ pR.x, hBR, pR.z }, { pR.x, hTR, pR.z },
-									{ pL.x, hTL, pL.z }, { pL.x, hBL, pL.z },
+									{ pL.x, hBL, pL.z }, { pL.x, hTL, pL.z },
+									{ pR.x, hTR, pR.z }, { pR.x, hBR, pR.z },
 									{ -1, 0, 0 },
-									{ u1, wallV(hBR) }, { u1, wallV(hTR) },
-									{ u0, wallV(hTL) }, { u0, wallV(hBL) },
+									{ u0, wallV(hBL) }, { u0, wallV(hTL) },
+									{ u1, wallV(hTR) }, { u1, wallV(hBR) },
 									tx, ty, faceIdx);
 								break;
 							}
@@ -327,8 +338,10 @@ namespace tile
 							nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 3);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
-							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
-							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
+							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
 
 						case FaceDir::SOUTH:
@@ -340,8 +353,10 @@ namespace tile
 							nF[1] = map.GetFloorHeightAt(ntx, nty, 1);
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 1);
-							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
-							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
+							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
 
 						case FaceDir::EAST:
@@ -353,8 +368,10 @@ namespace tile
 							nF[1] = map.GetFloorHeightAt(ntx, nty, 3);
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 3);
-							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
-							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
+							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
 
 						case FaceDir::WEST:
@@ -366,8 +383,10 @@ namespace tile
 							nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 1);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
-							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
-							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
+							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
 
 						default: break;
