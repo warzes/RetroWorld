@@ -38,6 +38,7 @@ namespace
 	constexpr float CLIMB_MAX_HEIGHT = 3.0f;
 	constexpr float CLIMB_MAX_STAMINA = 10.0f;
 	constexpr float WALL_DETECT_DIST = 0.5f;
+	constexpr float GRAVITY = -9.81f;
 }
 
 // ---- Construction / Destruction ----
@@ -251,22 +252,23 @@ void PlayerController::Tick(float inDeltaTime)
 	float speed = m_moveSpeed * (sprinting ? m_sprintMultiplier : 1.0f);
 	if (m_crouching) speed *= 0.5f;
 
-	JPH::Vec3 desiredVel(worldDX * speed, 0.0f, worldDZ * speed);
+	// Гравитацию применяем сами — ExtendedUpdate её не добавляет к скорости
+	float vertVel = m_character->GetLinearVelocity().GetY();
+	vertVel += GRAVITY * inDeltaTime;
 
-	// Jump
+	// Jump overrides gravity
 	if (wantJump && m_onGround)
 	{
-		desiredVel.SetY(m_jumpForce);
+		vertVel = m_jumpForce;
 		m_state = State::Jumping;
 	}
 	else if (m_onGround)
 	{
-		desiredVel.SetY(m_character->GetLinearVelocity().GetY());
+		// На земле не копим гравитацию — ExtendedUpdate сам удержит на полу
+		vertVel = 0.0f;
 	}
-	else
-	{
-		desiredVel.SetY(m_character->GetLinearVelocity().GetY());
-	}
+
+	JPH::Vec3 desiredVel(worldDX * speed, vertVel, worldDZ * speed);
 
 	m_character->SetLinearVelocity(desiredVel);
 
