@@ -521,6 +521,7 @@ void main()
 		result += texture(u_emissiveMap, v_texcoord).rgb;
 
 	o_color = vec4(result, u_opacity);
+	//o_color = texture(u_albedoMap, v_texcoord);
 }
 )";
 
@@ -772,16 +773,10 @@ void GameUpdate()
 	if (!g_gameMode)
 	{
 
-	// Mode switching
-	if (input::IsKeyDown(KeyboardType::KEY_1)) { g_editMode = EditMode::TILE;   g_selCorner = -1; }
-	if (input::IsKeyDown(KeyboardType::KEY_2)) { g_editMode = EditMode::FACE;   g_selCorner = -1; }
-	if (input::IsKeyDown(KeyboardType::KEY_3)) { g_editMode = EditMode::VERTEX; g_selFace = tile::FaceDir::COUNT; }
-
 	// V key toggles height edit sub-mode in TILE mode
 	if (input::IsKeyDown(KeyboardType::KEY_V) && g_editMode == EditMode::TILE)
 	{
-		g_heightEditMode = (g_heightEditMode == HeightEditMode::PLANE)
-			? HeightEditMode::VERTEX : HeightEditMode::PLANE;
+		g_heightEditMode = (g_heightEditMode == HeightEditMode::PLANE) ? HeightEditMode::VERTEX : HeightEditMode::PLANE;
 	}
 
 	// Escape deselects

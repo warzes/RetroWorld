@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Editor.h"
 
 // ---- GameRenderUI ----
@@ -33,12 +33,6 @@ void GameRenderUI()
 		if (ImGui::BeginMenu("File"))
 		{
 			if (ImGui::MenuItem("New", "Ctrl+N")) {}
-			if (ImGui::BeginMenu("Open Recent"))
-			{
-				ImGui::Text("(empty)");
-				ImGui::EndMenu();
-			}
-			ImGui::Separator();
 			if (ImGui::MenuItem("Save", "Ctrl+S")) {}
 			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {}
 			ImGui::Separator();
@@ -286,60 +280,14 @@ void GameRenderUI()
 	// Editor panel
 	ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 
-	ImGui::Text("WASD=move  RMB=look  1/2/3=Mode  R=Regen");
-	ImGui::Separator();
-
-	int mode = static_cast<int>(g_editMode);
-	ImGui::RadioButton("Tile",   &mode, 0); ImGui::SameLine();
-	ImGui::RadioButton("Face",   &mode, 1); ImGui::SameLine();
-	ImGui::RadioButton("Vertex", &mode, 2);
-	g_editMode = static_cast<EditMode>(mode);
-
-	ImGui::Separator();
-
-	if (g_editMode == EditMode::TILE)
 	{
-		ImGui::Text("Height Edit Mode: %s  [V]", 
-			g_heightEditMode == HeightEditMode::PLANE ? "Plane" : "Vertex");
+		ImGui::Text("Height Edit Mode: %s  [V]",  g_heightEditMode == HeightEditMode::PLANE ? "Plane" : "Vertex");
 		ImGui::Separator();
-
-		ImGui::Text("Brush:");
-		ImGui::Checkbox("Solid", &g_brushSolid);
-		ImGui::SliderInt("Wall Tex",       &g_brushWallTex,       0, 63);
-		ImGui::SliderInt("Wall Bottom Tex",&g_brushWallBottomTex, 0, 63);
-		ImGui::SliderInt("Floor Tex",      &g_brushFloorTex,      0, 63);
-		ImGui::SliderInt("Ceil Tex",       &g_brushCeilTex,       0, 63);
-
-		if (ImGui::CollapsingHeader("Per-Direction Overrides"))
-		{
-			ImGui::Text("Upper (-1 = use Wall Tex)");
-			ImGui::SliderInt("North", &g_brushNorthTex, -1, 63);
-			ImGui::SliderInt("South", &g_brushSouthTex, -1, 63);
-			ImGui::SliderInt("East",  &g_brushEastTex,  -1, 63);
-			ImGui::SliderInt("West",  &g_brushWestTex,  -1, 63);
-			ImGui::Separator();
-			ImGui::Text("Lower (-1 = use Wall Bottom Tex -> Wall Tex)");
-			ImGui::SliderInt("Bottom North", &g_brushBottomNorthTex, -1, 63);
-			ImGui::SliderInt("Bottom South", &g_brushBottomSouthTex, -1, 63);
-			ImGui::SliderInt("Bottom East",  &g_brushBottomEastTex,  -1, 63);
-			ImGui::SliderInt("Bottom West",  &g_brushBottomWestTex,  -1, 63);
-		}
-
-		ImGui::Separator();
-		ImGui::Text("Click tile to select.");
-		ImGui::SliderFloat("Height Step", &g_heightStep, 0.01f, 1.0f, "%.2f");
 
 		if (g_selTX >= 0)
 		{
 			ImGui::Text("Selected: (%d, %d)  size %dx%d", g_selTX, g_selTY, g_selW, g_selH);
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
-
-			if (t.spaceType == tile::TileSpaceType::SOLID)
-			{
-				ImGui::Text("Drag orange/blue markers to adjust height.");
-				if (g_heightEditMode == HeightEditMode::VERTEX)
-					ImGui::Text("Drag green/orange corner markers to adjust floor/ceil.");
-			}
 
 			{
 				int st = static_cast<int>(t.spaceType);
@@ -489,120 +437,6 @@ void GameRenderUI()
 				g_dirtyMesh = true;
 			}
 		}
-	}
-
-	if (g_editMode == EditMode::FACE)
-	{
-		if (g_selTX >= 0)
-		{
-			auto& t = g_tileMap.Get(g_selTX, g_selTY);
-			ImGui::Text("Tile: (%d, %d)  size %dx%d", g_selTX, g_selTY, g_selW, g_selH);
-			ImGui::Text("Face: %s", g_selFace < tile::FaceDir::COUNT ?
-				tile::FaceNames[static_cast<int>(g_selFace)] : "none");
-
-			if (g_selFace == tile::FaceDir::FLOOR)
-			{
-				int ft = t.floorTex;
-				if (ImGui::SliderInt("Floor Texture", &ft, 0, 63))
-				{
-					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-						{
-							if (!g_tileMap.InBounds(tx, ty)) continue;
-							auto& tt = g_tileMap.Get(tx, ty);
-							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-							tt.floorTex = static_cast<uint8_t>(ft);
-						}
-					g_dirtyMesh = true;
-				}
-			}
-			else if (g_selFace == tile::FaceDir::CEILING)
-			{
-				int ct = t.ceilTex;
-				if (ImGui::SliderInt("Ceil Texture", &ct, 0, 63))
-				{
-					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-						{
-							if (!g_tileMap.InBounds(tx, ty)) continue;
-							auto& tt = g_tileMap.Get(tx, ty);
-							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-							tt.ceilTex = static_cast<uint8_t>(ct);
-						}
-					g_dirtyMesh = true;
-				}
-			}
-			else
-			{
-				int wt = t.wallTex;
-				if (ImGui::SliderInt("Wall Texture (Upper)", &wt, 0, 63))
-				{
-					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-						{
-							if (!g_tileMap.InBounds(tx, ty)) continue;
-							auto& tt = g_tileMap.Get(tx, ty);
-							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-							tt.wallTex = static_cast<uint8_t>(wt);
-						}
-					g_dirtyMesh = true;
-				}
-				int wbt = t.wallBottomTex;
-				if (ImGui::SliderInt("Wall Texture (Lower)", &wbt, 0, 63))
-				{
-					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-						{
-							if (!g_tileMap.InBounds(tx, ty)) continue;
-							auto& tt = g_tileMap.Get(tx, ty);
-							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-							tt.wallBottomTex = static_cast<uint8_t>(wbt);
-						}
-					g_dirtyMesh = true;
-				}
-			}
-		}
-		else ImGui::Text("Click on a face to select.");
-	}
-
-	if (g_editMode == EditMode::VERTEX)
-	{
-		const char* cornerNames[] = { "NW", "NE", "SE", "SW" };
-		if (g_selTX >= 0 && g_selCorner >= 0)
-		{
-			ImGui::Text("Tile: (%d, %d)", g_selTX, g_selTY);
-			ImGui::Text("Corner: %s", cornerNames[g_selCorner]);
-
-			auto& t = g_tileMap.Get(g_selTX, g_selTY);
-			float* fSlope = nullptr;
-			float* cSlope = nullptr;
-			switch (g_selCorner)
-			{
-				case 0: fSlope = &t.slopeNW; cSlope = &t.ceilSlopeNW; break;
-				case 1: fSlope = &t.slopeNE; cSlope = &t.ceilSlopeNE; break;
-				case 2: fSlope = &t.slopeSE; cSlope = &t.ceilSlopeSE; break;
-				case 3: fSlope = &t.slopeSW; cSlope = &t.ceilSlopeSW; break;
-			}
-			if (fSlope && cSlope)
-			{
-				float fVal = *fSlope;
-				if (ImGui::SliderFloat("Floor Offset", &fVal, -1.0f, 1.0f))
-				{
-					*fSlope = fVal;
-					clampFloorVertex(*fSlope, t.floorHeight, *cSlope, t.ceilHeight);
-					g_dirtyMesh = true;
-				}
-				float cVal = *cSlope;
-				if (ImGui::SliderFloat("Ceil Offset", &cVal, -1.0f, 1.0f))
-				{
-					*cSlope = cVal;
-					clampCeilVertex(*cSlope, t.ceilHeight, *fSlope, t.floorHeight);
-					g_dirtyMesh = true;
-				}
-			}
-			ImGui::Text("Scroll to adjust floor; drag corner markers (TILE+V).");
-		}
-		else ImGui::Text("Click near a corner to select.");
 	}
 
 	ImGui::Separator();
