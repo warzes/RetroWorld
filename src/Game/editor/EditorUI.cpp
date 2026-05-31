@@ -52,35 +52,103 @@ void GameRenderUI()
 
 		if (ImGui::BeginMenu("Tile"))
 		{
-			if (ImGui::MenuItem("Carve", "Enter"))
+		if (ImGui::MenuItem("Carve", "Enter"))
+		{
+			if (g_selTX >= 0)
 			{
-				if (g_selTX >= 0)
+				bool hasSolid = false;
+				for (int ty = g_selTY; ty < g_selTY + g_selH && !hasSolid; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW && !hasSolid; ++tx)
+						if (g_tileMap.InBounds(tx, ty) && g_tileMap.Get(tx, ty).spaceType == tile::TileSpaceType::SOLID)
+							hasSolid = true;
+
+				int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
+				int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTY : g_selTY;
+				auto& refTile = g_tileMap.Get(refTX, refTY);
+
+				auto applyHeights = [&](tile::Tile& tt)
+				{
+					tt.floorHeight  = refTile.floorHeight;
+					tt.ceilHeight   = refTile.ceilHeight;
+					tt.slopeNW      = refTile.slopeNW;
+					tt.slopeNE      = refTile.slopeNE;
+					tt.slopeSE      = refTile.slopeSE;
+					tt.slopeSW      = refTile.slopeSW;
+					tt.ceilSlopeNW  = refTile.ceilSlopeNW;
+					tt.ceilSlopeNE  = refTile.ceilSlopeNE;
+					tt.ceilSlopeSE  = refTile.ceilSlopeSE;
+					tt.ceilSlopeSW  = refTile.ceilSlopeSW;
+				};
+
+				if (hasSolid)
+				{
+					int srcTX = g_selTX, srcTY = g_selTY;
+					bool found = false;
+					for (int ty = g_selTY; ty < g_selTY + g_selH && !found; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW && !found; ++tx)
+							if (g_tileMap.InBounds(tx, ty) && g_tileMap.Get(tx, ty).spaceType == tile::TileSpaceType::SOLID)
+							{
+								srcTX = tx; srcTY = ty; found = true;
+							}
+					auto& srcTile = g_tileMap.Get(srcTX, srcTY);
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType == tile::TileSpaceType::EMPTY)
+							{
+								tt.spaceType   = tile::TileSpaceType::SOLID;
+								tt.renderSolid = true;
+							}
+							tt.wallTex       = srcTile.wallTex;
+							tt.wallBottomTex = srcTile.wallBottomTex;
+							tt.floorTex      = srcTile.floorTex;
+							tt.ceilTex       = srcTile.ceilTex;
+							applyHeights(tt);
+						}
+				}
+				else
 				{
 					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
 						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 						{
 							if (!g_tileMap.InBounds(tx, ty)) continue;
 							auto& tt = g_tileMap.Get(tx, ty);
-							if (tt.spaceType == tile::TileSpaceType::SOLID) continue;
 							tt.spaceType   = tile::TileSpaceType::SOLID;
 							tt.renderSolid = true;
 							tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
 							tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
 							tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
 							tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
-							tt.northTex       = (g_brushNorthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushNorthTex);
-							tt.southTex       = (g_brushSouthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushSouthTex);
-							tt.eastTex        = (g_brushEastTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushEastTex);
-							tt.westTex        = (g_brushWestTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushWestTex);
-							tt.bottomNorthTex = (g_brushBottomNorthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomNorthTex);
-							tt.bottomSouthTex = (g_brushBottomSouthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomSouthTex);
-							tt.bottomEastTex  = (g_brushBottomEastTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomEastTex);
-							tt.bottomWestTex  = (g_brushBottomWestTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomWestTex);
+							applyHeights(tt);
 						}
-					g_dirtyMesh = true;
 				}
+				g_dirtyMesh = true;
 			}
-			if (ImGui::MenuItem("Paint", "Shift+Enter")) {}
+		}
+		if (ImGui::MenuItem("Paint", "Shift+Enter"))
+		{
+			if (g_selTX >= 0)
+			{
+				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+					{
+						if (!g_tileMap.InBounds(tx, ty)) continue;
+						auto& tt = g_tileMap.Get(tx, ty);
+						if (tt.spaceType == tile::TileSpaceType::EMPTY)
+						{
+							tt.spaceType   = tile::TileSpaceType::SOLID;
+							tt.renderSolid = true;
+						}
+						tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
+						tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
+						tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
+						tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+					}
+				g_dirtyMesh = true;
+			}
+		}
 			if (ImGui::MenuItem("Delete", "Del"))
 			{
 				if (g_selTX >= 0) {
@@ -278,13 +346,101 @@ void GameRenderUI()
 	}
 
 	// Editor panel
-	ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
+ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 
+// ---- Texture picker preview rows ----
+{
+	static constexpr float ATLAS_DIM = 8.0f; // grid dimension (8x8 source tiles)
+	float invTotal = 1.0f / (ATLAS_DIM * ATLAS_DIM); // 1/64 per column
+	float vStep = 1.0f / ATLAS_DIM; // 1/8 = one vertical repeat
+	float thumbSize = 40.0f;
+	uint32_t glId = gpu::texture::Handle(g_atlasTex);
+	ImTextureID texId = (ImTextureID)(intptr_t)glId;
+
+	auto drawPreview = [&](const char* label, int& texVar, int targetIdx)
 	{
-		ImGui::Text("Height Edit Mode: %s  [V]",  g_heightEditMode == HeightEditMode::PLANE ? "Plane" : "Vertex");
-		ImGui::Separator();
+		int ti = texVar;
+		float u0 = static_cast<float>(ti) * invTotal;
+		float u1 = static_cast<float>(ti + 1) * invTotal;
 
-		if (g_selTX >= 0)
+		ImGui::Image(ImTextureRef(texId), ImVec2(thumbSize, thumbSize), ImVec2(u0, 0.0f), ImVec2(u1, vStep));
+		if (ImGui::IsItemClicked())
+		{
+			g_pickerTarget = targetIdx;
+			g_showTexturePicker = true;
+		}
+		ImGui::SameLine();
+		ImGui::Text("%s", label);
+	};
+
+	drawPreview("Upper Wall", g_brushWallTex, 0);
+	drawPreview("Lower Wall", g_brushWallBottomTex, 1);
+	drawPreview("Ceiling", g_brushCeilTex, 2);
+	drawPreview("Floor", g_brushFloorTex, 3);
+
+	// Texture picker popup
+	static const char* pickerTitles[] = {
+		"Pick Upper Wall Texture",
+		"Pick Lower Wall Texture",
+		"Pick Ceiling Texture",
+		"Pick Floor Texture"
+	};
+	static int* pickerTex[] = {
+		&g_brushWallTex,
+		&g_brushWallBottomTex,
+		&g_brushCeilTex,
+		&g_brushFloorTex
+	};
+
+	if (g_showTexturePicker)
+		ImGui::OpenPopup(pickerTitles[g_pickerTarget]);
+
+	ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_Always);
+	if (ImGui::BeginPopupModal(pickerTitles[g_pickerTarget], nullptr, ImGuiWindowFlags_NoResize))
+	{
+		int placeholder = 0;
+		ImGui::Combo("Theme", &placeholder, "All\0");
+
+		ImGui::BeginChild("grid", ImVec2(0, -(ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y)), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+		float cellSize = 60.0f;
+		int cols = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().x / (cellSize + ImGui::GetStyle().ItemSpacing.x)));
+		int totalTex = static_cast<int>(ATLAS_DIM * ATLAS_DIM);
+		for (int ti = 0; ti < totalTex; ++ti)
+		{
+			float u0 = static_cast<float>(ti) * invTotal;
+			float u1 = static_cast<float>(ti + 1) * invTotal;
+
+			ImGui::PushID(ti);
+			if (ImGui::ImageButton("##cell", ImTextureRef(texId), ImVec2(cellSize, cellSize), ImVec2(u0, 0.0f), ImVec2(u1, vStep)))
+			{
+				*pickerTex[g_pickerTarget] = ti;
+				g_showTexturePicker = false;
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::PopID();
+
+			if ((ti + 1) % cols != 0)
+				ImGui::SameLine();
+		}
+		ImGui::EndChild();
+
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+		{
+			g_showTexturePicker = false;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	ImGui::Separator();
+}
+
+{
+	ImGui::Text("Height Edit Mode: %s  [V]",  g_heightEditMode == HeightEditMode::PLANE ? "Plane" : "Vertex");
+	ImGui::Separator();
+
+	if (g_selTX >= 0)
 		{
 			ImGui::Text("Selected: (%d, %d)  size %dx%d", g_selTX, g_selTY, g_selW, g_selH);
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
@@ -299,89 +455,6 @@ void GameRenderUI()
 					t.renderSolid = (st == 1);
 					g_dirtyMesh   = true;
 				}
-			}
-
-			int wt = t.wallTex, ft = t.floorTex, ct = t.ceilTex;
-			if (ImGui::SliderInt("Wall",  &wt, 0, 63))
-			{
-				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-					{
-						if (!g_tileMap.InBounds(tx, ty)) continue;
-						auto& tt = g_tileMap.Get(tx, ty);
-						if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-						tt.wallTex = static_cast<uint8_t>(wt);
-					}
-				g_dirtyMesh = true;
-			}
-			{
-				int wbt = t.wallBottomTex;
-				if (ImGui::SliderInt("Wall Bottom", &wbt, 0, 63))
-				{
-					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-						{
-							if (!g_tileMap.InBounds(tx, ty)) continue;
-							auto& tt = g_tileMap.Get(tx, ty);
-							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-							tt.wallBottomTex = static_cast<uint8_t>(wbt);
-						}
-					g_dirtyMesh = true;
-				}
-			}
-			if (ImGui::CollapsingHeader("Per-Dir Overrides"))
-			{
-				auto dirSlider = [&](const char* label, uint8_t& field)
-				{
-					int val = (field == tile::TEX_NOT_SET) ? -1 : static_cast<int>(field);
-					if (ImGui::SliderInt(label, &val, -1, 63))
-					{
-						for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-							for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-							{
-								if (!g_tileMap.InBounds(tx, ty)) continue;
-								auto& tt = g_tileMap.Get(tx, ty);
-								if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-								field = (val < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(val);
-							}
-						g_dirtyMesh = true;
-					}
-				};
-				ImGui::Text("Upper (-1 = use Wall Tex)");
-				dirSlider("North", t.northTex);
-				dirSlider("South", t.southTex);
-				dirSlider("East",  t.eastTex);
-				dirSlider("West",  t.westTex);
-				ImGui::Separator();
-				ImGui::Text("Lower (-1 = Wall Bottom -> Wall Tex)");
-				dirSlider("Bottom North", t.bottomNorthTex);
-				dirSlider("Bottom South", t.bottomSouthTex);
-				dirSlider("Bottom East",  t.bottomEastTex);
-				dirSlider("Bottom West",  t.bottomWestTex);
-			}
-			if (ImGui::SliderInt("Floor", &ft, 0, 63))
-			{
-				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-					{
-						if (!g_tileMap.InBounds(tx, ty)) continue;
-						auto& tt = g_tileMap.Get(tx, ty);
-						if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-						tt.floorTex = static_cast<uint8_t>(ft);
-					}
-				g_dirtyMesh = true;
-			}
-			if (ImGui::SliderInt("Ceil",  &ct, 0, 63))
-			{
-				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-					{
-						if (!g_tileMap.InBounds(tx, ty)) continue;
-						auto& tt = g_tileMap.Get(tx, ty);
-						if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
-						tt.ceilTex = static_cast<uint8_t>(ct);
-					}
-				g_dirtyMesh = true;
 			}
 
 			if (t.spaceType == tile::TileSpaceType::SOLID)

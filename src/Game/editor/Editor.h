@@ -94,6 +94,10 @@ extern int  g_brushBottomEastTex;
 extern int  g_brushBottomWestTex;
 extern bool g_brushSolid;
 
+// Texture picker state
+extern bool g_showTexturePicker;
+extern int  g_pickerTarget; // 0=UpperWall, 1=LowerWall, 2=Ceiling, 3=Floor
+
 extern int      g_mapWidth;
 extern int      g_mapHeight;
 extern uint32_t g_genSeed;

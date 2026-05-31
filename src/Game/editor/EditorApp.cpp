@@ -822,48 +822,105 @@ void GameUpdate()
 		g_dirtyMesh = true;
 	}
 
-	// Enter key — carve (place) empty tiles in selection
+	// Enter key — carve / texture-copy
 	if ((input::IsKeyDown(KeyboardType::KEY_ENTER) || input::IsKeyDown(KeyboardType::KEY_KP_ENTER)) && g_selTX >= 0)
 	{
+		bool hasSolid = false;
+		for (int ty = g_selTY; ty < g_selTY + g_selH && !hasSolid; ++ty)
+			for (int tx = g_selTX; tx < g_selTX + g_selW && !hasSolid; ++tx)
+				if (g_tileMap.InBounds(tx, ty) && g_tileMap.Get(tx, ty).spaceType == tile::TileSpaceType::SOLID)
+					hasSolid = true;
+
 		int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
 		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTY : g_selTY;
 		auto& refTile = g_tileMap.Get(refTX, refTY);
-		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-			{
-				if (!g_tileMap.InBounds(tx, ty)) continue;
-				auto& tt = g_tileMap.Get(tx, ty);
-				// Convert EMPTY -> SOLID
-				if (tt.spaceType != tile::TileSpaceType::SOLID)
+
+		auto applyHeights = [&](tile::Tile& tt)
+		{
+			tt.floorHeight  = refTile.floorHeight;
+			tt.ceilHeight   = refTile.ceilHeight;
+			tt.slopeNW      = refTile.slopeNW;
+			tt.slopeNE      = refTile.slopeNE;
+			tt.slopeSE      = refTile.slopeSE;
+			tt.slopeSW      = refTile.slopeSW;
+			tt.ceilSlopeNW  = refTile.ceilSlopeNW;
+			tt.ceilSlopeNE  = refTile.ceilSlopeNE;
+			tt.ceilSlopeSE  = refTile.ceilSlopeSE;
+			tt.ceilSlopeSW  = refTile.ceilSlopeSW;
+		};
+
+		if (hasSolid)
+		{
+			int srcTX = g_selTX, srcTY = g_selTY;
+			bool found = false;
+			for (int ty = g_selTY; ty < g_selTY + g_selH && !found; ++ty)
+				for (int tx = g_selTX; tx < g_selTX + g_selW && !found; ++tx)
+					if (g_tileMap.InBounds(tx, ty) && g_tileMap.Get(tx, ty).spaceType == tile::TileSpaceType::SOLID)
+					{
+						srcTX = tx; srcTY = ty; found = true;
+					}
+			auto& srcTile = g_tileMap.Get(srcTX, srcTY);
+			for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+				for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 				{
+					if (!g_tileMap.InBounds(tx, ty)) continue;
+					auto& tt = g_tileMap.Get(tx, ty);
+					if (tt.spaceType == tile::TileSpaceType::EMPTY)
+					{
+						tt.spaceType   = tile::TileSpaceType::SOLID;
+						tt.renderSolid = true;
+					}
+					tt.wallTex       = srcTile.wallTex;
+					tt.wallBottomTex = srcTile.wallBottomTex;
+					tt.floorTex      = srcTile.floorTex;
+					tt.ceilTex       = srcTile.ceilTex;
+					applyHeights(tt);
+				}
+		}
+		else
+		{
+			for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+				for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+				{
+					if (!g_tileMap.InBounds(tx, ty)) continue;
+					auto& tt = g_tileMap.Get(tx, ty);
 					tt.spaceType   = tile::TileSpaceType::SOLID;
 					tt.renderSolid = true;
 					tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
 					tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
 					tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
 					tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
-					tt.northTex       = (g_brushNorthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushNorthTex);
-					tt.southTex       = (g_brushSouthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushSouthTex);
-					tt.eastTex        = (g_brushEastTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushEastTex);
-					tt.westTex        = (g_brushWestTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushWestTex);
-					tt.bottomNorthTex = (g_brushBottomNorthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomNorthTex);
-					tt.bottomSouthTex = (g_brushBottomSouthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomSouthTex);
-					tt.bottomEastTex  = (g_brushBottomEastTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomEastTex);
-					tt.bottomWestTex  = (g_brushBottomWestTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomWestTex);
+					applyHeights(tt);
 				}
-				// Apply anchor tile's heights and slopes to ALL tiles in selection
-				tt.floorHeight  = refTile.floorHeight;
-				tt.ceilHeight   = refTile.ceilHeight;
-				tt.slopeNW      = refTile.slopeNW;
-				tt.slopeNE      = refTile.slopeNE;
-				tt.slopeSE      = refTile.slopeSE;
-				tt.slopeSW      = refTile.slopeSW;
-				tt.ceilSlopeNW  = refTile.ceilSlopeNW;
-				tt.ceilSlopeNE  = refTile.ceilSlopeNE;
-				tt.ceilSlopeSE  = refTile.ceilSlopeSE;
-				tt.ceilSlopeSW  = refTile.ceilSlopeSW;
-			}
+		}
 		g_dirtyMesh = true;
+	}
+
+	// Shift+Enter — Paint (apply brush textures to all selected)
+	{
+		static bool prevShiftEnter = false;
+		bool shiftEnter = (input::IsKeyDown(KeyboardType::KEY_LEFT_SHIFT) || input::IsKeyDown(KeyboardType::KEY_RIGHT_SHIFT))
+			&& (input::IsKeyDown(KeyboardType::KEY_ENTER) || input::IsKeyDown(KeyboardType::KEY_KP_ENTER));
+		if (shiftEnter && !prevShiftEnter && g_selTX >= 0)
+		{
+			for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+				for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+				{
+					if (!g_tileMap.InBounds(tx, ty)) continue;
+					auto& tt = g_tileMap.Get(tx, ty);
+					if (tt.spaceType == tile::TileSpaceType::EMPTY)
+					{
+						tt.spaceType   = tile::TileSpaceType::SOLID;
+						tt.renderSolid = true;
+					}
+					tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
+					tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
+					tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
+					tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+				}
+			g_dirtyMesh = true;
+		}
+		prevShiftEnter = shiftEnter;
 	}
 
 	if (!wantCaptureMouse)

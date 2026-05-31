@@ -64,6 +64,9 @@ int  g_brushBottomEastTex  = -1;
 int  g_brushBottomWestTex  = -1;
 bool g_brushSolid         = true;
 
+bool g_showTexturePicker   = false;
+int  g_pickerTarget        = 0;
+
 int      g_mapWidth  = 20;
 int      g_mapHeight = 20;
 uint32_t g_genSeed   = 0;
