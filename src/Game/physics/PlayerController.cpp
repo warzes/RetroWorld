@@ -38,7 +38,7 @@ namespace
 	constexpr float CLIMB_MAX_HEIGHT = 3.0f;
 	constexpr float CLIMB_MAX_STAMINA = 10.0f;
 	constexpr float WALL_DETECT_DIST = 0.5f;
-	constexpr float GRAVITY = -6.0f;
+	constexpr float GRAVITY = -8.0f;
 }
 
 // ---- Construction / Destruction ----
@@ -303,23 +303,31 @@ void PlayerController::Tick(float inDeltaTime)
 		// Если ExtendedUpdate заблокировал движение вверх
 		if (curVel.GetY() < CLIMB_SPEED_UP * 0.5f && curPos.GetY() > m_climbStartY + 0.3f)
 		{
-			// Пробуем mantle: ищем пол выше
 			float capsuleFullHeight = m_playerHeight * 2.0f;
 			JPH::Vec3 capsuleTop = JPH::Vec3(curPos) + JPH::Vec3(0, capsuleFullHeight, 0);
-			JPH::Vec3 downStart = capsuleTop + JPH::Vec3(m_climbNormal.x * 0.3f, 1.5f, m_climbNormal.z * 0.3f);
-			JPH::RRayCast downRay(JPH::RVec3(downStart), JPH::Vec3(0, -2.5f, 0));
-			JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> downCollector;
+
+			// Ищем поверхность, упёршуюся в голову (рейкаст вверх от верха капсулы)
+			JPH::RRayCast upRay(JPH::RVec3(capsuleTop + JPH::Vec3(0, 0.01f, 0)), JPH::Vec3(0, 0.5f, 0));
+			JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> upCollector;
 			JPH::RayCastSettings rcSettings;
 			rcSettings.SetBackFaceMode(JPH::EBackFaceMode::CollideWithBackFaces);
-			joltSystem->GetNarrowPhaseQuery().CastRay(downRay, rcSettings, downCollector);
+			joltSystem->GetNarrowPhaseQuery().CastRay(upRay, rcSettings, upCollector);
 
-			if (downCollector.HadHit())
+			if (upCollector.HadHit())
 			{
-				float surfaceY = downRay.GetPointOnRay(downCollector.mHit.mFraction).GetY();
-				if (surfaceY > capsuleTop.GetY() + 0.15f)
+				float surfaceY = upRay.GetPointOnRay(upCollector.mHit.mFraction).GetY();
+
+				// Пробуем встать на эту поверхность
+				JPH::RVec3 mantlePos(curPos.GetX(), surfaceY, curPos.GetZ());
+
+				// Проверяем, есть ли 0.5 единиц свободного места над капсулой
+				JPH::RRayCast ceilingCheck(JPH::RVec3(mantlePos + JPH::RVec3(0, capsuleFullHeight + 0.05f, 0)), JPH::Vec3(0, 0.5f, 0));
+				JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> ceilingCollector;
+				joltSystem->GetNarrowPhaseQuery().CastRay(ceilingCheck, rcSettings, ceilingCollector);
+
+				if (!ceilingCollector.HadHit())
 				{
-					// Нашли опору выше — становимся на неё
-					JPH::RVec3 mantlePos(curPos.GetX(), surfaceY, curPos.GetZ());
+					// Свободное место есть — залезаем на опору
 					m_character->SetPosition(mantlePos);
 					m_character->SetLinearVelocity(JPH::Vec3::sZero());
 				}
@@ -387,6 +395,7 @@ void PlayerController::handleClimb(float inDeltaTime)
 	}
 
 	JPH::RVec3 pos = m_character->GetPosition();
+	auto* joltSystem = m_physics->GetJoltSystem();
 	float climbHeight = pos.GetY() - m_climbStartY;
 
 	if (climbHeight >= CLIMB_MAX_HEIGHT)
@@ -402,6 +411,24 @@ void PlayerController::handleClimb(float inDeltaTime)
 		m_state = State::Falling;
 		m_climbing = false;
 		return;
+	}
+
+	// ---- Проверка: стена всё ещё перед игроком? ----
+	{
+		JPH::Vec3 wallDir = JPH::Vec3(m_climbNormal.x, 0, m_climbNormal.z).NormalizedOr(JPH::Vec3::sAxisX());
+		JPH::RVec3 rayStart = pos + JPH::RVec3(0, m_playerHeight * 0.5f, 0);
+		JPH::RRayCast wallRay(rayStart, wallDir * WALL_DETECT_DIST);
+		JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> wallCollector;
+		JPH::RayCastSettings rcSettings;
+		rcSettings.SetBackFaceMode(JPH::EBackFaceMode::CollideWithBackFaces);
+		joltSystem->GetNarrowPhaseQuery().CastRay(wallRay, rcSettings, wallCollector);
+
+		if (!wallCollector.HadHit())
+		{
+			m_state = State::Falling;
+			m_climbing = false;
+			return;
+		}
 	}
 
 	float xm = 0.0f, zm = 0.0f;
