@@ -311,15 +311,15 @@ void main()
 #define MAX_LIGHTS 16
 
 struct LightData {
-	vec4  positionOrDirection;
+	vec4  positionOrDirection; // w=0 directional, w=1 point, w=2 spot
 	vec3  color;
 	float intensity;
-	vec3  attenuation;
+	vec3  attenuation;         // constant, linear, quadratic
 	float radius;
 	vec3  spotDirection;
-	float innerCutoff;
-	float outerCutoff;
-	int   type;
+	float innerCutoff;         // cos(innerAngle)
+	float outerCutoff;         // cos(outerAngle)
+	int   type;                // 0=directional, 1=point, 2=spot
 	bool  castShadow;
 	float shadowBias;
 	mat4  lightSpaceMatrix;
@@ -336,12 +336,14 @@ layout(std140, binding = 4) uniform LightBlock {
 };
 uniform vec3       u_cameraPos;
 
+// Material uniforms
 uniform vec3  u_albedoColor;
 uniform vec3  u_specularColor;
 uniform vec3  u_ambientColor;
 uniform float u_shininess;
 uniform float u_opacity;
 
+// Texture uniforms (sampler handles, 0 = no texture)
 uniform bool       u_hasAlbedoMap;
 uniform bool       u_hasNormalMap;
 uniform bool       u_hasSpecularMap;
@@ -351,9 +353,12 @@ layout(binding = 1) uniform sampler2D u_normalMap;
 layout(binding = 2) uniform sampler2D u_specularMap;
 layout(binding = 3) uniform sampler2D u_emissiveMap;
 
+// Shadow
 uniform bool       u_receiveShadow;
 uniform sampler2D  u_shadowMap;
 uniform float      u_shadowMapSize;
+
+// Point light shadow
 uniform samplerCube u_pointShadowMap;
 uniform float       u_pointShadowMapSize;
 
@@ -365,14 +370,17 @@ float ShadowCalculation(vec4 lightSpacePos, float bias)
 	projCoords = projCoords * 0.5 + 0.5;
 	float currentDepth = projCoords.z - bias;
 	if (currentDepth > 1.0) return 1.0;
+
 	float shadow = 0.0;
 	float texelSize = 1.0 / u_shadowMapSize;
 	for (int x = -1; x <= 1; ++x)
+	{
 		for (int y = -1; y <= 1; ++y)
 		{
 			float pcfDepth = texture(u_shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
 			shadow += currentDepth < pcfDepth ? 1.0 : 0.0;
 		}
+	}
 	return shadow / 9.0;
 }
 
@@ -383,36 +391,133 @@ float PointShadowCalculation(vec3 fragToLight, float bias, float farPlane)
 	return (currentDepth - bias) < closestDepth ? 1.0 : 0.0;
 }
 
-vec3 CalcDirectionalLight(LightData light, vec3 N, vec3 V, vec3 albedo, float shininess)
+vec3 CalcDirectionalLight(LightData light, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
 {
 	vec3 L = normalize(-light.spotDirection);
 	vec3 H = normalize(L + V);
+
 	float NdotL = max(dot(N, L), 0.0);
 	float NdotH = max(dot(N, H), 0.0);
+
 	float shadow = 1.0;
 	if (light.castShadow && u_receiveShadow)
 	{
 		vec4 lightSpacePos = light.lightSpaceMatrix * vec4(v_worldPos, 1.0);
 		shadow = ShadowCalculation(lightSpacePos, light.shadowBias);
 	}
+
 	vec3 diffuse  = light.color * albedo * NdotL;
-	vec3 spec     = light.color * vec3(0.1) * pow(NdotH, shininess);
-	return (albedo * 0.05 + (diffuse + spec) * shadow) * light.intensity;
+	vec3 spec     = light.color * specular * pow(NdotH, shininess);
+
+	return (ambient * albedo + (diffuse + spec) * shadow) * light.intensity;
+}
+
+vec3 CalcPointLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
+{
+	vec3  L       = light.positionOrDirection.xyz - fragPos;
+	float dist    = length(L);
+	if (dist > light.radius) return vec3(0.0);
+	L /= dist;
+
+	float atten = 1.0 / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * dist * dist);
+	float fade  = 1.0 - (dist * dist) / (light.radius * light.radius);
+	atten *= fade * fade;
+
+	vec3 H = normalize(L + V);
+
+	float NdotL = max(dot(N, L), 0.0);
+	float NdotH = max(dot(N, H), 0.0);
+
+	float shadow = 1.0;
+	if (light.castShadow && u_receiveShadow)
+	{
+		vec3 fragToLight = fragPos - light.positionOrDirection.xyz;
+		shadow = PointShadowCalculation(fragToLight, light.shadowBias, light.radius);
+	}
+
+	vec3 diffuse  = light.color * albedo * NdotL;
+	vec3 spec     = light.color * specular * pow(NdotH, shininess);
+
+	return (ambient * albedo + (diffuse + spec) * shadow) * light.intensity * atten;
+}
+
+vec3 CalcSpotLight(LightData light, vec3 fragPos, vec3 N, vec3 V, vec3 albedo, vec3 specular, vec3 ambient, float shininess)
+{
+	vec3  L       = light.positionOrDirection.xyz - fragPos;
+	float dist    = length(L);
+	if (dist > light.radius) return vec3(0.0);
+	L /= dist;
+
+	float theta     = dot(L, normalize(-light.spotDirection));
+	float epsilon   = light.innerCutoff - light.outerCutoff;
+	float spot      = clamp((theta - light.outerCutoff) / epsilon, 0.0, 1.0);
+
+	float atten = spot / (light.attenuation.x + light.attenuation.y * dist + light.attenuation.z * dist * dist);
+	float fade  = 1.0 - (dist * dist) / (light.radius * light.radius);
+	atten *= fade * fade;
+
+	vec3 H = normalize(L + V);
+
+	float NdotL = max(dot(N, L), 0.0);
+	float NdotH = max(dot(N, H), 0.0);
+
+	vec3 diffuse  = light.color * albedo * NdotL;
+	vec3 spec     = light.color * specular * pow(NdotH, shininess);
+
+	return (ambient * albedo + diffuse + spec) * light.intensity * atten;
 }
 
 void main()
 {
+	//// DEBUG: show shadow map UV / depth on the plane
+	//if (u_lightCount > 0 && u_lights[0].castShadow)
+	//{
+	//    vec4 lsp = u_lights[0].lightSpaceMatrix * vec4(v_worldPos, 1.0);
+	//    vec3 p = lsp.xyz / lsp.w;
+	//    p = p * 0.5 + 0.5;
+	//    float sm = texture(u_shadowMap, p.xy).r;
+	//    o_color = vec4(p.xy, sm, 1.0);
+	//    return;
+	//}
+
 	vec3 albedo = u_albedoColor * v_color.rgb;
+	vec3 specular = u_specularColor;
+	vec3 ambient  = u_ambientColor;
 	vec3 normal = normalize(v_worldNormal);
-	if (u_hasAlbedoMap) albedo *= texture(u_albedoMap, v_texcoord).rgb;
+
+	if (u_hasAlbedoMap)   albedo   *= texture(u_albedoMap,   v_texcoord).rgb;
+	if (u_hasSpecularMap) specular *= texture(u_specularMap, v_texcoord).rgb;
+	if (u_hasNormalMap)
+	{
+		vec3 n = texture(u_normalMap, v_texcoord).xyz * 2.0 - 1.0;
+		// Simple tangent-space normal: derive TBN from screen-space derivatives
+		vec3 dx = dFdx(v_worldPos);
+		vec3 dy = dFdy(v_worldPos);
+		vec3 T  = normalize(dx * n.x + dy * n.y);
+		vec3 B  = normalize(cross(normal, T));
+		vec3 N  = normalize(cross(T, B));
+		mat3 TBN = mat3(T, B, N);
+		normal = normalize(TBN * n);
+	}
+
 	vec3 V = normalize(u_cameraPos - v_worldPos);
+
 	vec3 result = vec3(0.0);
 	for (int i = 0; i < u_lightCount && i < MAX_LIGHTS; ++i)
 	{
 		LightData light = u_lights[i];
 		if (light.type == 0)
-			result += CalcDirectionalLight(light, normal, V, albedo, u_shininess);
+			result += CalcDirectionalLight(light, normal, V, albedo, specular, ambient, u_shininess);
+		else if (light.type == 1)
+			result += CalcPointLight(light, v_worldPos, normal, V, albedo, specular, ambient, u_shininess);
+		else if (light.type == 2)
+			result += CalcSpotLight(light, v_worldPos, normal, V, albedo, specular, ambient, u_shininess);
 	}
+
+	// Emissive
+	if (u_hasEmissiveMap)
+		result += texture(u_emissiveMap, v_texcoord).rgb;
+
 	o_color = vec4(result, u_opacity);
 }
 )";
@@ -497,7 +602,7 @@ bool GameInit()
 	sun.lightType = scene::LightNode::LightType::Directional;
 	sun.color = { 1.0f, 0.95f, 0.85f };
 	sun.intensity = 1.5f;
-	sun.castShadow = true;
+	sun.castShadow = false;
 	sun.shadowSettings.resolution = 2048;
 	sun.shadowSettings.orthoSize = 40.0f;
 	sun.shadowSettings.cascadeDistance[0] = -1.0f;
@@ -505,6 +610,17 @@ bool GameInit()
 	sun.shadowSettings.cascadeDistance[2] = -1.0f;
 	sun.shadowSettings.cascadeDistance[3] = -1.0f;
 	sun.transform.rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(1, 0, 1));
+
+	// --- Point light (warm, with shadow) ---
+	/*auto& pointLight = root.AddChild<scene::LightNode>("point_light");
+	pointLight.lightType = scene::LightNode::LightType::Point;
+	pointLight.color = glm::vec3(0.8f, 0.2f, 0.3f);
+	pointLight.intensity = 6.0f;
+	pointLight.radius = 8.0f;
+	pointLight.attenuation = glm::vec3(1.0f, 0.09f, 0.032f);
+	pointLight.castShadow = false;
+	pointLight.shadowSettings.resolution = 256;
+	pointLight.transform.position = glm::vec3(2.0f, 0.5f, 5.0f);*/
 
 	// Tile model node
 	auto& tileNode = root.AddChild<scene::ModelNode>("tiles");
