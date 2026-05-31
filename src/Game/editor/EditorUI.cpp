@@ -37,7 +37,20 @@ void GameRenderUI()
 		{
 			if (ImGui::MenuItem("Carve", "Enter")) {}
 			if (ImGui::MenuItem("Paint", "Shift+Enter")) {}
-			if (ImGui::MenuItem("Delete", "Del")) {}
+			if (ImGui::MenuItem("Delete", "Del"))
+			{
+				if (g_selTX >= 0) {
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tt = g_tileMap.Get(tx, ty);
+							tt.spaceType   = tile::TileSpaceType::EMPTY;
+							tt.renderSolid = false;
+						}
+					g_dirtyMesh = true;
+				}
+			}
 			if (ImGui::MenuItem("Deselect", "Escape")) {}
 			ImGui::Separator();
 
@@ -206,19 +219,60 @@ void GameRenderUI()
 
 		if (g_selTX >= 0)
 		{
-			ImGui::Text("Selected: (%d, %d)", g_selTX, g_selTY);
+			ImGui::Text("Selected: (%d, %d)  size %dx%d", g_selTX, g_selTY, g_selW, g_selH);
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
 
 			int st = static_cast<int>(t.spaceType);
 			ImGui::RadioButton("Empty", &st, 0); ImGui::SameLine();
 			ImGui::RadioButton("Solid", &st, 1);
-			t.spaceType   = static_cast<tile::TileSpaceType>(st);
-			t.renderSolid = (st == 1);
+			{
+				auto newType = static_cast<tile::TileSpaceType>(st);
+				bool newSolid = (st == 1);
+				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+					{
+						if (!g_tileMap.InBounds(tx, ty)) continue;
+						auto& tt = g_tileMap.Get(tx, ty);
+						if (tt.spaceType != newType || tt.renderSolid != newSolid)
+						{
+							tt.spaceType   = newType;
+							tt.renderSolid = newSolid;
+							g_dirtyMesh = true;
+						}
+					}
+			}
 
 			int wt = t.wallTex, ft = t.floorTex, ct = t.ceilTex;
-			if (ImGui::SliderInt("Wall",  &wt, 0, 63)) { t.wallTex  = static_cast<uint8_t>(wt); g_dirtyMesh = true; }
-			if (ImGui::SliderInt("Floor", &ft, 0, 63)) { t.floorTex = static_cast<uint8_t>(ft); g_dirtyMesh = true; }
-			if (ImGui::SliderInt("Ceil",  &ct, 0, 63)) { t.ceilTex  = static_cast<uint8_t>(ct); g_dirtyMesh = true; }
+			if (ImGui::SliderInt("Wall",  &wt, 0, 63))
+			{
+				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+					{
+						if (!g_tileMap.InBounds(tx, ty)) continue;
+						g_tileMap.Get(tx, ty).wallTex = static_cast<uint8_t>(wt);
+					}
+				g_dirtyMesh = true;
+			}
+			if (ImGui::SliderInt("Floor", &ft, 0, 63))
+			{
+				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+					{
+						if (!g_tileMap.InBounds(tx, ty)) continue;
+						g_tileMap.Get(tx, ty).floorTex = static_cast<uint8_t>(ft);
+					}
+				g_dirtyMesh = true;
+			}
+			if (ImGui::SliderInt("Ceil",  &ct, 0, 63))
+			{
+				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+					{
+						if (!g_tileMap.InBounds(tx, ty)) continue;
+						g_tileMap.Get(tx, ty).ceilTex = static_cast<uint8_t>(ct);
+					}
+				g_dirtyMesh = true;
+			}
 
 			ImGui::Text("Floor: %.2f", t.floorHeight);
 			ImGui::Text("Ceil:  %.2f", t.ceilHeight);
@@ -227,19 +281,31 @@ void GameRenderUI()
 
 			if (ImGui::Button("Remove Tile"))
 			{
-				t.spaceType   = tile::TileSpaceType::EMPTY;
-				t.renderSolid = false;
-				g_dirtyMesh   = true;
+				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+					{
+						if (!g_tileMap.InBounds(tx, ty)) continue;
+						auto& tt = g_tileMap.Get(tx, ty);
+						tt.spaceType   = tile::TileSpaceType::EMPTY;
+						tt.renderSolid = false;
+					}
+				g_dirtyMesh = true;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Place Tile"))
 			{
-				t.spaceType   = tile::TileSpaceType::SOLID;
-				t.renderSolid = true;
-				t.wallTex     = static_cast<uint8_t>(g_brushWallTex);
-				t.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
-				t.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
-				g_dirtyMesh   = true;
+				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+					{
+						if (!g_tileMap.InBounds(tx, ty)) continue;
+						auto& tt = g_tileMap.Get(tx, ty);
+						tt.spaceType   = tile::TileSpaceType::SOLID;
+						tt.renderSolid = true;
+						tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
+						tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
+						tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+					}
+				g_dirtyMesh = true;
 			}
 		}
 	}
@@ -249,7 +315,7 @@ void GameRenderUI()
 		if (g_selTX >= 0)
 		{
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
-			ImGui::Text("Tile: (%d, %d)", g_selTX, g_selTY);
+			ImGui::Text("Tile: (%d, %d)  size %dx%d", g_selTX, g_selTY, g_selW, g_selH);
 			ImGui::Text("Face: %s", g_selFace < tile::FaceDir::COUNT ?
 				tile::FaceNames[static_cast<int>(g_selFace)] : "none");
 
@@ -257,19 +323,43 @@ void GameRenderUI()
 			{
 				int ft = t.floorTex;
 				if (ImGui::SliderInt("Floor Texture", &ft, 0, 63))
-				{ t.floorTex = static_cast<uint8_t>(ft); g_dirtyMesh = true; }
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							g_tileMap.Get(tx, ty).floorTex = static_cast<uint8_t>(ft);
+						}
+					g_dirtyMesh = true;
+				}
 			}
 			else if (g_selFace == tile::FaceDir::CEILING)
 			{
 				int ct = t.ceilTex;
 				if (ImGui::SliderInt("Ceil Texture", &ct, 0, 63))
-				{ t.ceilTex = static_cast<uint8_t>(ct); g_dirtyMesh = true; }
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							g_tileMap.Get(tx, ty).ceilTex = static_cast<uint8_t>(ct);
+						}
+					g_dirtyMesh = true;
+				}
 			}
 			else
 			{
 				int wt = t.wallTex;
 				if (ImGui::SliderInt("Wall Texture", &wt, 0, 63))
-				{ t.wallTex = static_cast<uint8_t>(wt); g_dirtyMesh = true; }
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							g_tileMap.Get(tx, ty).wallTex = static_cast<uint8_t>(wt);
+						}
+					g_dirtyMesh = true;
+				}
 			}
 		}
 		else ImGui::Text("Click on a face to select.");

@@ -577,6 +577,21 @@ void GameUpdate()
 		g_selTX = g_selTY = g_selCorner = -1;
 		g_selW = 1; g_selH = 1;
 		g_selFace = tile::FaceDir::COUNT;
+
+		g_dirtyMesh = true;
+	}
+
+	// Delete key — remove all selected tiles
+	if (input::IsKeyDown(KeyboardType::KEY_DELETE) && g_selTX >= 0)
+	{
+		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+			{
+				if (!g_tileMap.InBounds(tx, ty)) continue;
+				auto& tt = g_tileMap.Get(tx, ty);
+				tt.spaceType   = tile::TileSpaceType::EMPTY;
+				tt.renderSolid = false;
+			}
 		g_dirtyMesh = true;
 	}
 

@@ -3,27 +3,58 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="editor\Editor.cpp" />
-    <ClCompile Include="editor\EditorActions.cpp" />
-    <ClCompile Include="editor\EditorApp.cpp" />
-    <ClCompile Include="editor\EditorUI.cpp" />
-    <ClCompile Include="tile\TileAtlas.cpp" />
-    <ClCompile Include="tile\TileMap.cpp" />
-    <ClCompile Include="tile\TileMeshGen.cpp" />
-    <ClCompile Include="tile\TilePicking.cpp" />
+    <ClCompile Include="editor\Editor.cpp">
+      <Filter>editor</Filter>
+    </ClCompile>
+    <ClCompile Include="editor\EditorActions.cpp">
+      <Filter>editor</Filter>
+    </ClCompile>
+    <ClCompile Include="editor\EditorApp.cpp">
+      <Filter>editor</Filter>
+    </ClCompile>
+    <ClCompile Include="editor\EditorUI.cpp">
+      <Filter>editor</Filter>
+    </ClCompile>
+    <ClCompile Include="tile\TileAtlas.cpp">
+      <Filter>tile</Filter>
+    </ClCompile>
+    <ClCompile Include="tile\TileMap.cpp">
+      <Filter>tile</Filter>
+    </ClCompile>
+    <ClCompile Include="tile\TileMeshGen.cpp">
+      <Filter>tile</Filter>
+    </ClCompile>
+    <ClCompile Include="tile\TilePicking.cpp">
+      <Filter>tile</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="editor\Editor.h" />
-    <ClInclude Include="tile\TileAtlas.h" />
-    <ClInclude Include="tile\TileMap.h" />
-    <ClInclude Include="tile\TileMeshGen.h" />
-    <ClInclude Include="tile\TilePicking.h" />
-    <ClInclude Include="tile\TileTypes.h" />
+    <ClInclude Include="editor\Editor.h">
+      <Filter>editor</Filter>
+    </ClInclude>
+    <ClInclude Include="tile\TileAtlas.h">
+      <Filter>tile</Filter>
+    </ClInclude>
+    <ClInclude Include="tile\TileMap.h">
+      <Filter>tile</Filter>
+    </ClInclude>
+    <ClInclude Include="tile\TileMeshGen.h">
+      <Filter>tile</Filter>
+    </ClInclude>
+    <ClInclude Include="tile\TilePicking.h">
+      <Filter>tile</Filter>
+    </ClInclude>
+    <ClInclude Include="tile\TileTypes.h">
+      <Filter>tile</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="Game">
+    <Filter Include="editor">
       <UniqueIdentifier>{4e21f915-3420-400c-91ae-c6e0fae0498d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tile">
+      <UniqueIdentifier>{dc149dec-df39-41e3-bea5-daaf9a7299f9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
