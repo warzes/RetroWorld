@@ -89,7 +89,8 @@ namespace tile
 
 				// Floor
 				{
-					int ti = isHighlighted(tx, ty) ? highlightTex : tile.floorTex;
+					int ti = isHighlighted(tx, ty) ? highlightTex
+						: tile.GlobalTexIndex(tile.floorTex, tile.floorAtlas);
 					float u0 = static_cast<float>(ti);
 					float u1 = u0 + 1.0f;
 					float v0 = 0.001f;
@@ -115,7 +116,8 @@ namespace tile
 
 				// Ceiling
 				{
-					int ti = isHighlighted(tx, ty) ? highlightTex : tile.ceilTex;
+					int ti = isHighlighted(tx, ty) ? highlightTex
+						: tile.GlobalTexIndex(tile.ceilTex, tile.ceilAtlas);
 					float u0 = static_cast<float>(ti);
 					float u1 = u0 + 1.0f;
 					float v0 = 0.001f;
@@ -143,8 +145,8 @@ namespace tile
 				float ftx = static_cast<float>(tx);
 				float fty = static_cast<float>(ty);
 
-				// Encode texture index + within-tile fraction in U; shader decodes grid UV
-				auto texUV = [&](uint8_t tex) -> std::pair<float, float>
+				// Encode global texture index + within-tile fraction in U; shader decodes grid UV
+				auto texUV = [&](int tex) -> std::pair<float, float>
 				{
 					return { static_cast<float>(tex),
 							 static_cast<float>(tex) + 1.0f };
@@ -160,8 +162,10 @@ namespace tile
 					const Tile* neighbor = neighborInBounds ? &map.Get(ntx, nty) : nullptr;
 					bool neighborIsSolid = neighbor && neighbor->spaceType == TileSpaceType::SOLID;
 
-					uint8_t upperTex = isHighlighted(tx, ty) ? highlightTex : tile.GetWallTex(dir);
-					uint8_t lowerTex = isHighlighted(tx, ty) ? highlightTex : tile.GetWallBottomTex(dir);
+					int upperTex = isHighlighted(tx, ty) ? highlightTex
+						: tile.GlobalTexIndex(tile.GetWallTex(dir), tile.GetWallAtlas(dir));
+					int lowerTex = isHighlighted(tx, ty) ? highlightTex
+						: tile.GlobalTexIndex(tile.GetWallBottomTex(dir), tile.GetWallBottomAtlas(dir));
 					int faceIdx = static_cast<int>(dir);
 					auto [u0, u1] = texUV(upperTex);
 
@@ -245,7 +249,7 @@ namespace tile
 						// Solid neighbor: render only non-overlapping portions
 						float ourF[2], ourC[2], nF[2], nC[2];
 
-						auto addSeg = [&](float b0, float b1, float t0, float t1, uint8_t tex)
+						auto addSeg = [&](float b0, float b1, float t0, float t1, int tex)
 						{
 							float hBL = std::min(b0, t0);
 							float hBR = std::min(b1, t1);

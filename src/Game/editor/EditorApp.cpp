@@ -355,9 +355,10 @@ layout(binding = 1) uniform sampler2D u_normalMap;
 layout(binding = 2) uniform sampler2D u_specularMap;
 layout(binding = 3) uniform sampler2D u_emissiveMap;
 
-// Wall atlas grid decoding
+// Wall atlas grid decoding (combined 16×8 mega-atlas)
 uniform bool       u_isWallAtlas;
-const float ATLAS_DIM = 8.0;
+const float ATLAS_COLS = 16.0;
+const float ATLAS_ROWS = 8.0;
 
 // Shadow
 uniform bool       u_receiveShadow;
@@ -499,11 +500,11 @@ void main()
 		float u_raw = v_texcoord.x;
 		float ti_f = floor(u_raw);
 		float u_in_tile = fract(u_raw);
-		float col = mod(ti_f, ATLAS_DIM);
-		float row = floor(ti_f / ATLAS_DIM);
+		float col = mod(ti_f, ATLAS_COLS);
+		float row = floor(ti_f / ATLAS_COLS);
 		float v_raw = v_texcoord.y;
 		float v_in_tile = fract(v_raw);
-		final_uv = vec2((col + u_in_tile) / ATLAS_DIM, (row + v_in_tile) / ATLAS_DIM);
+		final_uv = vec2((col + u_in_tile) / ATLAS_COLS, (row + v_in_tile) / ATLAS_ROWS);
 	}
 	if (u_hasAlbedoMap)   albedo   *= texture(u_albedoMap,   final_uv).rgb;
 	if (u_hasSpecularMap) specular *= texture(u_specularMap, final_uv).rgb;
@@ -591,8 +592,8 @@ bool GameInit()
 	g_tileMap.Resize(g_mapWidth, g_mapHeight);
 	g_tileMap.GenerateRandom(++g_genSeed);
 
-	// 8×8 grid atlas — wall repeat handled by shader fract(V)
-	g_atlasTex = tile::CreateWallAtlas(64, 8);
+	// Combined 16×8 mega-atlas: cols 0-7 = T1, cols 8-15 = T2
+	g_atlasTex = tile::CreateCombinedWallAtlas(64);
 	gpu::texture::SamplerState ss{};
 	ss.minFilter = gpu::Filter::Nearest;
 	ss.magFilter = gpu::Filter::Nearest;
@@ -892,6 +893,10 @@ void GameUpdate()
 					tt.wallBottomTex = srcTile.wallBottomTex;
 					tt.floorTex      = srcTile.floorTex;
 					tt.ceilTex       = srcTile.ceilTex;
+					tt.wallAtlas       = srcTile.wallAtlas;
+					tt.wallBottomAtlas = srcTile.wallBottomAtlas;
+					tt.floorAtlas      = srcTile.floorAtlas;
+					tt.ceilAtlas       = srcTile.ceilAtlas;
 					applyHeights(tt);
 				}
 		}
@@ -908,6 +913,10 @@ void GameUpdate()
 					tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
 					tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
 					tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+					tt.wallAtlas       = static_cast<uint8_t>(g_brushWallAtlas);
+					tt.wallBottomAtlas = static_cast<uint8_t>(g_brushWallBottomAtlas);
+					tt.floorAtlas      = static_cast<uint8_t>(g_brushFloorAtlas);
+					tt.ceilAtlas       = static_cast<uint8_t>(g_brushCeilAtlas);
 					applyHeights(tt);
 				}
 		}
@@ -935,6 +944,10 @@ void GameUpdate()
 					tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
 					tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
 					tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+					tt.wallAtlas       = static_cast<uint8_t>(g_brushWallAtlas);
+					tt.wallBottomAtlas = static_cast<uint8_t>(g_brushWallBottomAtlas);
+					tt.floorAtlas      = static_cast<uint8_t>(g_brushFloorAtlas);
+					tt.ceilAtlas       = static_cast<uint8_t>(g_brushCeilAtlas);
 				}
 			g_dirtyMesh = true;
 		}

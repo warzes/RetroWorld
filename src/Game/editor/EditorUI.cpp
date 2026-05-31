@@ -105,6 +105,10 @@ void GameRenderUI()
 							tt.wallBottomTex = srcTile.wallBottomTex;
 							tt.floorTex      = srcTile.floorTex;
 							tt.ceilTex       = srcTile.ceilTex;
+							tt.wallAtlas       = srcTile.wallAtlas;
+							tt.wallBottomAtlas = srcTile.wallBottomAtlas;
+							tt.floorAtlas      = srcTile.floorAtlas;
+							tt.ceilAtlas       = srcTile.ceilAtlas;
 							applyHeights(tt);
 						}
 				}
@@ -121,34 +125,42 @@ void GameRenderUI()
 							tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
 							tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
 							tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+							tt.wallAtlas       = static_cast<uint8_t>(g_brushWallAtlas);
+							tt.wallBottomAtlas = static_cast<uint8_t>(g_brushWallBottomAtlas);
+							tt.floorAtlas      = static_cast<uint8_t>(g_brushFloorAtlas);
+							tt.ceilAtlas       = static_cast<uint8_t>(g_brushCeilAtlas);
 							applyHeights(tt);
 						}
 				}
 				g_dirtyMesh = true;
 			}
 		}
-		if (ImGui::MenuItem("Paint", "Shift+Enter"))
-		{
-			if (g_selTX >= 0)
+					if (ImGui::MenuItem("Paint", "Shift+Enter"))
 			{
-				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-					{
-						if (!g_tileMap.InBounds(tx, ty)) continue;
-						auto& tt = g_tileMap.Get(tx, ty);
-						if (tt.spaceType == tile::TileSpaceType::EMPTY)
+				if (g_selTX >= 0)
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 						{
-							tt.spaceType   = tile::TileSpaceType::SOLID;
-							tt.renderSolid = true;
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType == tile::TileSpaceType::EMPTY)
+							{
+								tt.spaceType   = tile::TileSpaceType::SOLID;
+								tt.renderSolid = true;
+							}
+							tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
+							tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
+							tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
+							tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+							tt.wallAtlas       = static_cast<uint8_t>(g_brushWallAtlas);
+							tt.wallBottomAtlas = static_cast<uint8_t>(g_brushWallBottomAtlas);
+							tt.floorAtlas      = static_cast<uint8_t>(g_brushFloorAtlas);
+							tt.ceilAtlas       = static_cast<uint8_t>(g_brushCeilAtlas);
 						}
-						tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
-						tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
-						tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
-						tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
-					}
-				g_dirtyMesh = true;
+					g_dirtyMesh = true;
+				}
 			}
-		}
 			if (ImGui::MenuItem("Delete", "Del"))
 			{
 				if (g_selTX >= 0) {
@@ -164,8 +176,11 @@ void GameRenderUI()
 							tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
 							tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
 							tt.wallBottomTex = 0;
+							tt.wallAtlas = tt.wallBottomAtlas = tt.floorAtlas = tt.ceilAtlas = 0;
 							tt.northTex = tt.southTex = tt.eastTex = tt.westTex = tile::TEX_NOT_SET;
+							tt.northAtlas = tt.southAtlas = tt.eastAtlas = tt.westAtlas = 0;
 							tt.bottomNorthTex = tt.bottomSouthTex = tt.bottomEastTex = tt.bottomWestTex = tile::TEX_NOT_SET;
+							tt.bottomNorthAtlas = tt.bottomSouthAtlas = tt.bottomEastAtlas = tt.bottomWestAtlas = 0;
 						}
 					g_dirtyMesh = true;
 				}
@@ -195,8 +210,11 @@ void GameRenderUI()
 							tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
 							tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
 							tt.wallBottomTex = 0;
+							tt.wallAtlas = tt.wallBottomAtlas = tt.floorAtlas = tt.ceilAtlas = 0;
 							tt.northTex = tt.southTex = tt.eastTex = tt.westTex = tile::TEX_NOT_SET;
+							tt.northAtlas = tt.southAtlas = tt.eastAtlas = tt.westAtlas = 0;
 							tt.bottomNorthTex = tt.bottomSouthTex = tt.bottomEastTex = tt.bottomWestTex = tile::TEX_NOT_SET;
+							tt.bottomNorthAtlas = tt.bottomSouthAtlas = tt.bottomEastAtlas = tt.bottomWestAtlas = 0;
 						}
 					g_dirtyMesh = true;
 				}
@@ -348,38 +366,42 @@ void GameRenderUI()
 	// Editor panel
 ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 
-// ---- Texture picker preview rows ----
+// ---- Texture picker preview rows (T1/T2 atlas aware) ----
 {
-	static constexpr float ATLAS_DIM = 8.0f;
+	constexpr float ATLAS_COLS = 16.0f;
+	constexpr float ATLAS_ROWS = 8.0f;
 	float thumbSize = 40.0f;
 	uint32_t glId = gpu::texture::Handle(g_atlasTex);
 	ImTextureID texId = (ImTextureID)(intptr_t)glId;
 
-	auto tileUV = [](int ti) -> std::pair<ImVec2, ImVec2>
+	auto tileUV = [](int globalIdx) -> std::pair<ImVec2, ImVec2>
 	{
-		float col = static_cast<float>(ti % 8);
-		float row = static_cast<float>(ti / 8);
-		float inv = 1.0f / 8.0f;
-		return { ImVec2(col * inv, row * inv), ImVec2((col + 1) * inv, (row + 1) * inv) };
+		float col = static_cast<float>(globalIdx % 16);
+		float row = static_cast<float>(globalIdx / 16);
+		float invCol = 1.0f / ATLAS_COLS;
+		float invRow = 1.0f / ATLAS_ROWS;
+		return { ImVec2(col * invCol, row * invRow), ImVec2((col + 1) * invCol, (row + 1) * invRow) };
 	};
 
-	auto drawPreview = [&](const char* label, int& texVar, int targetIdx)
+	auto drawPreview = [&](const char* label, int texVar, int atlasVar, int targetIdx)
 	{
-		auto [uv0, uv1] = tileUV(texVar);
+		int globalIdx = atlasVar * 64 + texVar;
+		auto [uv0, uv1] = tileUV(globalIdx);
 		ImGui::Image(ImTextureRef(texId), ImVec2(thumbSize, thumbSize), uv0, uv1);
 		if (ImGui::IsItemClicked())
 		{
 			g_pickerTarget = targetIdx;
+			g_selectedAtlas = atlasVar;
 			g_showTexturePicker = true;
 		}
 		ImGui::SameLine();
 		ImGui::Text("%s", label);
 	};
 
-	drawPreview("Upper Wall", g_brushWallTex, 0);
-	drawPreview("Lower Wall", g_brushWallBottomTex, 1);
-	drawPreview("Ceiling", g_brushCeilTex, 2);
-	drawPreview("Floor", g_brushFloorTex, 3);
+	drawPreview("Upper Wall", g_brushWallTex, g_brushWallAtlas, 0);
+	drawPreview("Lower Wall", g_brushWallBottomTex, g_brushWallBottomAtlas, 1);
+	drawPreview("Ceiling", g_brushCeilTex, g_brushCeilAtlas, 2);
+	drawPreview("Floor", g_brushFloorTex, g_brushFloorAtlas, 3);
 
 	// Texture picker popup
 	static const char* pickerTitles[] = {
@@ -394,6 +416,12 @@ ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 		&g_brushCeilTex,
 		&g_brushFloorTex
 	};
+	static int* pickerAtlas[] = {
+		&g_brushWallAtlas,
+		&g_brushWallBottomAtlas,
+		&g_brushCeilAtlas,
+		&g_brushFloorAtlas
+	};
 
 	if (g_showTexturePicker)
 		ImGui::OpenPopup(pickerTitles[g_pickerTarget]);
@@ -401,21 +429,23 @@ ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 	ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_Always);
 	if (ImGui::BeginPopupModal(pickerTitles[g_pickerTarget], nullptr, ImGuiWindowFlags_NoResize))
 	{
-		int placeholder = 0;
-		ImGui::Combo("Theme", &placeholder, "All\0");
+		ImGui::Combo("Atlas", &g_selectedAtlas, "T1\0T2\0");
 
 		ImGui::BeginChild("grid", ImVec2(0, -(ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y)), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 		float cellSize = 60.0f;
 		int cols = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().x / (cellSize + ImGui::GetStyle().ItemSpacing.x)));
-		int totalTex = static_cast<int>(ATLAS_DIM * ATLAS_DIM);
+		int totalTex = 64;
+		int baseGlobal = g_selectedAtlas * 64;
 		for (int ti = 0; ti < totalTex; ++ti)
 		{
-			auto [uv0, uv1] = tileUV(ti);
+			int globalIdx = baseGlobal + ti;
+			auto [uv0, uv1] = tileUV(globalIdx);
 
-			ImGui::PushID(ti);
+			ImGui::PushID(globalIdx);
 			if (ImGui::ImageButton("##cell", ImTextureRef(texId), ImVec2(cellSize, cellSize), uv0, uv1))
 			{
 				*pickerTex[g_pickerTarget] = ti;
+				*pickerAtlas[g_pickerTarget] = g_selectedAtlas;
 				g_showTexturePicker = false;
 				ImGui::CloseCurrentPopup();
 			}
@@ -500,6 +530,10 @@ ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 						tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
 						tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
 						tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+						tt.wallAtlas       = static_cast<uint8_t>(g_brushWallAtlas);
+						tt.wallBottomAtlas = static_cast<uint8_t>(g_brushWallBottomAtlas);
+						tt.floorAtlas      = static_cast<uint8_t>(g_brushFloorAtlas);
+						tt.ceilAtlas       = static_cast<uint8_t>(g_brushCeilAtlas);
 						tt.northTex       = (g_brushNorthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushNorthTex);
 						tt.southTex       = (g_brushSouthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushSouthTex);
 						tt.eastTex        = (g_brushEastTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushEastTex);

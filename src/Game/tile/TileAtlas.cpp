@@ -139,114 +139,110 @@ namespace
 
 namespace tile
 {
-	static std::vector<uint8_t> generateGridPixels(int tileSize, int atlasDim)
+	static void fillOneCell(uint8_t* rgba, int tileSize, int stride, int localIdx, int seedShift)
 	{
-		uint32_t totalW = static_cast<uint32_t>(tileSize * atlasDim);
-		uint32_t totalH = static_cast<uint32_t>(tileSize * atlasDim);
-		std::vector<uint8_t> pixels(totalW * totalH * 4, 255);
-
-		auto texPos = [&](int idx) -> std::pair<int,int> {
-			return { (idx % atlasDim) * tileSize, (idx / atlasDim) * tileSize };
-		};
-		// tex 0 = wall (gray stone)
+		switch (localIdx)
 		{
-			auto [ox, oy] = texPos(0);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 42, 140, 130, 120);
-		}
-		// tex 1 = floor (brown checker)
+		case 0: // wall (gray stone)
+			fillStonePattern(rgba, tileSize, tileSize, stride, 42 + seedShift, 140, 130, 120);
+			break;
+		case 1: // floor (brown checker)
+			fillCheckerPattern(rgba, tileSize, tileSize, stride, 8, 180, 140, 100, 160, 120, 80);
+			break;
+		case 2: // ceiling (dark gray)
+			fillStonePattern(rgba, tileSize, tileSize, stride, 99 + seedShift, 60, 60, 65);
+			break;
+		case 3: // selected (yellow)
+			fillCheckerPattern(rgba, tileSize, tileSize, stride, 4, 255, 255, 0, 200, 200, 0);
+			break;
+		case 4: // red brick
+			fillStonePattern(rgba, tileSize, tileSize, stride, 17 + seedShift, 180, 60, 50);
+			break;
+		case 5: // blue
+			fillStonePattern(rgba, tileSize, tileSize, stride, 33 + seedShift, 60, 100, 180);
+			break;
+		case 6: // green
+			fillStonePattern(rgba, tileSize, tileSize, stride, 55 + seedShift, 80, 160, 70);
+			break;
+		case 7: // white marble
+			fillMarblePattern(rgba, tileSize, tileSize, stride, 42 + seedShift, 200, 200, 195);
+			break;
+		case 8: // dark wood
+			fillWoodPattern(rgba, tileSize, tileSize, stride, 77 + seedShift, 100, 60, 40);
+			break;
+		case 9: // cobblestone
+			fillStonePattern(rgba, tileSize, tileSize, stride, 31 + seedShift, 110, 105, 100);
+			break;
+		case 10: // sandy stone
+			fillStonePattern(rgba, tileSize, tileSize, stride, 58 + seedShift, 180, 170, 130);
+			break;
+		case 11: // purple crystal
+			fillStonePattern(rgba, tileSize, tileSize, stride, 63 + seedShift, 120, 60, 160);
+			break;
+		case 12: // orange terracotta
+			fillCheckerPattern(rgba, tileSize, tileSize, stride, 8, 200, 120, 70, 170, 100, 55);
+			break;
+		case 13: // teal tile
+			fillCheckerPattern(rgba, tileSize, tileSize, stride, 16, 50, 160, 150, 35, 130, 120);
+			break;
+		case 14: // pink marble
+			fillMarblePattern(rgba, tileSize, tileSize, stride, 88 + seedShift, 180, 120, 150);
+			break;
+		case 15: // obsidian
+			fillStonePattern(rgba, tileSize, tileSize, stride, 101 + seedShift, 30, 35, 50);
+			break;
+		default: // procedural
 		{
-			auto [ox, oy] = texPos(1);
-			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 8, 180, 140, 100, 160, 120, 80);
-		}
-		// tex 2 = ceiling (dark gray)
-		{
-			auto [ox, oy] = texPos(2);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 99, 60, 60, 65);
-		}
-		// tex 3 = selected (yellow)
-		{
-			auto [ox, oy] = texPos(3);
-			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 4, 255, 255, 0, 200, 200, 0);
-		}
-		// tex 4 = red brick
-		{
-			auto [ox, oy] = texPos(4);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 17, 180, 60, 50);
-		}
-		// tex 5 = blue
-		{
-			auto [ox, oy] = texPos(5);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 33, 60, 100, 180);
-		}
-		// tex 6 = green
-		{
-			auto [ox, oy] = texPos(6);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 55, 80, 160, 70);
-		}
-		// tex 7 = white marble
-		{
-			auto [ox, oy] = texPos(7);
-			fillMarblePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 42, 200, 200, 195);
-		}
-		// tex 8 = dark wood
-		{
-			auto [ox, oy] = texPos(8);
-			fillWoodPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 77, 100, 60, 40);
-		}
-		// tex 9 = cobblestone
-		{
-			auto [ox, oy] = texPos(9);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 31, 110, 105, 100);
-		}
-		// tex 10 = sandy stone
-		{
-			auto [ox, oy] = texPos(10);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 58, 180, 170, 130);
-		}
-		// tex 11 = purple crystal
-		{
-			auto [ox, oy] = texPos(11);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 63, 120, 60, 160);
-		}
-		// tex 12 = orange terracotta
-		{
-			auto [ox, oy] = texPos(12);
-			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 8, 200, 120, 70, 170, 100, 55);
-		}
-		// tex 13 = teal tile
-		{
-			auto [ox, oy] = texPos(13);
-			fillCheckerPattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 16, 50, 160, 150, 35, 130, 120);
-		}
-		// tex 14 = pink marble
-		{
-			auto [ox, oy] = texPos(14);
-			fillMarblePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 88, 180, 120, 150);
-		}
-		// tex 15 = obsidian
-		{
-			auto [ox, oy] = texPos(15);
-			fillStonePattern(&pixels[(oy * totalW + ox) * 4], tileSize, tileSize, totalW, 101, 30, 35, 50);
-		}
-		// tex 16+ fill remaining with varied patterns
-		for (int idx = 16; idx < atlasDim * atlasDim; ++idx)
-		{
-			int ox = (idx % atlasDim) * tileSize;
-			int oy = (idx / atlasDim) * tileSize;
-			uint32_t h = idx * 1640531527u;
+			uint32_t h = localIdx * 1640531527u;
 			uint8_t r = static_cast<uint8_t>((h >> 16) & 0xFF);
 			uint8_t g = static_cast<uint8_t>((h >> 8) & 0xFF);
 			uint8_t b = static_cast<uint8_t>(h & 0xFF);
-			int pattern = idx % 3;
-			uint8_t* dst = &pixels[(oy * totalW + ox) * 4];
+			int pattern = localIdx % 3;
+			if (seedShift != 0)
+			{
+				// Shift colors for T2 so textures look distinct
+				r = static_cast<uint8_t>((r + 80) & 0xFF);
+				g = static_cast<uint8_t>((g + 40) & 0xFF);
+				b = static_cast<uint8_t>((b + 120) & 0xFF);
+			}
 			if (pattern == 0)
-				fillStonePattern(dst, tileSize, tileSize, totalW, idx * 37, r, g, b);
+				fillStonePattern(rgba, tileSize, tileSize, stride, localIdx * 37 + seedShift, r, g, b);
 			else if (pattern == 1)
-				fillCheckerPattern(dst, tileSize, tileSize, totalW, 8, r, g, b, r/2, g/2, b/2);
+				fillCheckerPattern(rgba, tileSize, tileSize, stride, 8, r, g, b, r / 2, g / 2, b / 2);
 			else
-				fillMarblePattern(dst, tileSize, tileSize, totalW, idx * 73, r, g, b);
+				fillMarblePattern(rgba, tileSize, tileSize, stride, localIdx * 73 + seedShift, r, g, b);
+			break;
 		}
+		}
+	}
 
+	// Fill a range of texture cells in a pre-allocated atlas pixel buffer.
+	// totalCols, totalRows — the full atlas grid dimensions.
+	// firstGlobalIdx — global texture index of the first cell to fill.
+	// count — number of cells to fill.
+	// seedShift — added to all pattern seeds for variation.
+	static void fillTextureRange(std::vector<uint8_t>& pixels, int tileSize,
+		int totalCols, int totalRows, int firstGlobalIdx, int count, int seedShift)
+	{
+		(void)totalRows;
+		int stride = tileSize * totalCols;
+		for (int li = 0; li < count; ++li)
+		{
+			int gi = firstGlobalIdx + li;
+			int ox = (gi % totalCols) * tileSize;
+			int oy = (gi / totalCols) * tileSize;
+			uint8_t* dst = &pixels[(oy * stride + ox) * 4];
+			fillOneCell(dst, tileSize, stride, li, seedShift);
+		}
+	}
+
+	static std::vector<uint8_t> generateGridPixels(int tileSize, int atlasDim)
+	{
+		int totalTex = atlasDim * atlasDim;
+		uint32_t totalW = static_cast<uint32_t>(tileSize * atlasDim);
+		uint32_t totalH = static_cast<uint32_t>(tileSize * atlasDim);
+		std::vector<uint8_t> pixels(totalW * totalH * 4, 255);
+		fillTextureRange(pixels, tileSize, atlasDim, atlasDim, 0, totalTex, 0);
 		return pixels;
 	}
 
@@ -282,6 +278,35 @@ namespace tile
 			{ totalW, totalH },
 			gpu::Format::R8G8B8A8_UNORM,
 			"wallAtlas");
+
+		gpu::texture::TextureUpdateInfo update{};
+		update.level  = 0;
+		update.extent = { totalW, totalH, 1u };
+		update.pixels = pixels.data();
+		update.format = gpu::UploadFormat::RGBA;
+		update.type   = gpu::UploadType::UBYTE;
+		gpu::texture::UpdateImage(tex, update);
+
+		return tex;
+	}
+
+	gpu::texture::TexturePtr CreateCombinedWallAtlas(int tileSize)
+	{
+		int totalCols = 16;
+		int totalRows = 8;
+		uint32_t totalW = static_cast<uint32_t>(tileSize * totalCols);
+		uint32_t totalH = static_cast<uint32_t>(tileSize * totalRows);
+		std::vector<uint8_t> pixels(totalW * totalH * 4, 255);
+
+		// T1 — cols 0-7 (global indices 0-63)
+		fillTextureRange(pixels, tileSize, totalCols, totalRows, 0, 64, 0);
+		// T2 — cols 8-15 (global indices 64-127)
+		fillTextureRange(pixels, tileSize, totalCols, totalRows, 64, 64, 42);
+
+		auto tex = gpu::texture::CreateTexture2D(
+			{ totalW, totalH },
+			gpu::Format::R8G8B8A8_UNORM,
+			"combinedWallAtlas");
 
 		gpu::texture::TextureUpdateInfo update{};
 		update.level  = 0;

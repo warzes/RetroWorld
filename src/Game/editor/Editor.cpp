@@ -28,7 +28,7 @@ int  g_anchorTX = -1, g_anchorTY = -1;
 tile::FaceDir g_selFace = tile::FaceDir::COUNT;
 int  g_selCorner = -1;
 bool g_dirtyMesh = true;
-bool g_showCollider = true;
+bool g_showCollider = false;
 
 gpu::program::ShaderProgramPtr g_debugProgram;
 HeightEditMode g_heightEditMode = HeightEditMode::PLANE;
@@ -63,6 +63,13 @@ int  g_brushBottomSouthTex = -1;
 int  g_brushBottomEastTex  = -1;
 int  g_brushBottomWestTex  = -1;
 bool g_brushSolid         = true;
+
+int  g_selectedAtlas       = 0;
+
+int  g_brushWallAtlas       = 0;
+int  g_brushWallBottomAtlas = 0;
+int  g_brushFloorAtlas      = 0;
+int  g_brushCeilAtlas       = 0;
 
 bool g_showTexturePicker   = false;
 int  g_pickerTarget        = 0;

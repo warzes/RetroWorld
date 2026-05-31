@@ -94,6 +94,15 @@ extern int  g_brushBottomEastTex;
 extern int  g_brushBottomWestTex;
 extern bool g_brushSolid;
 
+// Atlas selection in texture picker
+extern int  g_selectedAtlas; // 0=T1, 1=T2
+
+// Brush atlas IDs (corresponding to brush tex vars above)
+extern int  g_brushWallAtlas;
+extern int  g_brushWallBottomAtlas;
+extern int  g_brushFloorAtlas;
+extern int  g_brushCeilAtlas;
+
 // Texture picker state
 extern bool g_showTexturePicker;
 extern int  g_pickerTarget; // 0=UpperWall, 1=LowerWall, 2=Ceiling, 3=Floor
