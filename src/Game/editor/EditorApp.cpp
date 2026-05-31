@@ -595,6 +595,24 @@ void GameUpdate()
 		g_dirtyMesh = true;
 	}
 
+	// Enter key — carve (place) empty tiles in selection
+	if ((input::IsKeyDown(KeyboardType::KEY_ENTER) || input::IsKeyDown(KeyboardType::KEY_KP_ENTER)) && g_selTX >= 0)
+	{
+		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+			{
+				if (!g_tileMap.InBounds(tx, ty)) continue;
+				auto& tt = g_tileMap.Get(tx, ty);
+				if (tt.spaceType == tile::TileSpaceType::SOLID) continue;
+				tt.spaceType   = tile::TileSpaceType::SOLID;
+				tt.renderSolid = true;
+				tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
+				tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
+				tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+			}
+		g_dirtyMesh = true;
+	}
+
 	static bool prevLMB = false;
 	bool lmb = input::IsMouseDown(MouseType::MOUSE_BUTTON_LEFT);
 	bool lmbPressed = lmb && !prevLMB;
@@ -619,12 +637,14 @@ void GameUpdate()
 		g_hoverCPIdx = -1;
 		if (g_editMode == EditMode::TILE && g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY) && g_scene->activeCamera)
 		{
-			float fx = static_cast<float>(g_selTX);
-			float fz = static_cast<float>(g_selTY);
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
-
-			if (g_heightEditMode == HeightEditMode::PLANE)
+			if (t.spaceType == tile::TileSpaceType::SOLID)
 			{
+				float fx = static_cast<float>(g_selTX);
+				float fz = static_cast<float>(g_selTY);
+
+				if (g_heightEditMode == HeightEditMode::PLANE)
+				{
 				// Plane mode: CPs at selection bounding box
 				glm::vec3 cps[10];
 				int n = GetCPPositions(cps, 10, fx, fz, g_selW, g_selH, t, HeightEditMode::PLANE);
@@ -654,8 +674,9 @@ void GameUpdate()
 				}
 			}
 		}
+	}
 
-		// --- Left click ---
+	// --- Left click ---
 		if (lmbPressed && g_scene->activeCamera)
 		{
 			bool cpPicked = false;
@@ -737,10 +758,30 @@ void GameUpdate()
 		// --- Tile selection drag (expand rectangle) ---
 		if (g_draggingSel && lmb && g_scene->activeCamera)
 		{
+			int newX = -1, newY = -1;
 			tile::HitInfo hit;
 			if (g_tileMeshCPU.RayIntersect(camPos, rayDir, hit) && g_tileMap.InBounds(hit.tileX, hit.tileY))
 			{
-				int newX = hit.tileX, newY = hit.tileY;
+				newX = hit.tileX;
+				newY = hit.tileY;
+			}
+			else if (fabsf(rayDir.y) > 1e-6f)
+			{
+				float t = -camPos.y / rayDir.y;
+				if (t > 0)
+				{
+					glm::vec3 hp = camPos + rayDir * t;
+					int tx = static_cast<int>(floor(hp.x + 0.5f));
+					int ty = static_cast<int>(floor(hp.z + 0.5f));
+					if (g_tileMap.InBounds(tx, ty))
+					{
+						newX = tx;
+						newY = ty;
+					}
+				}
+			}
+			if (newX >= 0)
+			{
 				g_selTX = (std::min)(g_dragStartTX, newX);
 				g_selTY = (std::min)(g_dragStartTY, newY);
 				g_selW = abs(g_dragStartTX - newX) + 1;

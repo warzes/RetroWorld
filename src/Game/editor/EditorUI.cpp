@@ -35,7 +35,25 @@ void GameRenderUI()
 
 		if (ImGui::BeginMenu("Tile"))
 		{
-			if (ImGui::MenuItem("Carve", "Enter")) {}
+			if (ImGui::MenuItem("Carve", "Enter"))
+			{
+				if (g_selTX >= 0)
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType == tile::TileSpaceType::SOLID) continue;
+							tt.spaceType   = tile::TileSpaceType::SOLID;
+							tt.renderSolid = true;
+							tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
+							tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
+							tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+						}
+					g_dirtyMesh = true;
+				}
+			}
 			if (ImGui::MenuItem("Paint", "Shift+Enter")) {}
 			if (ImGui::MenuItem("Delete", "Del"))
 			{
@@ -213,14 +231,18 @@ void GameRenderUI()
 		ImGui::Separator();
 		ImGui::Text("Click tile to select.");
 		ImGui::SliderFloat("Height Step", &g_heightStep, 0.01f, 1.0f, "%.2f");
-		ImGui::Text("Drag orange/blue markers to adjust height.");
-		if (g_heightEditMode == HeightEditMode::VERTEX)
-			ImGui::Text("Drag green/orange corner markers to adjust floor/ceil.");
 
 		if (g_selTX >= 0)
 		{
 			ImGui::Text("Selected: (%d, %d)  size %dx%d", g_selTX, g_selTY, g_selW, g_selH);
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
+
+			if (t.spaceType == tile::TileSpaceType::SOLID)
+			{
+				ImGui::Text("Drag orange/blue markers to adjust height.");
+				if (g_heightEditMode == HeightEditMode::VERTEX)
+					ImGui::Text("Drag green/orange corner markers to adjust floor/ceil.");
+			}
 
 			{
 				int st = static_cast<int>(t.spaceType);
@@ -272,10 +294,13 @@ void GameRenderUI()
 				g_dirtyMesh = true;
 			}
 
-			ImGui::Text("Floor: %.2f", t.floorHeight);
-			ImGui::Text("Ceil:  %.2f", t.ceilHeight);
-			ImGui::Text("Slopes: NW=%.2f NE=%.2f SE=%.2f SW=%.2f",
-				t.slopeNW, t.slopeNE, t.slopeSE, t.slopeSW);
+			if (t.spaceType == tile::TileSpaceType::SOLID)
+			{
+				ImGui::Text("Floor: %.2f", t.floorHeight);
+				ImGui::Text("Ceil:  %.2f", t.ceilHeight);
+				ImGui::Text("Slopes: NW=%.2f NE=%.2f SE=%.2f SW=%.2f",
+					t.slopeNW, t.slopeNE, t.slopeSE, t.slopeSW);
+			}
 
 			if (ImGui::Button("Remove Tile"))
 			{

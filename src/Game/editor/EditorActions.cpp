@@ -44,6 +44,30 @@ void PickTile(const glm::vec3& rayOrigin, const glm::vec3& rayDir)
 			}
 		}
 	}
+	else if (fabsf(rayDir.y) > 1e-6f)
+	{
+		// Ground-plane fallback: pick tile at Y=0 intersection
+		float t = -rayOrigin.y / rayDir.y;
+		if (t > 0)
+		{
+			glm::vec3 hp = rayOrigin + rayDir * t;
+			int tx = static_cast<int>(floor(hp.x + 0.5f));
+			int ty = static_cast<int>(floor(hp.z + 0.5f));
+			if (g_tileMap.InBounds(tx, ty))
+			{
+				g_selTX = tx;
+				g_selTY = ty;
+				g_selFace = tile::FaceDir::COUNT;
+				g_selCorner = -1;
+				g_dirtyMesh = true;
+				return;
+			}
+		}
+		g_selTX = g_selTY = -1;
+		g_selFace = tile::FaceDir::COUNT;
+		g_selCorner = -1;
+		g_dirtyMesh = true;
+	}
 	else
 	{
 		g_selTX = g_selTY = -1;
