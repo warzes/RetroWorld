@@ -140,6 +140,58 @@ class PlayerController;
 extern std::unique_ptr<PhysicsSystem>   g_physicsSystem;
 extern std::unique_ptr<PlayerController> g_playerController;
 
+// ---- Helpers ----
+inline void PropagateTileHeights(tile::Tile& tt, int tx, int ty,
+	const tile::Tile* fallback = nullptr) noexcept
+{
+	if (fallback)
+	{
+		tt.floorHeight = fallback->floorHeight;
+		tt.ceilHeight  = fallback->ceilHeight;
+	}
+
+	auto match = [&](int nx, int ny)
+	{
+		if (!g_tileMap.InBounds(nx, ny)) return;
+		auto& nb = g_tileMap.Get(nx, ny);
+		if (nb.spaceType != tile::TileSpaceType::SOLID) return;
+
+		if (nx == tx - 1) // West neighbor → match east corners
+		{
+			tt.slopeNW = nb.floorHeight + nb.slopeNE - tt.floorHeight;
+			tt.slopeSW = nb.floorHeight + nb.slopeSE - tt.floorHeight;
+			tt.ceilSlopeNW = nb.ceilHeight + nb.ceilSlopeNE - tt.ceilHeight;
+			tt.ceilSlopeSW = nb.ceilHeight + nb.ceilSlopeSE - tt.ceilHeight;
+		}
+		else if (nx == tx + 1) // East neighbor → match west corners
+		{
+			tt.slopeNE = nb.floorHeight + nb.slopeNW - tt.floorHeight;
+			tt.slopeSE = nb.floorHeight + nb.slopeSW - tt.floorHeight;
+			tt.ceilSlopeNE = nb.ceilHeight + nb.ceilSlopeNW - tt.ceilHeight;
+			tt.ceilSlopeSE = nb.ceilHeight + nb.ceilSlopeSW - tt.ceilHeight;
+		}
+		else if (ny == ty - 1) // North neighbor → match south corners
+		{
+			tt.slopeNW = nb.floorHeight + nb.slopeSW - tt.floorHeight;
+			tt.slopeNE = nb.floorHeight + nb.slopeSE - tt.floorHeight;
+			tt.ceilSlopeNW = nb.ceilHeight + nb.ceilSlopeSW - tt.ceilHeight;
+			tt.ceilSlopeNE = nb.ceilHeight + nb.ceilSlopeSE - tt.ceilHeight;
+		}
+		else if (ny == ty + 1) // South neighbor → match north corners
+		{
+			tt.slopeSE = nb.floorHeight + nb.slopeNE - tt.floorHeight;
+			tt.slopeSW = nb.floorHeight + nb.slopeNW - tt.floorHeight;
+			tt.ceilSlopeSE = nb.ceilHeight + nb.ceilSlopeNE - tt.ceilHeight;
+			tt.ceilSlopeSW = nb.ceilHeight + nb.ceilSlopeNW - tt.ceilHeight;
+		}
+	};
+
+	match(tx - 1, ty);
+	match(tx + 1, ty);
+	match(tx, ty - 1);
+	match(tx, ty + 1);
+}
+
 // ---- Functions ----
 void RebuildTileMesh();
 void UpdateHoverHighlight();

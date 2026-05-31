@@ -854,20 +854,6 @@ void GameUpdate()
 		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTY : g_selTY;
 		auto& refTile = g_tileMap.Get(refTX, refTY);
 
-		auto applyHeights = [&](tile::Tile& tt)
-		{
-			tt.floorHeight  = refTile.floorHeight;
-			tt.ceilHeight   = refTile.ceilHeight;
-			tt.slopeNW      = refTile.slopeNW;
-			tt.slopeNE      = refTile.slopeNE;
-			tt.slopeSE      = refTile.slopeSE;
-			tt.slopeSW      = refTile.slopeSW;
-			tt.ceilSlopeNW  = refTile.ceilSlopeNW;
-			tt.ceilSlopeNE  = refTile.ceilSlopeNE;
-			tt.ceilSlopeSE  = refTile.ceilSlopeSE;
-			tt.ceilSlopeSW  = refTile.ceilSlopeSW;
-		};
-
 		if (hasSolid)
 		{
 			int srcTX = g_selTX, srcTY = g_selTY;
@@ -888,6 +874,8 @@ void GameUpdate()
 					{
 						tt.spaceType   = tile::TileSpaceType::SOLID;
 						tt.renderSolid = true;
+						// Match heights from existing solid neighbors for continuity
+						PropagateTileHeights(tt, tx, ty, &refTile);
 					}
 					tt.wallTex       = srcTile.wallTex;
 					tt.wallBottomTex = srcTile.wallBottomTex;
@@ -897,7 +885,6 @@ void GameUpdate()
 					tt.wallBottomAtlas = srcTile.wallBottomAtlas;
 					tt.floorAtlas      = srcTile.floorAtlas;
 					tt.ceilAtlas       = srcTile.ceilAtlas;
-					applyHeights(tt);
 				}
 		}
 		else
@@ -917,7 +904,8 @@ void GameUpdate()
 					tt.wallBottomAtlas = static_cast<uint8_t>(g_brushWallBottomAtlas);
 					tt.floorAtlas      = static_cast<uint8_t>(g_brushFloorAtlas);
 					tt.ceilAtlas       = static_cast<uint8_t>(g_brushCeilAtlas);
-					applyHeights(tt);
+					// Match heights from outside-selection neighbors
+					PropagateTileHeights(tt, tx, ty, &refTile);
 				}
 		}
 		g_dirtyMesh = true;
@@ -939,6 +927,7 @@ void GameUpdate()
 					{
 						tt.spaceType   = tile::TileSpaceType::SOLID;
 						tt.renderSolid = true;
+						PropagateTileHeights(tt, tx, ty);
 					}
 					tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
 					tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
