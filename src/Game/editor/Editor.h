@@ -37,7 +37,8 @@ extern scene::ModelNode* g_tileModelNode;
 enum class EditMode { TILE, FACE, VERTEX };
 
 extern EditMode g_editMode;
-extern int  g_selTX, g_selTY;
+extern int  g_selTX, g_selTY;     // top-left of selection rect
+extern int  g_selW, g_selH;       // selection dimensions (default 1×1)
 extern tile::FaceDir g_selFace;
 extern int  g_selCorner;
 extern bool g_dirtyMesh;
@@ -59,8 +60,12 @@ extern gpu::program::ShaderProgramPtr g_debugProgram;
 extern HeightEditMode g_heightEditMode;
 
 extern bool g_draggingCP;
+extern bool g_draggingSel;          // active tile-rect drag
+extern int  g_dragStartTX, g_dragStartTY; // drag origin tile
 extern int  g_dragCPType;  // CPType as int
 extern int  g_dragCorner;  // for VERTEX mode corner index
+extern int  g_dragVtxTX, g_dragVtxTY;   // tile being vertex-dragged (-1 = none)
+extern int  g_dragVtxCorner;            // 0-7 corner (0-3 floor, 4-7 ceiling)
 extern float g_dragStartMouseY;
 extern float g_lastAppliedDy;
 extern float g_dragSlopes[4];

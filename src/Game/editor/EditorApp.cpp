@@ -4,45 +4,85 @@
 
 namespace
 {
-	// Fill positions for all 10 Plane-mode control points.
-	// Returns the number of positions written (10 in PLANE mode, 8 in VERTEX mode).
-	int GetCPPositions(glm::vec3* dst, int maxDst, const tile::Tile& t, float fx, float fz, HeightEditMode mode) noexcept
+	// VertexCP — one corner marker in VERTEX mode
+	struct VertexCP
+	{
+		glm::vec3 pos;
+		int       tx, ty;      // tile coordinates
+		int       corner;      // 0-3 floor, 4-7 ceiling
+	};
+
+	constexpr int MAX_VERTEX_CPS = 2048;
+
+	// Fill positions for all 10 Plane-mode control points (uses selection bounding box).
+	int GetCPPositions(glm::vec3* dst, int maxDst,
+		float selFX, float selFZ, int selW, int selH,
+		const tile::Tile& t, HeightEditMode mode) noexcept
 	{
 		float fh = t.floorHeight;
 		float ch = t.ceilHeight;
-		float avgFloorSlope = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
-		float avgCeilSlope = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
+		float avgFS = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
+		float avgCS = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
+		float cx = selFX + 0.5f * static_cast<float>(selW);
+		float cz = selFZ + 0.5f * static_cast<float>(selH);
 
 		if (mode == HeightEditMode::PLANE)
 		{
 			if (maxDst < 10) return 0;
-			dst[0] = { fx, fh + avgFloorSlope, fz };                                    // FloorCenter
-			dst[1] = { fx, ch + avgCeilSlope, fz };                                     // CeilCenter
-			dst[2] = { fx,        fh + (t.slopeNW + t.slopeNE) * 0.5f, fz - 0.5f };      // FloorNorth
-			dst[3] = { fx,        fh + (t.slopeSW + t.slopeSE) * 0.5f, fz + 0.5f };      // FloorSouth
-			dst[4] = { fx - 0.5f, fh + (t.slopeNW + t.slopeSW) * 0.5f, fz };            // FloorWest
-			dst[5] = { fx + 0.5f, fh + (t.slopeNE + t.slopeSE) * 0.5f, fz };            // FloorEast
-			dst[6] = { fx,        ch + (t.ceilSlopeNW + t.ceilSlopeNE) * 0.5f, fz - 0.5f }; // CeilNorth
-			dst[7] = { fx,        ch + (t.ceilSlopeSW + t.ceilSlopeSE) * 0.5f, fz + 0.5f }; // CeilSouth
-			dst[8] = { fx - 0.5f, ch + (t.ceilSlopeNW + t.ceilSlopeSW) * 0.5f, fz };       // CeilWest
-			dst[9] = { fx + 0.5f, ch + (t.ceilSlopeNE + t.ceilSlopeSE) * 0.5f, fz };       // CeilEast
+			dst[0] = { cx, fh + avgFS, cz };                        // FloorCenter
+			dst[1] = { cx, ch + avgCS, cz };                        // CeilCenter
+			dst[2] = { cx, fh + avgFS, selFZ };                     // FloorNorth
+			dst[3] = { cx, fh + avgFS, selFZ + selH };              // FloorSouth
+			dst[4] = { selFX,     fh + avgFS, cz };                 // FloorWest
+			dst[5] = { selFX + selW, fh + avgFS, cz };              // FloorEast
+			dst[6] = { cx, ch + avgCS, selFZ };                     // CeilNorth
+			dst[7] = { cx, ch + avgCS, selFZ + selH };              // CeilSouth
+			dst[8] = { selFX,     ch + avgCS, cz };                 // CeilWest
+			dst[9] = { selFX + selW, ch + avgCS, cz };              // CeilEast
 			return 10;
 		}
-		else // VERTEX
+		else // VERTEX — single-tile markers (used when W=H=1)
 		{
 			if (maxDst < 8) return 0;
-			// Floor corners (0-3)
-			dst[0] = { fx - 0.5f, fh + t.slopeNW, fz - 0.5f };
-			dst[1] = { fx + 0.5f, fh + t.slopeNE, fz - 0.5f };
-			dst[2] = { fx + 0.5f, fh + t.slopeSE, fz + 0.5f };
-			dst[3] = { fx - 0.5f, fh + t.slopeSW, fz + 0.5f };
-			// Ceiling corners (4-7)
-			dst[4] = { fx - 0.5f, ch + t.ceilSlopeNW, fz - 0.5f };
-			dst[5] = { fx + 0.5f, ch + t.ceilSlopeNE, fz - 0.5f };
-			dst[6] = { fx + 0.5f, ch + t.ceilSlopeSE, fz + 0.5f };
-			dst[7] = { fx - 0.5f, ch + t.ceilSlopeSW, fz + 0.5f };
+			dst[0] = { selFX - 0.5f, fh + t.slopeNW, selFZ - 0.5f };
+			dst[1] = { selFX + 0.5f, fh + t.slopeNE, selFZ - 0.5f };
+			dst[2] = { selFX + 0.5f, fh + t.slopeSE, selFZ + 0.5f };
+			dst[3] = { selFX - 0.5f, fh + t.slopeSW, selFZ + 0.5f };
+			dst[4] = { selFX - 0.5f, ch + t.ceilSlopeNW, selFZ - 0.5f };
+			dst[5] = { selFX + 0.5f, ch + t.ceilSlopeNE, selFZ - 0.5f };
+			dst[6] = { selFX + 0.5f, ch + t.ceilSlopeSE, selFZ + 0.5f };
+			dst[7] = { selFX - 0.5f, ch + t.ceilSlopeSW, selFZ + 0.5f };
 			return 8;
 		}
+	}
+
+	// Collect all VERTEX-mode control points for the entire selection.
+	int CollectVertexCPs(VertexCP* dst, int maxDst)
+	{
+		int n = 0;
+		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+		{
+			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+			{
+				if (!g_tileMap.InBounds(tx, ty)) continue;
+				auto& t = g_tileMap.Get(tx, ty);
+				if (t.spaceType != tile::TileSpaceType::SOLID) continue;
+				float fx = static_cast<float>(tx);
+				float fz = static_cast<float>(ty);
+				float fh = t.floorHeight;
+				float ch = t.ceilHeight;
+				if (n + 8 > maxDst) return n;
+				dst[n++] = { {fx - 0.5f, fh + t.slopeNW, fz - 0.5f}, tx, ty, 0 };
+				dst[n++] = { {fx + 0.5f, fh + t.slopeNE, fz - 0.5f}, tx, ty, 1 };
+				dst[n++] = { {fx + 0.5f, fh + t.slopeSE, fz + 0.5f}, tx, ty, 2 };
+				dst[n++] = { {fx - 0.5f, fh + t.slopeSW, fz + 0.5f}, tx, ty, 3 };
+				dst[n++] = { {fx - 0.5f, ch + t.ceilSlopeNW, fz - 0.5f}, tx, ty, 4 };
+				dst[n++] = { {fx + 0.5f, ch + t.ceilSlopeNE, fz - 0.5f}, tx, ty, 5 };
+				dst[n++] = { {fx + 0.5f, ch + t.ceilSlopeSE, fz + 0.5f}, tx, ty, 6 };
+				dst[n++] = { {fx - 0.5f, ch + t.ceilSlopeSW, fz + 0.5f}, tx, ty, 7 };
+			}
+		}
+		return n;
 	}
 
 	void clampFloorCenter(float& fh, const float* slopes, const float* ceilSlopes, float ch) noexcept
@@ -489,6 +529,7 @@ void GameUpdate()
 	{
 		g_tileMap.GenerateRandom(++g_genSeed);
 		g_selTX = g_selTY = g_selCorner = -1;
+		g_selW = 1; g_selH = 1;
 		g_selFace = tile::FaceDir::COUNT;
 		g_dirtyMesh = true;
 	}
@@ -517,24 +558,38 @@ void GameUpdate()
 		g_hoverCPIdx = -1;
 		if (g_editMode == EditMode::TILE && g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY) && g_scene->activeCamera)
 		{
-			auto& t = g_tileMap.Get(g_selTX, g_selTY);
 			float fx = static_cast<float>(g_selTX);
 			float fz = static_cast<float>(g_selTY);
+			auto& t = g_tileMap.Get(g_selTX, g_selTY);
 
-			glm::vec3 cps[10];
-			int n = GetCPPositions(cps, 10, t, fx, fz, g_heightEditMode);
-
-			float bestDist = 0.28f; // hit radius
-			for (int i = 0; i < n; ++i)
+			if (g_heightEditMode == HeightEditMode::PLANE)
 			{
-				glm::vec3 d = cps[i] - camPos;
-				float td = glm::dot(d, rayDir);
-				if (td <= 0) continue;
-				float dist = glm::distance(cps[i], camPos + rayDir * td);
-				if (dist < bestDist)
+				// Plane mode: CPs at selection bounding box
+				glm::vec3 cps[10];
+				int n = GetCPPositions(cps, 10, fx, fz, g_selW, g_selH, t, HeightEditMode::PLANE);
+				float bestDist = 0.28f;
+				for (int i = 0; i < n; ++i)
 				{
-					bestDist = dist;
-					g_hoverCPIdx = i;
+					glm::vec3 d = cps[i] - camPos;
+					float td = glm::dot(d, rayDir);
+					if (td <= 0) continue;
+					float dist = glm::distance(cps[i], camPos + rayDir * td);
+					if (dist < bestDist) { bestDist = dist; g_hoverCPIdx = i; }
+				}
+			}
+			else
+			{
+				// Vertex mode: collect CPs from all solid tiles in selection
+				VertexCP vcps[MAX_VERTEX_CPS];
+				int vn = CollectVertexCPs(vcps, MAX_VERTEX_CPS);
+				float bestDist = 0.28f;
+				for (int i = 0; i < vn; ++i)
+				{
+					glm::vec3 d = vcps[i].pos - camPos;
+					float td = glm::dot(d, rayDir);
+					if (td <= 0) continue;
+					float dist = glm::distance(vcps[i].pos, camPos + rayDir * td);
+					if (dist < bestDist) { bestDist = dist; g_hoverCPIdx = i; }
 				}
 			}
 		}
@@ -546,26 +601,82 @@ void GameUpdate()
 
 			if (g_hoverCPIdx >= 0)
 			{
-				// Start dragging the hovered CP
-				auto& t = g_tileMap.Get(g_selTX, g_selTY);
-				g_draggingCP = true;
-				g_dragCPType = g_hoverCPIdx;
-				g_dragStartMouseY = mousePos.y;
-				g_lastAppliedDy = 0;
-				g_dragSlopes[0] = t.slopeNW;
-				g_dragSlopes[1] = t.slopeNE;
-				g_dragSlopes[2] = t.slopeSE;
-				g_dragSlopes[3] = t.slopeSW;
-				g_dragCeilSlopes[0] = t.ceilSlopeNW;
-				g_dragCeilSlopes[1] = t.ceilSlopeNE;
-				g_dragCeilSlopes[2] = t.ceilSlopeSE;
-				g_dragCeilSlopes[3] = t.ceilSlopeSW;
-				cpPicked = true;
+				if (g_heightEditMode == HeightEditMode::VERTEX)
+				{
+					// Look up which tile owns this CP
+					VertexCP vcps[MAX_VERTEX_CPS];
+					int vn = CollectVertexCPs(vcps, MAX_VERTEX_CPS);
+					if (g_hoverCPIdx < vn)
+					{
+						const auto& vcp = vcps[g_hoverCPIdx];
+						auto& tile = g_tileMap.Get(vcp.tx, vcp.ty);
+						g_dragVtxTX = vcp.tx;
+						g_dragVtxTY = vcp.ty;
+						g_dragVtxCorner = vcp.corner;
+						g_draggingCP = true;
+						g_dragCPType = vcp.corner;
+						g_dragStartMouseY = mousePos.y;
+						g_lastAppliedDy = 0;
+						g_dragSlopes[0] = tile.slopeNW;
+						g_dragSlopes[1] = tile.slopeNE;
+						g_dragSlopes[2] = tile.slopeSE;
+						g_dragSlopes[3] = tile.slopeSW;
+						g_dragCeilSlopes[0] = tile.ceilSlopeNW;
+						g_dragCeilSlopes[1] = tile.ceilSlopeNE;
+						g_dragCeilSlopes[2] = tile.ceilSlopeSE;
+						g_dragCeilSlopes[3] = tile.ceilSlopeSW;
+						cpPicked = true;
+					}
+				}
+				else // PLANE
+				{
+					auto& t = g_tileMap.Get(g_selTX, g_selTY);
+					g_draggingCP = true;
+					g_dragCPType = g_hoverCPIdx;
+					g_dragStartMouseY = mousePos.y;
+					g_lastAppliedDy = 0;
+					g_dragSlopes[0] = t.slopeNW;
+					g_dragSlopes[1] = t.slopeNE;
+					g_dragSlopes[2] = t.slopeSE;
+					g_dragSlopes[3] = t.slopeSW;
+					g_dragCeilSlopes[0] = t.ceilSlopeNW;
+					g_dragCeilSlopes[1] = t.ceilSlopeNE;
+					g_dragCeilSlopes[2] = t.ceilSlopeSE;
+					g_dragCeilSlopes[3] = t.ceilSlopeSW;
+					cpPicked = true;
+				}
 			}
 
 			if (!cpPicked)
+			{
 				PickTile(camPos, rayDir);
+				// Start tile-rect drag
+				if (g_selTX >= 0)
+				{
+					g_draggingSel = true;
+					g_dragStartTX = g_selTX;
+					g_dragStartTY = g_selTY;
+					g_selW = 1; g_selH = 1;
+				}
+			}
 		}
+
+		// --- Tile selection drag (expand rectangle) ---
+		if (g_draggingSel && lmb && g_scene->activeCamera)
+		{
+			tile::HitInfo hit;
+			if (g_tileMeshCPU.RayIntersect(camPos, rayDir, hit) && g_tileMap.InBounds(hit.tileX, hit.tileY))
+			{
+				int newX = hit.tileX, newY = hit.tileY;
+				g_selTX = (std::min)(g_dragStartTX, newX);
+				g_selTY = (std::min)(g_dragStartTY, newY);
+				g_selW = abs(g_dragStartTX - newX) + 1;
+				g_selH = abs(g_dragStartTY - newY) + 1;
+				g_dirtyMesh = true;
+			}
+		}
+		if (!lmb && g_draggingSel)
+			g_draggingSel = false;
 
 		// --- Face hover ---
 		{
@@ -608,32 +719,174 @@ void GameUpdate()
 			float delta = snappedDy - g_lastAppliedDy;
 			if (fabsf(delta) >= 1e-5f)
 			{
-				auto& t = g_tileMap.Get(g_selTX, g_selTY);
+				auto applyToAll = [&](int cpType, float mod)
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+					{
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tile = g_tileMap.Get(tx, ty);
+							if (tile.spaceType != tile::TileSpaceType::SOLID) continue;
+							ApplyHeightStep(tile, cpType, delta * mod);
+							ClampHeights(tile);
+						}
+					}
+				};
 
 				if (g_heightEditMode == HeightEditMode::PLANE)
 				{
-					ApplyHeightStep(t, g_dragCPType, delta);
-				}
-				else
-				{
-					// VERTEX mode — CP indices 0-3 = floor corners, 4-7 = ceiling corners
-					int corner = g_dragCPType & 3;
-					if (g_dragCPType < 4)
+					if (g_dragCPType <= static_cast<int>(CPType::CeilCenter))
 					{
-						float* dst[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
-						float* cSlope[4] = { &t.ceilSlopeNW, &t.ceilSlopeNE, &t.ceilSlopeSE, &t.ceilSlopeSW };
-						*dst[corner] = g_dragSlopes[corner] + snappedDy;
-						clampFloorVertex(*dst[corner], t.floorHeight, *cSlope[corner], t.ceilHeight);
+						// Center edits: uniform for all tiles
+						applyToAll(g_dragCPType, 1.0f);
 					}
 					else
 					{
-						float* dst[4] = { &t.ceilSlopeNW, &t.ceilSlopeNE, &t.ceilSlopeSE, &t.ceilSlopeSW };
-						float* fSlope[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
-						*dst[corner] = g_dragCeilSlopes[corner] + snappedDy;
-						clampCeilVertex(*dst[corner], t.ceilHeight, *fSlope[corner], t.floorHeight);
+						// Edge edits: adjust primary + secondary pairs with interpolation
+						// to maintain C0 continuity across tile boundaries
+						for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						{
+							for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+							{
+								if (!g_tileMap.InBounds(tx, ty)) continue;
+								auto& tile = g_tileMap.Get(tx, ty);
+								if (tile.spaceType != tile::TileSpaceType::SOLID) continue;
+
+								int cy = ty - g_selTY;
+								int cx = tx - g_selTX;
+								float pMod = 0.0f; // primary pair (near dragged edge)
+								float sMod = 0.0f; // secondary pair (far from dragged edge)
+
+								switch (static_cast<CPType>(g_dragCPType))
+								{
+								case CPType::FloorNorth:
+									pMod = 1.0f - static_cast<float>(cy) / g_selH;
+									sMod = 1.0f - static_cast<float>(cy + 1) / g_selH;
+									tile.slopeNW += delta * pMod;
+									tile.slopeNE += delta * pMod;
+									tile.slopeSE += delta * sMod;
+									tile.slopeSW += delta * sMod;
+									clampFloorVertex(tile.slopeNW, tile.floorHeight, tile.ceilSlopeNW, tile.ceilHeight);
+									clampFloorVertex(tile.slopeNE, tile.floorHeight, tile.ceilSlopeNE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSE, tile.floorHeight, tile.ceilSlopeSE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSW, tile.floorHeight, tile.ceilSlopeSW, tile.ceilHeight);
+									break;
+								case CPType::CeilNorth:
+									pMod = 1.0f - static_cast<float>(cy) / g_selH;
+									sMod = 1.0f - static_cast<float>(cy + 1) / g_selH;
+									tile.ceilSlopeNW += delta * pMod;
+									tile.ceilSlopeNE += delta * pMod;
+									tile.ceilSlopeSE += delta * sMod;
+									tile.ceilSlopeSW += delta * sMod;
+									clampCeilVertex(tile.ceilSlopeNW, tile.ceilHeight, tile.slopeNW, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeNE, tile.ceilHeight, tile.slopeNE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSE, tile.ceilHeight, tile.slopeSE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSW, tile.ceilHeight, tile.slopeSW, tile.floorHeight);
+									break;
+								case CPType::FloorSouth:
+									pMod = static_cast<float>(cy + 1) / g_selH;
+									sMod = static_cast<float>(cy) / g_selH;
+									tile.slopeSE += delta * pMod;
+									tile.slopeSW += delta * pMod;
+									tile.slopeNW += delta * sMod;
+									tile.slopeNE += delta * sMod;
+									clampFloorVertex(tile.slopeNW, tile.floorHeight, tile.ceilSlopeNW, tile.ceilHeight);
+									clampFloorVertex(tile.slopeNE, tile.floorHeight, tile.ceilSlopeNE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSE, tile.floorHeight, tile.ceilSlopeSE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSW, tile.floorHeight, tile.ceilSlopeSW, tile.ceilHeight);
+									break;
+								case CPType::CeilSouth:
+									pMod = static_cast<float>(cy + 1) / g_selH;
+									sMod = static_cast<float>(cy) / g_selH;
+									tile.ceilSlopeSE += delta * pMod;
+									tile.ceilSlopeSW += delta * pMod;
+									tile.ceilSlopeNW += delta * sMod;
+									tile.ceilSlopeNE += delta * sMod;
+									clampCeilVertex(tile.ceilSlopeNW, tile.ceilHeight, tile.slopeNW, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeNE, tile.ceilHeight, tile.slopeNE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSE, tile.ceilHeight, tile.slopeSE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSW, tile.ceilHeight, tile.slopeSW, tile.floorHeight);
+									break;
+								case CPType::FloorWest:
+									pMod = 1.0f - static_cast<float>(cx) / g_selW;
+									sMod = 1.0f - static_cast<float>(cx + 1) / g_selW;
+									tile.slopeNW += delta * pMod;
+									tile.slopeSW += delta * pMod;
+									tile.slopeNE += delta * sMod;
+									tile.slopeSE += delta * sMod;
+									clampFloorVertex(tile.slopeNW, tile.floorHeight, tile.ceilSlopeNW, tile.ceilHeight);
+									clampFloorVertex(tile.slopeNE, tile.floorHeight, tile.ceilSlopeNE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSE, tile.floorHeight, tile.ceilSlopeSE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSW, tile.floorHeight, tile.ceilSlopeSW, tile.ceilHeight);
+									break;
+								case CPType::CeilWest:
+									pMod = 1.0f - static_cast<float>(cx) / g_selW;
+									sMod = 1.0f - static_cast<float>(cx + 1) / g_selW;
+									tile.ceilSlopeNW += delta * pMod;
+									tile.ceilSlopeSW += delta * pMod;
+									tile.ceilSlopeNE += delta * sMod;
+									tile.ceilSlopeSE += delta * sMod;
+									clampCeilVertex(tile.ceilSlopeNW, tile.ceilHeight, tile.slopeNW, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeNE, tile.ceilHeight, tile.slopeNE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSE, tile.ceilHeight, tile.slopeSE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSW, tile.ceilHeight, tile.slopeSW, tile.floorHeight);
+									break;
+								case CPType::FloorEast:
+									pMod = static_cast<float>(cx + 1) / g_selW;
+									sMod = static_cast<float>(cx) / g_selW;
+									tile.slopeNE += delta * pMod;
+									tile.slopeSE += delta * pMod;
+									tile.slopeNW += delta * sMod;
+									tile.slopeSW += delta * sMod;
+									clampFloorVertex(tile.slopeNW, tile.floorHeight, tile.ceilSlopeNW, tile.ceilHeight);
+									clampFloorVertex(tile.slopeNE, tile.floorHeight, tile.ceilSlopeNE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSE, tile.floorHeight, tile.ceilSlopeSE, tile.ceilHeight);
+									clampFloorVertex(tile.slopeSW, tile.floorHeight, tile.ceilSlopeSW, tile.ceilHeight);
+									break;
+								case CPType::CeilEast:
+									pMod = static_cast<float>(cx + 1) / g_selW;
+									sMod = static_cast<float>(cx) / g_selW;
+									tile.ceilSlopeNE += delta * pMod;
+									tile.ceilSlopeSE += delta * pMod;
+									tile.ceilSlopeNW += delta * sMod;
+									tile.ceilSlopeSW += delta * sMod;
+									clampCeilVertex(tile.ceilSlopeNW, tile.ceilHeight, tile.slopeNW, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeNE, tile.ceilHeight, tile.slopeNE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSE, tile.ceilHeight, tile.slopeSE, tile.floorHeight);
+									clampCeilVertex(tile.ceilSlopeSW, tile.ceilHeight, tile.slopeSW, tile.floorHeight);
+									break;
+								default: break;
+								}
+								ClampHeights(tile);
+							}
+						}
 					}
 				}
-				ClampHeights(t);
+				else
+				{
+					// VERTEX mode
+					if (g_dragVtxTX >= 0)
+					{
+						auto& tile = g_tileMap.Get(g_dragVtxTX, g_dragVtxTY);
+						int corner = g_dragVtxCorner & 3;
+						if (g_dragVtxCorner < 4) // floor corner
+						{
+							float* dst[4] = { &tile.slopeNW, &tile.slopeNE, &tile.slopeSE, &tile.slopeSW };
+							float* cSlope[4] = { &tile.ceilSlopeNW, &tile.ceilSlopeNE, &tile.ceilSlopeSE, &tile.ceilSlopeSW };
+							*dst[corner] = g_dragSlopes[corner] + snappedDy;
+							clampFloorVertex(*dst[corner], tile.floorHeight, *cSlope[corner], tile.ceilHeight);
+						}
+						else // ceiling corner
+						{
+							float* dst[4] = { &tile.ceilSlopeNW, &tile.ceilSlopeNE, &tile.ceilSlopeSE, &tile.ceilSlopeSW };
+							float* fSlope[4] = { &tile.slopeNW, &tile.slopeNE, &tile.slopeSE, &tile.slopeSW };
+							*dst[corner] = g_dragCeilSlopes[corner] + snappedDy;
+							clampCeilVertex(*dst[corner], tile.ceilHeight, *fSlope[corner], tile.floorHeight);
+						}
+						ClampHeights(tile);
+					}
+				}
 				g_lastAppliedDy = snappedDy;
 				g_dirtyMesh = true;
 			}
@@ -641,7 +894,10 @@ void GameUpdate()
 
 		// Cancel CP drag on LMB release
 		if (!lmb && g_draggingCP)
+		{
 			g_draggingCP = false;
+			g_dragVtxTX = g_dragVtxTY = -1;
+		}
 
 		// Scroll to adjust height in VERTEX mode (slope adjustment)
 		{
@@ -696,53 +952,24 @@ void DrawDebugOverlay()
 	if (!g_debugProgram || !g_scene->activeCamera) return;
 	if (g_selTX < 0 || !g_tileMap.InBounds(g_selTX, g_selTY)) return;
 
-	auto& t = g_tileMap.Get(g_selTX, g_selTY);
-	float fx = static_cast<float>(g_selTX);
-	float fz = static_cast<float>(g_selTY);
-	float fh = t.floorHeight;
-	float ch = t.ceilHeight;
-
-	// 8 corners of the selected tile
-	glm::vec3 cb[4] = {
-		{ fx - 0.5f, fh + t.slopeNW, fz - 0.5f },
-		{ fx + 0.5f, fh + t.slopeNE, fz - 0.5f },
-		{ fx + 0.5f, fh + t.slopeSE, fz + 0.5f },
-		{ fx - 0.5f, fh + t.slopeSW, fz + 0.5f },
-	};
-	glm::vec3 ct[4] = {
-		{ fx - 0.5f, ch + t.ceilSlopeNW, fz - 0.5f },
-		{ fx + 0.5f, ch + t.ceilSlopeNE, fz - 0.5f },
-		{ fx + 0.5f, ch + t.ceilSlopeSE, fz + 0.5f },
-		{ fx - 0.5f, ch + t.ceilSlopeSW, fz + 0.5f },
-	};
-
-	// Camera basis vectors for billboarding (extracted from view matrix)
+	// Camera basis vectors for billboarding
 	glm::mat4 camView = g_scene->activeCamera->GetViewMatrix();
 	glm::vec3 camRight = glm::normalize(glm::vec3(camView[0][0], camView[1][0], camView[2][0]));
 	glm::vec3 camUp    = glm::normalize(glm::vec3(camView[0][1], camView[1][1], camView[2][1]));
-	const float markerHalf = 0.13f; // half-size of marker rectangle
+	const float markerHalf = 0.13f;
 
 	std::vector<gr::MeshVertex> lines;
 	std::vector<gr::MeshVertex> tris;
 	glm::vec4 wireColor(0.8f, 0.8f, 0.8f, 0.6f);
 
-	auto addLine = [&](glm::vec3 a, glm::vec3 b, glm::vec4 c) {
+	auto addLine = [&](glm::vec3 a, glm::vec3 b, glm::vec4 c)
+	{
 		lines.push_back({ a, {}, {}, c });
 		lines.push_back({ b, {}, {}, c });
 	};
 
-	// Wireframe: bottom face
-	for (int i = 0; i < 4; ++i)
-		addLine(cb[i], cb[(i + 1) % 4], wireColor);
-	// Wireframe: top face
-	for (int i = 0; i < 4; ++i)
-		addLine(ct[i], ct[(i + 1) % 4], wireColor);
-	// Wireframe: vertical edges
-	for (int i = 0; i < 4; ++i)
-		addLine(cb[i], ct[i], wireColor);
-
-	// Helper: add a camera-facing rectangle as 2 triangles
-	auto addRect = [&](const glm::vec3& center, const glm::vec4& color) {
+	auto addRect = [&](const glm::vec3& center, const glm::vec4& color)
+	{
 		glm::vec3 r = camRight * markerHalf;
 		glm::vec3 u = camUp * markerHalf;
 		glm::vec3 p0 = center - r - u;
@@ -757,13 +984,47 @@ void DrawDebugOverlay()
 		tris.push_back({ p3, {}, {}, color });
 	};
 
-	// Control point markers
+	// Wireframe and CP markers
 	if (g_heightEditMode == HeightEditMode::PLANE)
 	{
-		glm::vec3 cps[10];
-		int n = GetCPPositions(cps, 10, t, fx, fz, HeightEditMode::PLANE);
+		// Bounding-box wireframe for the whole selection
+		auto& t = g_tileMap.Get(g_selTX, g_selTY);
+		float fx = static_cast<float>(g_selTX);
+		float fz = static_cast<float>(g_selTY);
+		float left   = fx - 0.5f;
+		float right  = fx + static_cast<float>(g_selW) - 0.5f;
+		float nz     = fz - 0.5f;
+		float sz     = fz + static_cast<float>(g_selH) - 0.5f;
 
-		// Center markers (0,1): yellow; Edge markers (2-9): blue; Hovered: white
+		float avgFS = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
+		float avgCS = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
+		float fh = t.floorHeight + avgFS;
+		float ch = t.ceilHeight  + avgCS;
+
+		// 8 corners of the selection bounding box
+		glm::vec3 btm[4] = {
+			{ left,  fh, nz },
+			{ right, fh, nz },
+			{ right, fh, sz },
+			{ left,  fh, sz },
+		};
+		glm::vec3 top[4] = {
+			{ left,  ch, nz },
+			{ right, ch, nz },
+			{ right, ch, sz },
+			{ left,  ch, sz },
+		};
+
+		for (int i = 0; i < 4; ++i)
+			addLine(btm[i], btm[(i + 1) % 4], wireColor);
+		for (int i = 0; i < 4; ++i)
+			addLine(top[i], top[(i + 1) % 4], wireColor);
+		for (int i = 0; i < 4; ++i)
+			addLine(btm[i], top[i], wireColor);
+
+		// PLANE mode CPs at selection bounding-box
+		glm::vec3 cps[10];
+		int n = GetCPPositions(cps, 10, fx, fz, g_selW, g_selH, t, HeightEditMode::PLANE);
 		for (int i = 0; i < n; ++i)
 		{
 			bool isCenter = (i <= static_cast<int>(CPType::CeilCenter));
@@ -772,16 +1033,49 @@ void DrawDebugOverlay()
 			addRect(cps[i], col);
 		}
 	}
-	else // VERTEX
+	else // VERTEX mode — per-tile wireframe + corner markers
 	{
-		// Corner markers: 0-3 = floor (green), 4-7 = ceiling (orange)
-		for (int i = 0; i < 8; ++i)
+		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
 		{
-			bool hovered = (g_hoverCPIdx == i);
-			bool isFloor = (i < 4);
-			glm::vec4 col = hovered ? COLOR_HOVER : (isFloor ? COLOR_CORNER : COLOR_CEIL_CORNER);
-			const glm::vec3& pos = isFloor ? cb[i] : ct[i - 4];
-			addRect(pos, col);
+			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+			{
+				if (!g_tileMap.InBounds(tx, ty)) continue;
+				auto& t = g_tileMap.Get(tx, ty);
+				float fx = static_cast<float>(tx);
+				float fz = static_cast<float>(ty);
+
+				glm::vec3 cb[4] = {
+					{ fx - 0.5f, t.floorHeight + t.slopeNW, fz - 0.5f },
+					{ fx + 0.5f, t.floorHeight + t.slopeNE, fz - 0.5f },
+					{ fx + 0.5f, t.floorHeight + t.slopeSE, fz + 0.5f },
+					{ fx - 0.5f, t.floorHeight + t.slopeSW, fz + 0.5f },
+				};
+				glm::vec3 ct[4] = {
+					{ fx - 0.5f, t.ceilHeight + t.ceilSlopeNW, fz - 0.5f },
+					{ fx + 0.5f, t.ceilHeight + t.ceilSlopeNE, fz - 0.5f },
+					{ fx + 0.5f, t.ceilHeight + t.ceilSlopeSE, fz + 0.5f },
+					{ fx - 0.5f, t.ceilHeight + t.ceilSlopeSW, fz + 0.5f },
+				};
+
+				// Tile wireframe
+				for (int i = 0; i < 4; ++i)
+					addLine(cb[i], cb[(i + 1) % 4], wireColor);
+				for (int i = 0; i < 4; ++i)
+					addLine(ct[i], ct[(i + 1) % 4], wireColor);
+				for (int i = 0; i < 4; ++i)
+					addLine(cb[i], ct[i], wireColor);
+
+				// VERTEX markers per solid tile
+				if (t.spaceType == tile::TileSpaceType::SOLID)
+				{
+					for (int i = 0; i < 8; ++i)
+					{
+						bool isFloor = (i < 4);
+						const glm::vec3& pos = isFloor ? cb[i] : ct[i - 4];
+						addRect(pos, isFloor ? COLOR_CORNER : COLOR_CEIL_CORNER);
+					}
+				}
+			}
 		}
 	}
 
@@ -794,7 +1088,6 @@ void DrawDebugOverlay()
 	if (!s_vao)
 		s_vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
 
-	// Gather all verts into one buffer (lines first, then tris)
 	size_t lineVerts = lines.size();
 	size_t triVerts  = tris.size();
 	size_t totalVerts = lineVerts + triVerts;
@@ -807,10 +1100,8 @@ void DrawDebugOverlay()
 		s_capacity = needed;
 	}
 
-	// Upload lines
 	if (lineVerts > 0)
 		gpu::buffer::UpdateData(s_vbo, lines.data(), lineVerts * sizeof(gr::MeshVertex), 0);
-	// Upload tris (appended after lines)
 	if (triVerts > 0)
 		gpu::buffer::UpdateData(s_vbo, tris.data(), triVerts * sizeof(gr::MeshVertex),
 			lineVerts * sizeof(gr::MeshVertex));
@@ -825,13 +1116,11 @@ void DrawDebugOverlay()
 	int loc = gpu::program::GetUniformLocation(g_debugProgram, "u_viewProj");
 	gpu::program::SetUniform(g_debugProgram, loc, vp);
 
-	// Draw lines
 	if (lineVerts > 0)
 	{
 		gpu::cmd::SetTopology(gpu::PrimitiveTopology::LineList);
 		gpu::cmd::Draw(static_cast<uint32_t>(lineVerts), 1, 0, 0);
 	}
-	// Draw triangles
 	if (triVerts > 0)
 	{
 		gpu::cmd::SetTopology(gpu::PrimitiveTopology::TriangleList);
