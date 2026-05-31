@@ -674,6 +674,37 @@ void GameUpdate()
 		g_mouseLook.OnRightUp();
 	g_mouseLook.Update(g_camera);
 
+	// Tab toggles game/editor mode (edge-triggered, always active)
+	{
+		static bool prevTab = false;
+		bool tabDown = input::IsKeyDown(KeyboardType::KEY_TAB);
+		if (tabDown && !prevTab)
+		{
+			g_gameMode = !g_gameMode;
+			if (g_gameMode)
+			{
+				g_selTX = g_selTY = -1;
+				g_anchorTX = g_anchorTY = -1;
+				g_selW = 1; g_selH = 1;
+				g_selFace = tile::FaceDir::COUNT;
+				g_selCorner = -1;
+				g_draggingCP = false;
+				g_draggingSel = false;
+				g_hoverCPIdx = -1;
+				g_dragVtxRefCount = 0;
+			}
+		}
+		prevTab = tabDown;
+	}
+
+	static bool prevLMB = false;
+	bool lmb = input::IsMouseDown(MouseType::MOUSE_BUTTON_LEFT);
+	bool lmbPressed = lmb && !prevLMB;
+
+	// ---- Editor-only input ----
+	if (!g_gameMode)
+	{
+
 	// Mode switching
 	if (input::IsKeyDown(KeyboardType::KEY_1)) { g_editMode = EditMode::TILE;   g_selCorner = -1; }
 	if (input::IsKeyDown(KeyboardType::KEY_2)) { g_editMode = EditMode::FACE;   g_selCorner = -1; }
@@ -763,10 +794,6 @@ void GameUpdate()
 			}
 		g_dirtyMesh = true;
 	}
-
-	static bool prevLMB = false;
-	bool lmb = input::IsMouseDown(MouseType::MOUSE_BUTTON_LEFT);
-	bool lmbPressed = lmb && !prevLMB;
 
 	if (!wantCaptureMouse)
 	{
@@ -1199,7 +1226,8 @@ void GameUpdate()
 			}
 			else scrollAccum = 0.0f;
 		}
-	}
+	} // !wantCaptureMouse
+	} // !g_gameMode
 	prevLMB = lmb;
 
 	if (g_scene->activeCamera)
@@ -1434,6 +1462,7 @@ void GameRender()
 	auto queue = g_scene->BuildRenderQueue(frustum, scene::RenderPassType::Opaque);
 	g_scene->RenderOpaquePass(queue, g_program);
 	g_scene->RenderTransparentPass(queue, g_program);
-	DrawDebugOverlay();
+	if (!g_gameMode)
+		DrawDebugOverlay();
 	gpu::cmd::EndDraw();
 }

@@ -93,6 +93,7 @@ extern tile::FaceDir g_hoverFace;
 extern int  g_prevHoverTX, g_prevHoverTY;
 extern tile::FaceDir g_prevHoverFace;
 extern bool g_hoverDirty;
+extern bool g_gameMode;
 extern std::vector<glm::vec4> g_tileCleanColors;
 inline const glm::vec4 HOVER_PINK{1.5f, 0.3f, 0.8f, 1.0f};
 

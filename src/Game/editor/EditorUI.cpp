@@ -4,6 +4,28 @@
 // ---- GameRenderUI ----
 void GameRenderUI()
 {
+	// ---- Game mode camera info ----
+	if (g_gameMode)
+	{
+		ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+		ImGui::SetNextWindowBgAlpha(0.5f);
+		if (ImGui::Begin("Camera", nullptr,
+			ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings))
+		{
+			auto pos = g_camera.GetPosition();
+			ImGui::Text("Pos: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
+			ImGui::Text("Tab / > - Editor");
+			if (ImGui::Button("Back to Editor"))
+			{
+				g_gameMode = false;
+			}
+		}
+		ImGui::End();
+		return;
+	}
+
+	// ---- Editor UI ----
 	// Main Menu Bar (Delver Engine style)
 	if (ImGui::BeginMainMenuBar())
 	{
@@ -228,7 +250,19 @@ void GameRenderUI()
 		}
 
 		ImGui::SameLine(ImGui::GetWindowWidth() - 40);
-		if (ImGui::Button(">")) {}
+		if (ImGui::Button(">"))
+		{
+			g_gameMode = true;
+			g_selTX = g_selTY = -1;
+			g_anchorTX = g_anchorTY = -1;
+			g_selW = 1; g_selH = 1;
+			g_selFace = tile::FaceDir::COUNT;
+			g_selCorner = -1;
+			g_draggingCP = false;
+			g_draggingSel = false;
+			g_hoverCPIdx = -1;
+			g_dragVtxRefCount = 0;
+		}
 
 		ImGui::EndMainMenuBar();
 	}

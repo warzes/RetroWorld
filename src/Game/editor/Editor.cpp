@@ -61,6 +61,7 @@ tile::FaceDir g_hoverFace = tile::FaceDir::COUNT;
 int  g_prevHoverTX = -1, g_prevHoverTY = -1;
 tile::FaceDir g_prevHoverFace = tile::FaceDir::COUNT;
 bool g_hoverDirty = false;
+bool g_gameMode = false;
 std::vector<glm::vec4> g_tileCleanColors;
 
 // ---- Entry point ----
