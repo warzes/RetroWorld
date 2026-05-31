@@ -27,6 +27,12 @@
     <ClCompile Include="tile\TilePicking.cpp">
       <Filter>tile</Filter>
     </ClCompile>
+    <ClCompile Include="physics\PhysicsSystem.cpp">
+      <Filter>physics</Filter>
+    </ClCompile>
+    <ClCompile Include="physics\PlayerController.cpp">
+      <Filter>physics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
@@ -48,6 +54,12 @@
     <ClInclude Include="tile\TileTypes.h">
       <Filter>tile</Filter>
     </ClInclude>
+    <ClInclude Include="physics\PhysicsSystem.h">
+      <Filter>physics</Filter>
+    </ClInclude>
+    <ClInclude Include="physics\PlayerController.h">
+      <Filter>physics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="editor">
@@ -55,6 +67,9 @@
     </Filter>
     <Filter Include="tile">
       <UniqueIdentifier>{dc149dec-df39-41e3-bea5-daaf9a7299f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="physics">
+      <UniqueIdentifier>{e4a7b3c2-5f19-4d81-9b6c-3a1d8e7f4c2b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

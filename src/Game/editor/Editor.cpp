@@ -1,5 +1,7 @@
 ﻿#include "stdafx.h"
 #include "Editor.h"
+#include "physics/PhysicsSystem.h"
+#include "physics/PlayerController.h"
 
 // ---- Global definitions ----
 gpu::program::ShaderProgramPtr g_program;
@@ -26,6 +28,7 @@ int  g_anchorTX = -1, g_anchorTY = -1;
 tile::FaceDir g_selFace = tile::FaceDir::COUNT;
 int  g_selCorner = -1;
 bool g_dirtyMesh = true;
+bool g_showCollider = true;
 
 gpu::program::ShaderProgramPtr g_debugProgram;
 HeightEditMode g_heightEditMode = HeightEditMode::PLANE;
@@ -52,8 +55,8 @@ int  g_brushFloorTex  = 1;
 int  g_brushCeilTex   = 2;
 bool g_brushSolid     = true;
 
-int      g_mapWidth  = 16;
-int      g_mapHeight = 16;
+int      g_mapWidth  = 20;
+int      g_mapHeight = 20;
 uint32_t g_genSeed   = 0;
 
 int  g_hoverTX = -1, g_hoverTY = -1;
@@ -64,11 +67,15 @@ bool g_hoverDirty = false;
 bool g_gameMode = false;
 std::vector<glm::vec4> g_tileCleanColors;
 
+// Physics
+std::unique_ptr<PhysicsSystem>   g_physicsSystem;
+std::unique_ptr<PlayerController> g_playerController;
+
 // ---- Entry point ----
 void GameAppTile()
 {
 	app::AppCreateInfo ci{};
-	ci.window.adaptiveVsync = true;
+	ci.window.adaptiveVsync = false;
 	ci.init_cb        = GameInit;
 	ci.close_cb       = GameClose;
 	ci.update_cb      = GameUpdate;

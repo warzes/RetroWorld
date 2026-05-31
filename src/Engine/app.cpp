@@ -15,7 +15,7 @@ namespace
 	float                 deltaTime{ 0.0 };
 	float                 accumulator{ 0.0f };
 	constexpr const int   maxFixedSteps{ 5 };
-	constexpr const float fixedDeltaTime = 1.0f / 60.0f;
+	constexpr const float fixedDeltaTime = 0.02f; // 50 Hz fixed step
 	// fps
 	constexpr const float avgInterval{ 0.5f };
 	unsigned              frameCounter{ 0 };

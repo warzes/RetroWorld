@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#define JPH_DEBUG_RENDERER
+
 #include <3rdpartyConfig.h>
 #include <EngineConfig.h>
 

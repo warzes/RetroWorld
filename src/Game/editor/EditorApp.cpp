@@ -1,5 +1,7 @@
 ﻿#include "stdafx.h"
 #include "Editor.h"
+#include "physics/PhysicsSystem.h"
+#include "physics/PlayerController.h"
 #include <cmath>
 
 namespace
@@ -631,6 +633,21 @@ bool GameInit()
 
 	RebuildTileMesh();
 
+	// Physics
+	{
+		JPH::RegisterDefaultAllocator();
+
+		g_physicsSystem = std::make_unique<PhysicsSystem>();
+		if (!g_physicsSystem->Init())
+		{
+			core::Error("PhysicsSystem::Init failed");
+			return false;
+		}
+		RebuildMapCollider();
+
+		g_playerController = std::make_unique<PlayerController>(g_physicsSystem.get());
+	}
+
 	g_camera = gr::Camera(
 		glm::vec3(0.0f, 5.0f, 5.0f),
 		glm::vec3(0.0f, 0.0f, 0.0f),
@@ -644,6 +661,13 @@ bool GameInit()
 // ---- GameClose ----
 void GameClose()
 {
+	g_playerController.reset();
+	if (g_physicsSystem)
+	{
+		g_physicsSystem->StopSimulation();
+		g_physicsSystem->Close();
+	}
+	g_physicsSystem.reset();
 	g_tileMesh.Close();
 	g_pointDepthShader.reset();
 	g_depthShader.reset();
@@ -668,11 +692,20 @@ void GameUpdate()
 	if (input::IsKeyDown(KeyboardType::KEY_Q)) g_camera.Move(gr::Movement::Down,     speed);
 	if (input::IsKeyDown(KeyboardType::KEY_E)) g_camera.Move(gr::Movement::Up,       speed);
 
-	if (!wantCaptureMouse && input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
-		g_mouseLook.OnRightDown();
+	// ---- Editor mouse look ----
+	if (!g_gameMode)
+	{
+		if (!wantCaptureMouse && input::IsMouseDown(MouseType::MOUSE_BUTTON_RIGHT))
+			g_mouseLook.OnRightDown();
+		else
+			g_mouseLook.OnRightUp();
+		g_mouseLook.Update(g_camera);
+	}
 	else
+	{
+		// Ensure mouse look released in game mode
 		g_mouseLook.OnRightUp();
-	g_mouseLook.Update(g_camera);
+	}
 
 	// Tab toggles game/editor mode (edge-triggered, always active)
 	{
@@ -695,6 +728,40 @@ void GameUpdate()
 			}
 		}
 		prevTab = tabDown;
+	}
+
+	// When entering game mode (Tab or UI button): spawn player under camera
+	{
+		static bool prevGameMode = false;
+		if (g_gameMode && !prevGameMode)
+		{
+			glm::vec3 camPos = g_camera.GetPosition();
+			glm::vec3 front  = g_camera.GetFront();
+			float yaw   = glm::degrees(atan2f(front.x, -front.z));
+			float pitch = glm::degrees(asinf(glm::clamp(front.y, -1.0f, 1.0f)));
+
+			if (g_physicsSystem)
+				g_physicsSystem->StartSimulation();
+			if (g_playerController)
+			{
+				g_playerController->Destroy();
+				g_playerController->Create(yaw, pitch);
+				g_playerController->SetPosition(camPos, yaw, pitch);
+			}
+
+			input::CaptureMouse(true);
+			input::SetCursorVisible(false);
+		}
+		if (!g_gameMode && prevGameMode)
+		{
+			input::CaptureMouse(false);
+			input::SetCursorVisible(true);
+			if (g_playerController)
+				g_playerController->Destroy();
+			if (g_physicsSystem)
+				g_physicsSystem->StopSimulation();
+		}
+		prevGameMode = g_gameMode;
 	}
 
 	static bool prevLMB = false;
@@ -1228,6 +1295,26 @@ void GameUpdate()
 		}
 	} // !wantCaptureMouse
 	} // !g_gameMode
+
+	// ---- Game-mode camera + mouse look ----
+	if (g_gameMode && g_playerController)
+	{
+		int cx = window::GetWidth() / 2;
+		int cy = window::GetHeight() / 2;
+		auto mousePos = input::GetMousePosition();
+		float dx = static_cast<float>(mousePos.x - cx);
+		float dy = static_cast<float>(mousePos.y - cy);
+		g_playerController->AddRotation(dx * 0.1f, -dy * 0.1f);
+		input::SetMousePosition(cx, cy);
+
+		glm::vec3 pos = g_playerController->GetPosition();
+		glm::vec3 front = g_playerController->GetLookDirection();
+		float eyeHeight = g_playerController->GetEyeHeight();
+		g_camera = gr::Camera(pos + glm::vec3(0, eyeHeight, 0),
+			pos + glm::vec3(0, eyeHeight, 0) + front,
+			glm::vec3(0, 1, 0));
+	}
+
 	prevLMB = lmb;
 
 	if (g_scene->activeCamera)
@@ -1242,8 +1329,32 @@ void GameUpdate()
 	g_scene->Update();
 }
 
+// ---- RebuildMapCollider (bridge) ----
+void RebuildMapCollider()
+{
+	if (!g_physicsSystem) return;
+	if (g_tileMeshCPU.positions.empty() || g_tileMeshCPU.indices.empty()) return;
+
+	std::vector<JPH::Float3> verts;
+	verts.reserve(g_tileMeshCPU.positions.size());
+	for (const auto& p : g_tileMeshCPU.positions)
+		verts.push_back({ p.x, p.y, p.z });
+
+	g_physicsSystem->RebuildMapCollider(
+		std::span<const JPH::Float3>(verts.data(), verts.size()),
+		std::span<const JPH::uint32>(g_tileMeshCPU.indices.data(), g_tileMeshCPU.indices.size()));
+}
+
 // ---- GameFixedUpdate ----
-void GameFixedUpdate() {}
+void GameFixedUpdate()
+{
+	if (!g_gameMode) return;
+	if (!g_physicsSystem || !g_playerController) return;
+
+	constexpr float fixedDt = 0.02f;
+	g_physicsSystem->Update(fixedDt);
+	g_playerController->Tick(fixedDt);
+}
 
 // ---- DrawDebugOverlay ----
 void DrawDebugOverlay()
@@ -1430,6 +1541,67 @@ void DrawDebugOverlay()
 	gpu::cmd::SetTopology(gpu::PrimitiveTopology::TriangleList);
 }
 
+// ---- DrawColliderOverlay ----
+void DrawColliderOverlay()
+{
+	if (!g_debugProgram || !g_scene->activeCamera) return;
+	if (g_tileMeshCPU.positions.empty() || g_tileMeshCPU.indices.empty()) return;
+
+	std::vector<gr::MeshVertex> lines;
+	glm::vec4 wireColor(0.2f, 0.8f, 0.2f, 0.4f);
+
+	for (size_t i = 0; i < g_tileMeshCPU.indices.size(); i += 3)
+	{
+		uint32_t i0 = g_tileMeshCPU.indices[i];
+		uint32_t i1 = g_tileMeshCPU.indices[i + 1];
+		uint32_t i2 = g_tileMeshCPU.indices[i + 2];
+
+		const auto& a = g_tileMeshCPU.positions[i0];
+		const auto& b = g_tileMeshCPU.positions[i1];
+		const auto& c = g_tileMeshCPU.positions[i2];
+
+		lines.push_back({ a, {}, {}, wireColor });
+		lines.push_back({ b, {}, {}, wireColor });
+		lines.push_back({ b, {}, {}, wireColor });
+		lines.push_back({ c, {}, {}, wireColor });
+		lines.push_back({ c, {}, {}, wireColor });
+		lines.push_back({ a, {}, {}, wireColor });
+	}
+
+	if (lines.empty()) return;
+
+	static gpu::vao::VertexArrayPtr s_vao;
+	static gpu::buffer::BufferPtr s_vbo;
+	static size_t s_capacity = 0;
+
+	if (!s_vao)
+		s_vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
+
+	size_t totalBytes = lines.size() * sizeof(gr::MeshVertex);
+	if (!s_vbo || s_capacity < totalBytes)
+	{
+		s_vbo = gpu::buffer::CreateBuffer(totalBytes,
+			gpu::buffer::BufferStorageFlag::DynamicStorage, "collider_overlay");
+		s_capacity = totalBytes;
+	}
+
+	gpu::buffer::UpdateData(s_vbo, lines.data(), totalBytes, 0);
+
+	glLineWidth(1.5f);
+
+	gpu::vao::BindVertexArray(s_vao);
+	gpu::cmd::BindVertexBuffer(s_vao, 0, s_vbo, 0, sizeof(gr::MeshVertex));
+	gpu::program::BindShaderProgram(g_debugProgram);
+
+	auto vp = g_scene->activeCamera->GetViewProjectionMatrix();
+	int loc = gpu::program::GetUniformLocation(g_debugProgram, "u_viewProj");
+	gpu::program::SetUniform(g_debugProgram, loc, vp);
+
+	gpu::cmd::SetTopology(gpu::PrimitiveTopology::LineList);
+	gpu::cmd::Draw(static_cast<uint32_t>(lines.size()), 1, 0, 0);
+	gpu::cmd::SetTopology(gpu::PrimitiveTopology::TriangleList);
+}
+
 // ---- GameRender ----
 void GameRender()
 {
@@ -1464,5 +1636,7 @@ void GameRender()
 	g_scene->RenderTransparentPass(queue, g_program);
 	if (!g_gameMode)
 		DrawDebugOverlay();
+	if (g_showCollider)
+		DrawColliderOverlay();
 	gpu::cmd::EndDraw();
 }

@@ -68,6 +68,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Jolt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)3rdparty\lib\;$(SolutionDir)3rdparty\lib\$(Configuration)\;$(SolutionDir)..\_lib\$(Configuration)\$(PlatformTarget)\;$(VULKAN_SDK)\Lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -88,6 +89,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Jolt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)3rdparty\lib\;$(SolutionDir)3rdparty\lib\$(Configuration)\;$(SolutionDir)..\_lib\$(Configuration)\$(PlatformTarget)\;$(VULKAN_SDK)\Lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -105,6 +107,8 @@
     <ClCompile Include="tile\TileMap.cpp" />
     <ClCompile Include="tile\TileMeshGen.cpp" />
     <ClCompile Include="tile\TilePicking.cpp" />
+    <ClCompile Include="physics\PhysicsSystem.cpp" />
+    <ClCompile Include="physics\PlayerController.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
@@ -114,6 +118,8 @@
     <ClInclude Include="tile\TileMeshGen.h" />
     <ClInclude Include="tile\TilePicking.h" />
     <ClInclude Include="tile\TileTypes.h" />
+    <ClInclude Include="physics\PhysicsSystem.h" />
+    <ClInclude Include="physics\PlayerController.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

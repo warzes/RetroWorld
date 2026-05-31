@@ -20,6 +20,7 @@ void GameRenderUI()
 			{
 				g_gameMode = false;
 			}
+			ImGui::Checkbox("Show Collider", &g_showCollider);
 		}
 		ImGui::End();
 		return;

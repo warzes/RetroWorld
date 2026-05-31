@@ -43,6 +43,7 @@ extern int  g_anchorTX, g_anchorTY; // tile the user first clicked (persistent a
 extern tile::FaceDir g_selFace;
 extern int  g_selCorner;
 extern bool g_dirtyMesh;
+extern bool g_showCollider;
 
 // Height edit sub-mode for TILE mode
 enum class HeightEditMode { PLANE, VERTEX };
@@ -110,11 +111,20 @@ inline void clampCeilVertex(float& cSlope, float ch, float fSlope, float fh) noe
 	cSlope = std::max(cSlope, minY - ch);
 }
 
+// ---- Physics (Jolt) ----
+class PhysicsSystem;
+class PlayerController;
+
+extern std::unique_ptr<PhysicsSystem>   g_physicsSystem;
+extern std::unique_ptr<PlayerController> g_playerController;
+
 // ---- Functions ----
 void RebuildTileMesh();
 void UpdateHoverHighlight();
 void PickTile(const glm::vec3& rayOrigin, const glm::vec3& rayDir);
 void DrawDebugOverlay();
+void DrawColliderOverlay();
+void RebuildMapCollider();
 
 bool GameInit();
 void GameClose();

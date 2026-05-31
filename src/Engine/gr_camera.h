@@ -30,7 +30,8 @@ namespace gr
 
 		glm::mat4 GetViewMatrix() const;
 
-		const glm::vec3& GetPosition() const { return m_cameraPosition; }
+		const glm::vec3& GetPosition()   const { return m_cameraPosition; }
+		const glm::vec3& GetFront()      const { return m_cameraFrontDirection; }
 
 	private:
 		glm::vec3 m_cameraPosition;

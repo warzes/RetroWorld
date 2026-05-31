@@ -69,6 +69,9 @@ void RebuildTileMesh()
 
 	UploadTileMeshToGPU();
 	g_dirtyMesh = false;
+
+	// Rebuild physics collider for the updated tile mesh
+	RebuildMapCollider();
 }
 
 // ---- UpdateHoverHighlight (lightweight: only vertex colors) ----
