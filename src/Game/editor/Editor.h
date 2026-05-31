@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include "tile/TileTypes.h"
 #include "tile/TileMap.h"
 #include "tile/TileMeshGen.h"
@@ -63,6 +64,7 @@ extern int  g_dragCorner;  // for VERTEX mode corner index
 extern float g_dragStartMouseY;
 extern float g_lastAppliedDy;
 extern float g_dragSlopes[4];
+extern float g_dragCeilSlopes[4];
 
 // Plane mode config
 extern float g_heightStep;
@@ -82,6 +84,19 @@ extern tile::FaceDir g_hoverFace;
 extern int  g_prevHoverTX, g_prevHoverTY;
 extern tile::FaceDir g_prevHoverFace;
 inline const glm::vec4 HOVER_PINK{1.5f, 0.3f, 0.8f, 1.0f};
+
+// Height clamping helpers (used by EditorApp.cpp and EditorUI.cpp)
+constexpr float MIN_GAP = 0.02f;
+inline void clampFloorVertex(float& fSlope, float fh, float cSlope, float ch) noexcept
+{
+	float maxY = (ch + cSlope) - MIN_GAP;
+	fSlope = std::min(fSlope, maxY - fh);
+}
+inline void clampCeilVertex(float& cSlope, float ch, float fSlope, float fh) noexcept
+{
+	float minY = (fh + fSlope) + MIN_GAP;
+	cSlope = std::max(cSlope, minY - ch);
+}
 
 // ---- Functions ----
 void RebuildTileMesh();

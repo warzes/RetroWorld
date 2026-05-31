@@ -202,7 +202,7 @@ void GameRenderUI()
 		ImGui::SliderFloat("Height Step", &g_heightStep, 0.01f, 1.0f, "%.2f");
 		ImGui::Text("Drag orange/blue markers to adjust height.");
 		if (g_heightEditMode == HeightEditMode::VERTEX)
-			ImGui::Text("Drag green corner markers to adjust slope.");
+			ImGui::Text("Drag green/orange corner markers to adjust floor/ceil.");
 
 		if (g_selTX >= 0)
 		{
@@ -284,21 +284,33 @@ void GameRenderUI()
 			ImGui::Text("Corner: %s", cornerNames[g_selCorner]);
 
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
-			float* slope = nullptr;
+			float* fSlope = nullptr;
+			float* cSlope = nullptr;
 			switch (g_selCorner)
 			{
-				case 0: slope = &t.slopeNW; break;
-				case 1: slope = &t.slopeNE; break;
-				case 2: slope = &t.slopeSE; break;
-				case 3: slope = &t.slopeSW; break;
+				case 0: fSlope = &t.slopeNW; cSlope = &t.ceilSlopeNW; break;
+				case 1: fSlope = &t.slopeNE; cSlope = &t.ceilSlopeNE; break;
+				case 2: fSlope = &t.slopeSE; cSlope = &t.ceilSlopeSE; break;
+				case 3: fSlope = &t.slopeSW; cSlope = &t.ceilSlopeSW; break;
 			}
-			if (slope)
+			if (fSlope && cSlope)
 			{
-				float val = *slope;
-				if (ImGui::SliderFloat("Height Offset", &val, -1.0f, 1.0f))
-				{ *slope = val; g_dirtyMesh = true; }
+				float fVal = *fSlope;
+				if (ImGui::SliderFloat("Floor Offset", &fVal, -1.0f, 1.0f))
+				{
+					*fSlope = fVal;
+					clampFloorVertex(*fSlope, t.floorHeight, *cSlope, t.ceilHeight);
+					g_dirtyMesh = true;
+				}
+				float cVal = *cSlope;
+				if (ImGui::SliderFloat("Ceil Offset", &cVal, -1.0f, 1.0f))
+				{
+					*cSlope = cVal;
+					clampCeilVertex(*cSlope, t.ceilHeight, *fSlope, t.floorHeight);
+					g_dirtyMesh = true;
+				}
 			}
-			ImGui::Text("Scroll to adjust height.");
+			ImGui::Text("Scroll to adjust floor; drag corner markers (TILE+V).");
 		}
 		else ImGui::Text("Click near a corner to select.");
 	}

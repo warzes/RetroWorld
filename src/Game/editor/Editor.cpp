@@ -33,6 +33,7 @@ int  g_dragCorner = 0;
 float g_dragStartMouseY = 0;
 float g_lastAppliedDy = 0;
 float g_dragSlopes[4] = {};
+float g_dragCeilSlopes[4] = {};
 
 float g_heightStep = 0.1f;
 int   g_hoverCPIdx = -1;

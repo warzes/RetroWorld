@@ -5,7 +5,7 @@
 namespace
 {
 	// Fill positions for all 10 Plane-mode control points.
-	// Returns the number of positions written (10 in PLANE mode, 4 in VERTEX mode).
+	// Returns the number of positions written (10 in PLANE mode, 8 in VERTEX mode).
 	int GetCPPositions(glm::vec3* dst, int maxDst, const tile::Tile& t, float fx, float fz, HeightEditMode mode) noexcept
 	{
 		float fh = t.floorHeight;
@@ -30,28 +30,19 @@ namespace
 		}
 		else // VERTEX
 		{
-			if (maxDst < 4) return 0;
+			if (maxDst < 8) return 0;
+			// Floor corners (0-3)
 			dst[0] = { fx - 0.5f, fh + t.slopeNW, fz - 0.5f };
 			dst[1] = { fx + 0.5f, fh + t.slopeNE, fz - 0.5f };
 			dst[2] = { fx + 0.5f, fh + t.slopeSE, fz + 0.5f };
 			dst[3] = { fx - 0.5f, fh + t.slopeSW, fz + 0.5f };
-			return 4;
+			// Ceiling corners (4-7)
+			dst[4] = { fx - 0.5f, ch + t.ceilSlopeNW, fz - 0.5f };
+			dst[5] = { fx + 0.5f, ch + t.ceilSlopeNE, fz - 0.5f };
+			dst[6] = { fx + 0.5f, ch + t.ceilSlopeSE, fz + 0.5f };
+			dst[7] = { fx - 0.5f, ch + t.ceilSlopeSW, fz + 0.5f };
+			return 8;
 		}
-	}
-
-	// Clamp helpers — clamp the edited side so ceiling ≥ floor + MIN_GAP
-	constexpr float MIN_GAP = 0.02f;
-
-	void clampFloorVertex(float& fSlope, float fh, float cSlope, float ch) noexcept
-	{
-		float maxY = (ch + cSlope) - MIN_GAP;
-		fSlope = std::min(fSlope, maxY - fh);
-	}
-
-	void clampCeilVertex(float& cSlope, float ch, float fSlope, float fh) noexcept
-	{
-		float minY = (fh + fSlope) + MIN_GAP;
-		cSlope = std::max(cSlope, minY - ch);
 	}
 
 	void clampFloorCenter(float& fh, const float* slopes, const float* ceilSlopes, float ch) noexcept
@@ -131,8 +122,6 @@ namespace
 
 	void ClampHeights(tile::Tile& t) noexcept
 	{
-		constexpr float MIN_GAP = 0.02f;
-
 		// Center-level safety: if gap too small, push only the ceiling up
 		float avgFS = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
 		float avgCS = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
@@ -165,7 +154,8 @@ namespace
 	constexpr glm::vec4 COLOR_CENTER(1.0f, 1.0f, 0.0f, 1.0f);  // yellow for center markers
 	constexpr glm::vec4 COLOR_EDGE(0.3f, 0.6f, 1.0f, 1.0f);    // blue for edge markers
 	constexpr glm::vec4 COLOR_HOVER(1.0f, 1.0f, 1.0f, 1.0f);   // white
-	constexpr glm::vec4 COLOR_CORNER(0.3f, 1.0f, 0.3f, 1.0f);  // green
+	constexpr glm::vec4 COLOR_CORNER(0.3f, 1.0f, 0.3f, 1.0f);  // green for floor corners
+	constexpr glm::vec4 COLOR_CEIL_CORNER(1.0f, 0.6f, 0.1f, 1.0f);  // orange for ceiling corners
 }
 
 namespace
@@ -566,6 +556,10 @@ void GameUpdate()
 				g_dragSlopes[1] = t.slopeNE;
 				g_dragSlopes[2] = t.slopeSE;
 				g_dragSlopes[3] = t.slopeSW;
+				g_dragCeilSlopes[0] = t.ceilSlopeNW;
+				g_dragCeilSlopes[1] = t.ceilSlopeNE;
+				g_dragCeilSlopes[2] = t.ceilSlopeSE;
+				g_dragCeilSlopes[3] = t.ceilSlopeSW;
 				cpPicked = true;
 			}
 
@@ -616,18 +610,28 @@ void GameUpdate()
 			{
 				auto& t = g_tileMap.Get(g_selTX, g_selTY);
 
-				if (g_dragCPType < static_cast<int>(CPType::Corner))
+				if (g_heightEditMode == HeightEditMode::PLANE)
 				{
-					// Plane mode CP types
 					ApplyHeightStep(t, g_dragCPType, delta);
 				}
 				else
 				{
-					// VERTEX mode corner
-					float* dst[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
-					float* cSlope[4] = { &t.ceilSlopeNW, &t.ceilSlopeNE, &t.ceilSlopeSE, &t.ceilSlopeSW };
-					*dst[g_dragCorner] = g_dragSlopes[g_dragCorner] + snappedDy;
-					clampFloorVertex(*dst[g_dragCorner], t.floorHeight, *cSlope[g_dragCorner], t.ceilHeight);
+					// VERTEX mode — CP indices 0-3 = floor corners, 4-7 = ceiling corners
+					int corner = g_dragCPType & 3;
+					if (g_dragCPType < 4)
+					{
+						float* dst[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
+						float* cSlope[4] = { &t.ceilSlopeNW, &t.ceilSlopeNE, &t.ceilSlopeSE, &t.ceilSlopeSW };
+						*dst[corner] = g_dragSlopes[corner] + snappedDy;
+						clampFloorVertex(*dst[corner], t.floorHeight, *cSlope[corner], t.ceilHeight);
+					}
+					else
+					{
+						float* dst[4] = { &t.ceilSlopeNW, &t.ceilSlopeNE, &t.ceilSlopeSE, &t.ceilSlopeSW };
+						float* fSlope[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
+						*dst[corner] = g_dragCeilSlopes[corner] + snappedDy;
+						clampCeilVertex(*dst[corner], t.ceilHeight, *fSlope[corner], t.floorHeight);
+					}
 				}
 				ClampHeights(t);
 				g_lastAppliedDy = snappedDy;
@@ -770,12 +774,14 @@ void DrawDebugOverlay()
 	}
 	else // VERTEX
 	{
-		// Corner markers: green
-		for (int i = 0; i < 4; ++i)
+		// Corner markers: 0-3 = floor (green), 4-7 = ceiling (orange)
+		for (int i = 0; i < 8; ++i)
 		{
 			bool hovered = (g_hoverCPIdx == i);
-			glm::vec4 col = hovered ? COLOR_HOVER : COLOR_CORNER;
-			addRect(cb[i], col);
+			bool isFloor = (i < 4);
+			glm::vec4 col = hovered ? COLOR_HOVER : (isFloor ? COLOR_CORNER : COLOR_CEIL_CORNER);
+			const glm::vec3& pos = isFloor ? cb[i] : ct[i - 4];
+			addRect(pos, col);
 		}
 	}
 
