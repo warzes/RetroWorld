@@ -157,26 +157,7 @@ namespace tile
 						return (-worldY + wallVBias) / wallVScale;
 					};
 
-					// Helper: add a wall quad given bottom-left Y, bottom-right Y, top-left Y, top-right Y
-					auto addWallQuad = [&](float bL, float bR, float tL, float tR,
-						glm::vec3 posA, glm::vec3 posB, glm::vec3 posC, glm::vec3 posD,
-						glm::vec3 n, int faceIdx)
-					{
-						float hBL = std::min(bL, tL);
-						float hBR = std::min(bR, tR);
-						float hTL = std::max(bL, tL);
-						float hTR = std::max(bR, tR);
 
-						// Only add if there's visible height
-						if (hBL >= hTL && hBR >= hTR)
-							return;
-
-						posA.y = hBL; posB.y = hBR; posC.y = hTR; posD.y = hTL;
-						addQuad(posA, posB, posC, posD, n,
-							{ u0, wallV(hBL) }, { u1, wallV(hBR) },
-							{ u1, wallV(hTR) }, { u0, wallV(hTL) },
-							tx, ty, faceIdx);
-					};
 
 					if (!neighborIsSolid)
 					{
@@ -256,144 +237,160 @@ namespace tile
 							break;
 						}
 					}
-					else
+				else
+				{
+					// Solid neighbor: render only non-overlapping portions (INWARD-facing)
+					float ourF[2], ourC[2], nF[2], nC[2];
+
+					auto faceIdx = static_cast<int>(dir);
+					switch (dir)
 					{
-						// Solid neighbor: render only non-overlapping portions
-						float ourF[2], ourC[2], nF[2], nC[2];
+					case FaceDir::NORTH:
+					{
+						// Our edge: corners 0 (NW = left), 1 (NE = right)
+						ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
+						ourF[1] = map.GetFloorHeightAt(tx, ty, 1);
+						ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
+						ourC[1] = map.GetCeilHeightAt(tx, ty, 1);
+						// Neighbor's shared edge: corners 3 (SW), 2 (SE)
+						nF[0] = map.GetFloorHeightAt(ntx, nty, 3);
+						nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
+						nC[0] = map.GetCeilHeightAt(ntx, nty, 3);
+						nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
 
-						auto faceIdx = static_cast<int>(dir);
-						switch (dir)
+						auto add = [&](float b0, float b1, float t0, float t1)
 						{
-						case FaceDir::NORTH:
-						{
-							// Our edge: corners 0 (NW), 1 (NE)
-							ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
-							ourF[1] = map.GetFloorHeightAt(tx, ty, 1);
-							ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
-							ourC[1] = map.GetCeilHeightAt(tx, ty, 1);
-							// Neighbor's shared edge: corners 3 (SW), 2 (SE)
-							nF[0] = map.GetFloorHeightAt(ntx, nty, 3);
-							nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
-							nC[0] = map.GetCeilHeightAt(ntx, nty, 3);
-							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
+							float hBL = std::min(b0, t0);
+							float hBR = std::min(b1, t1);
+							float hTL = std::max(b0, t0);
+							float hTR = std::max(b1, t1);
+							if (hBL >= hTL && hBR >= hTR) return;
+							glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
+							glm::vec3 pR{ ftx + 0.5f, 0, fty - 0.5f };
+							addQuad(
+								{ pL.x, hTL, pL.z }, { pR.x, hTR, pR.z },
+								{ pR.x, hBR, pR.z }, { pL.x, hBL, pL.z },
+								{ 0, 0, -1 },
+								{ u0, wallV(hTL) }, { u1, wallV(hTR) },
+								{ u1, wallV(hBR) }, { u0, wallV(hBL) },
+								tx, ty, faceIdx);
+						};
 
-							float bL = ourF[0], bR = ourF[1];
-							float tL = std::min(nF[0], ourC[0]);
-							float tR = std::min(nF[1], ourC[1]);
-							if (bL < tL || bR < tR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx - 0.5f, 0, fty - 0.5f }, { ftx + 0.5f, 0, fty - 0.5f },
-									{ ftx + 0.5f, 0, fty - 0.5f }, { ftx - 0.5f, 0, fty - 0.5f },
-									{ 0, 0, -1 }, faceIdx);
-
-							bL = std::max(nC[0], ourF[0]); tL = ourC[0];
-							bR = std::max(nC[1], ourF[1]); tR = ourC[1];
-							if (tL > bL || tR > bR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx - 0.5f, 0, fty - 0.5f }, { ftx + 0.5f, 0, fty - 0.5f },
-									{ ftx + 0.5f, 0, fty - 0.5f }, { ftx - 0.5f, 0, fty - 0.5f },
-									{ 0, 0, -1 }, faceIdx);
-							break;
-						}
-						case FaceDir::SOUTH:
-						{
-							// Our edge: corners 3 (SW), 2 (SE)
-							ourF[0] = map.GetFloorHeightAt(tx, ty, 3);
-							ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
-							ourC[0] = map.GetCeilHeightAt(tx, ty, 3);
-							ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
-							// Neighbor's shared edge: corners 0 (NW), 1 (NE)
-							nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
-							nF[1] = map.GetFloorHeightAt(ntx, nty, 1);
-							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
-							nC[1] = map.GetCeilHeightAt(ntx, nty, 1);
-
-							float bL = ourF[0], bR = ourF[1];
-							float tL = std::min(nF[0], ourC[0]);
-							float tR = std::min(nF[1], ourC[1]);
-							if (bL < tL || bR < tR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx - 0.5f, 0, fty + 0.5f }, { ftx + 0.5f, 0, fty + 0.5f },
-									{ ftx + 0.5f, 0, fty + 0.5f }, { ftx - 0.5f, 0, fty + 0.5f },
-									{ 0, 0, 1 }, faceIdx);
-
-							bL = std::max(nC[0], ourF[0]); tL = ourC[0];
-							bR = std::max(nC[1], ourF[1]); tR = ourC[1];
-							if (tL > bL || tR > bR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx - 0.5f, 0, fty + 0.5f }, { ftx + 0.5f, 0, fty + 0.5f },
-									{ ftx + 0.5f, 0, fty + 0.5f }, { ftx - 0.5f, 0, fty + 0.5f },
-									{ 0, 0, 1 }, faceIdx);
-							break;
-						}
-						case FaceDir::EAST:
-						{
-							// Our edge: corners 1 (NE = left), 2 (SE = right)
-							ourF[0] = map.GetFloorHeightAt(tx, ty, 1);
-							ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
-							ourC[0] = map.GetCeilHeightAt(tx, ty, 1);
-							ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
-							// Neighbor's shared edge: corners 0 (NW), 3 (SW)
-							nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
-							nF[1] = map.GetFloorHeightAt(ntx, nty, 3);
-							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
-							nC[1] = map.GetCeilHeightAt(ntx, nty, 3);
-
-							float bL = ourF[0], bR = ourF[1];
-							float tL = std::min(nF[0], ourC[0]);
-							float tR = std::min(nF[1], ourC[1]);
-							if (bL < tL || bR < tR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx + 0.5f, 0, fty - 0.5f }, { ftx + 0.5f, 0, fty + 0.5f },
-									{ ftx + 0.5f, 0, fty + 0.5f }, { ftx + 0.5f, 0, fty - 0.5f },
-									{ 1, 0, 0 }, faceIdx);
-
-							bL = std::max(nC[0], ourF[0]); tL = ourC[0];
-							bR = std::max(nC[1], ourF[1]); tR = ourC[1];
-							if (tL > bL || tR > bR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx + 0.5f, 0, fty - 0.5f }, { ftx + 0.5f, 0, fty + 0.5f },
-									{ ftx + 0.5f, 0, fty + 0.5f }, { ftx + 0.5f, 0, fty - 0.5f },
-									{ 1, 0, 0 }, faceIdx);
-							break;
-						}
-						case FaceDir::WEST:
-						{
-							// Our edge: corners 0 (NW = left), 3 (SW = right)
-							ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
-							ourF[1] = map.GetFloorHeightAt(tx, ty, 3);
-							ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
-							ourC[1] = map.GetCeilHeightAt(tx, ty, 3);
-							// Neighbor's shared edge: corners 1 (NE), 2 (SE)
-							nF[0] = map.GetFloorHeightAt(ntx, nty, 1);
-							nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
-							nC[0] = map.GetCeilHeightAt(ntx, nty, 1);
-							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
-
-							float bL = ourF[0], bR = ourF[1];
-							float tL = std::min(nF[0], ourC[0]);
-							float tR = std::min(nF[1], ourC[1]);
-							if (bL < tL || bR < tR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx - 0.5f, 0, fty - 0.5f }, { ftx - 0.5f, 0, fty + 0.5f },
-									{ ftx - 0.5f, 0, fty + 0.5f }, { ftx - 0.5f, 0, fty - 0.5f },
-									{ -1, 0, 0 }, faceIdx);
-
-							bL = std::max(nC[0], ourF[0]); tL = ourC[0];
-							bR = std::max(nC[1], ourF[1]); tR = ourC[1];
-							if (tL > bL || tR > bR)
-								addWallQuad(bL, bR, tL, tR,
-									{ ftx - 0.5f, 0, fty - 0.5f }, { ftx - 0.5f, 0, fty + 0.5f },
-									{ ftx - 0.5f, 0, fty + 0.5f }, { ftx - 0.5f, 0, fty - 0.5f },
-									{ -1, 0, 0 }, faceIdx);
-							break;
-						}
-						case FaceDir::FLOOR:
-						case FaceDir::CEILING:
-						case FaceDir::COUNT:
-							break;
-						}
+						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
+						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
+						break;
 					}
+					case FaceDir::SOUTH:
+					{
+						// Our edge: corners 3 (SW = left), 2 (SE = right)
+						ourF[0] = map.GetFloorHeightAt(tx, ty, 3);
+						ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
+						ourC[0] = map.GetCeilHeightAt(tx, ty, 3);
+						ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
+						// Neighbor's shared edge: corners 0 (NW), 1 (NE)
+						nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
+						nF[1] = map.GetFloorHeightAt(ntx, nty, 1);
+						nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
+						nC[1] = map.GetCeilHeightAt(ntx, nty, 1);
+
+						auto add = [&](float b0, float b1, float t0, float t1)
+						{
+							float hBL = std::min(b0, t0);
+							float hBR = std::min(b1, t1);
+							float hTL = std::max(b0, t0);
+							float hTR = std::max(b1, t1);
+							if (hBL >= hTL && hBR >= hTR) return;
+							glm::vec3 pL{ ftx - 0.5f, 0, fty + 0.5f };
+							glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
+							addQuad(
+								{ pR.x, hTR, pR.z }, { pL.x, hTL, pL.z },
+								{ pL.x, hBL, pL.z }, { pR.x, hBR, pR.z },
+								{ 0, 0, 1 },
+								{ u1, wallV(hTR) }, { u0, wallV(hTL) },
+								{ u0, wallV(hBL) }, { u1, wallV(hBR) },
+								tx, ty, faceIdx);
+						};
+
+						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
+						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
+						break;
+					}
+					case FaceDir::EAST:
+					{
+						// Our edge: corners 1 (NE = left), 2 (SE = right)
+						ourF[0] = map.GetFloorHeightAt(tx, ty, 1);
+						ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
+						ourC[0] = map.GetCeilHeightAt(tx, ty, 1);
+						ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
+						// Neighbor's shared edge: corners 0 (NW), 3 (SW)
+						nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
+						nF[1] = map.GetFloorHeightAt(ntx, nty, 3);
+						nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
+						nC[1] = map.GetCeilHeightAt(ntx, nty, 3);
+
+						auto add = [&](float b0, float b1, float t0, float t1)
+						{
+							float hBL = std::min(b0, t0);
+							float hBR = std::min(b1, t1);
+							float hTL = std::max(b0, t0);
+							float hTR = std::max(b1, t1);
+							if (hBL >= hTL && hBR >= hTR) return;
+							glm::vec3 pL{ ftx + 0.5f, 0, fty - 0.5f };
+							glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
+							addQuad(
+								{ pL.x, hBL, pL.z }, { pL.x, hTL, pL.z },
+								{ pR.x, hTR, pR.z }, { pR.x, hBR, pR.z },
+								{ 1, 0, 0 },
+								{ u0, wallV(hBL) }, { u0, wallV(hTL) },
+								{ u1, wallV(hTR) }, { u1, wallV(hBR) },
+								tx, ty, faceIdx);
+						};
+
+						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
+						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
+						break;
+					}
+					case FaceDir::WEST:
+					{
+						// Our edge: corners 0 (NW = left), 3 (SW = right)
+						ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
+						ourF[1] = map.GetFloorHeightAt(tx, ty, 3);
+						ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
+						ourC[1] = map.GetCeilHeightAt(tx, ty, 3);
+						// Neighbor's shared edge: corners 1 (NE), 2 (SE)
+						nF[0] = map.GetFloorHeightAt(ntx, nty, 1);
+						nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
+						nC[0] = map.GetCeilHeightAt(ntx, nty, 1);
+						nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
+
+						auto add = [&](float b0, float b1, float t0, float t1)
+						{
+							float hBL = std::min(b0, t0);
+							float hBR = std::min(b1, t1);
+							float hTL = std::max(b0, t0);
+							float hTR = std::max(b1, t1);
+							if (hBL >= hTL && hBR >= hTR) return;
+							glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
+							glm::vec3 pR{ ftx - 0.5f, 0, fty + 0.5f };
+							addQuad(
+								{ pR.x, hBR, pR.z }, { pR.x, hTR, pR.z },
+								{ pL.x, hTL, pL.z }, { pL.x, hBL, pL.z },
+								{ -1, 0, 0 },
+								{ u1, wallV(hBR) }, { u1, wallV(hTR) },
+								{ u0, wallV(hTL) }, { u0, wallV(hBL) },
+								tx, ty, faceIdx);
+						};
+
+						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
+						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
+						break;
+					}
+					case FaceDir::FLOOR:
+					case FaceDir::CEILING:
+					case FaceDir::COUNT:
+						break;
+					}
+				}
 				};
 
 				uint8_t wt = isHighlighted(tx, ty) ? highlightTex : tile.wallTex;
