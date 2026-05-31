@@ -8,40 +8,88 @@
 
 namespace tile
 {
-	enum class TileSpaceType : uint8_t
-	{
-		EMPTY = 0,
-		SOLID,
-	};
+    inline constexpr uint8_t TEX_NOT_SET = 0xFF;
 
-	enum class FaceDir : uint8_t
-	{
-		FLOOR = 0,
-		CEILING,
-		NORTH,
-		SOUTH,
-		EAST,
-		WEST,
-		COUNT
-	};
+    enum class TileSpaceType : uint8_t
+    {
+        EMPTY = 0,
+        SOLID,
+    };
 
-	inline constexpr const char* FaceNames[] =
-	{ "Floor", "Ceiling", "North", "South", "East", "West" };
+    enum class FaceDir : uint8_t
+    {
+        FLOOR = 0,
+        CEILING,
+        NORTH,
+        SOUTH,
+        EAST,
+        WEST,
+        COUNT
+    };
 
-	struct Tile final
-	{
-		TileSpaceType spaceType = TileSpaceType::EMPTY;
-		bool renderSolid = false;
-		uint8_t wallTex   = 0;
-		uint8_t floorTex  = 1;
-		uint8_t ceilTex   = 2;
+    inline constexpr const char* FaceNames[] =
+    { "Floor", "Ceiling", "North", "South", "East", "West" };
 
-		float floorHeight = -0.5f;
-		float ceilHeight  =  0.5f;
+    struct Tile final
+    {
+        TileSpaceType spaceType = TileSpaceType::EMPTY;
+        bool renderSolid = false;
 
-		float slopeNW = 0.0f, slopeNE = 0.0f, slopeSE = 0.0f, slopeSW = 0.0f;
-		float ceilSlopeNW = 0.0f, ceilSlopeNE = 0.0f, ceilSlopeSE = 0.0f, ceilSlopeSW = 0.0f;
-	};
+        // General textures
+        uint8_t wallTex       = 0;  // Upper wall (also fallback for lower)
+        uint8_t wallBottomTex = 0;  // Lower wall
+        uint8_t floorTex      = 1;
+        uint8_t ceilTex       = 2;
+
+        // Per-direction upper wall overrides (TEX_NOT_SET = use wallTex)
+        uint8_t northTex = TEX_NOT_SET;
+        uint8_t southTex = TEX_NOT_SET;
+        uint8_t eastTex  = TEX_NOT_SET;
+        uint8_t westTex  = TEX_NOT_SET;
+
+        // Per-direction lower wall overrides (TEX_NOT_SET = use wallBottomTex → wallTex)
+        uint8_t bottomNorthTex = TEX_NOT_SET;
+        uint8_t bottomSouthTex = TEX_NOT_SET;
+        uint8_t bottomEastTex  = TEX_NOT_SET;
+        uint8_t bottomWestTex  = TEX_NOT_SET;
+
+        float floorHeight = -0.5f;
+        float ceilHeight  =  0.5f;
+
+        float slopeNW = 0.0f, slopeNE = 0.0f, slopeSE = 0.0f, slopeSW = 0.0f;
+        float ceilSlopeNW = 0.0f, ceilSlopeNE = 0.0f, ceilSlopeSE = 0.0f, ceilSlopeSW = 0.0f;
+
+        [[nodiscard]] uint8_t GetWallTex(FaceDir dir) const noexcept
+        {
+            switch (dir)
+            {
+            case FaceDir::NORTH: return northTex != TEX_NOT_SET ? northTex : wallTex;
+            case FaceDir::SOUTH: return southTex != TEX_NOT_SET ? southTex : wallTex;
+            case FaceDir::EAST:  return eastTex  != TEX_NOT_SET ? eastTex  : wallTex;
+            case FaceDir::WEST:  return westTex  != TEX_NOT_SET ? westTex  : wallTex;
+            default: return wallTex;
+            }
+        }
+
+        [[nodiscard]] uint8_t GetWallBottomTex(FaceDir dir) const noexcept
+        {
+            // Per-direction lower override
+            uint8_t pd = wallTex;
+            switch (dir)
+            {
+            case FaceDir::NORTH: pd = bottomNorthTex; break;
+            case FaceDir::SOUTH: pd = bottomSouthTex; break;
+            case FaceDir::EAST:  pd = bottomEastTex;  break;
+            case FaceDir::WEST:  pd = bottomWestTex;  break;
+            default: break;
+            }
+            if (pd != TEX_NOT_SET) return pd;
+            // Fallback: general lower wall texture
+            if (wallBottomTex != TEX_NOT_SET) return wallBottomTex;
+            // Ultimate fallback: upper wall texture
+            return GetWallTex(dir);
+        }
+    };
 
 	struct HitInfo final
 	{

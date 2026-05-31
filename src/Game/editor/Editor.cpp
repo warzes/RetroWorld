@@ -50,10 +50,19 @@ float g_dragCeilSlopes[4] = {};
 float g_heightStep = 0.1f;
 int   g_hoverCPIdx = -1;
 
-int  g_brushWallTex   = 0;
-int  g_brushFloorTex  = 1;
-int  g_brushCeilTex   = 2;
-bool g_brushSolid     = true;
+int  g_brushWallTex       = 0;
+int  g_brushWallBottomTex = 0;
+int  g_brushFloorTex      = 1;
+int  g_brushCeilTex       = 2;
+int  g_brushNorthTex      = -1;
+int  g_brushSouthTex      = -1;
+int  g_brushEastTex       = -1;
+int  g_brushWestTex       = -1;
+int  g_brushBottomNorthTex = -1;
+int  g_brushBottomSouthTex = -1;
+int  g_brushBottomEastTex  = -1;
+int  g_brushBottomWestTex  = -1;
+bool g_brushSolid         = true;
 
 int      g_mapWidth  = 20;
 int      g_mapHeight = 20;

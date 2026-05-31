@@ -831,7 +831,7 @@ void GameUpdate()
 	if ((input::IsKeyDown(KeyboardType::KEY_ENTER) || input::IsKeyDown(KeyboardType::KEY_KP_ENTER)) && g_selTX >= 0)
 	{
 		int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
-		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
+		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTY : g_selTY;
 		auto& refTile = g_tileMap.Get(refTX, refTY);
 		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
 			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
@@ -843,9 +843,18 @@ void GameUpdate()
 				{
 					tt.spaceType   = tile::TileSpaceType::SOLID;
 					tt.renderSolid = true;
-					tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
-					tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
-					tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+					tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
+					tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
+					tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
+					tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+					tt.northTex       = (g_brushNorthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushNorthTex);
+					tt.southTex       = (g_brushSouthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushSouthTex);
+					tt.eastTex        = (g_brushEastTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushEastTex);
+					tt.westTex        = (g_brushWestTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushWestTex);
+					tt.bottomNorthTex = (g_brushBottomNorthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomNorthTex);
+					tt.bottomSouthTex = (g_brushBottomSouthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomSouthTex);
+					tt.bottomEastTex  = (g_brushBottomEastTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomEastTex);
+					tt.bottomWestTex  = (g_brushBottomWestTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomWestTex);
 				}
 				// Apply anchor tile's heights and slopes to ALL tiles in selection
 				tt.floorHeight  = refTile.floorHeight;
@@ -883,7 +892,7 @@ void GameUpdate()
 		if (g_editMode == EditMode::TILE && g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY) && g_scene->activeCamera)
 		{
 			int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
-			int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
+			int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTY : g_selTY;
 			auto& t = g_tileMap.Get(refTX, refTY);
 			if (t.spaceType == tile::TileSpaceType::SOLID)
 			{
@@ -972,7 +981,7 @@ void GameUpdate()
 				else // PLANE
 				{
 					int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
-					int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
+					int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTY : g_selTY;
 					auto& t = g_tileMap.Get(refTX, refTY);
 					g_draggingCP = true;
 					g_dragCPType = g_hoverCPIdx;
@@ -1398,7 +1407,7 @@ void DrawDebugOverlay()
 	if (g_heightEditMode == HeightEditMode::PLANE)
 	{
 		int refTX = (g_anchorTX >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTX : g_selTX;
-		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTY, g_anchorTY)) ? g_anchorTY : g_selTY;
+		int refTY = (g_anchorTY >= 0 && g_tileMap.InBounds(g_anchorTX, g_anchorTY)) ? g_anchorTY : g_selTY;
 		// Bounding-box wireframe for the whole selection
 		auto& t = g_tileMap.Get(refTX, refTY);
 		float fx = static_cast<float>(g_selTX);

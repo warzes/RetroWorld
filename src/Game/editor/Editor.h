@@ -81,8 +81,17 @@ extern float g_heightStep;
 extern int  g_hoverCPIdx;  // -1 = none
 
 extern int  g_brushWallTex;
+extern int  g_brushWallBottomTex;
 extern int  g_brushFloorTex;
 extern int  g_brushCeilTex;
+extern int  g_brushNorthTex;
+extern int  g_brushSouthTex;
+extern int  g_brushEastTex;
+extern int  g_brushWestTex;
+extern int  g_brushBottomNorthTex;
+extern int  g_brushBottomSouthTex;
+extern int  g_brushBottomEastTex;
+extern int  g_brushBottomWestTex;
 extern bool g_brushSolid;
 
 extern int      g_mapWidth;

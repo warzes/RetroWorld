@@ -1,8 +1,10 @@
 #include "stdafx.h"
 #include "TileMeshGen.h"
 #include "TileMap.h"
+#include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <utility>
 #include <glm/glm.hpp>
 
 namespace tile
@@ -141,23 +143,29 @@ namespace tile
 						tx, ty, static_cast<int>(FaceDir::CEILING));
 				}
 
-				// Walls (repeating atlas: column = ti, V = height-proportional)
+				// Walls — per-direction upper/lower textures
 				float ftx = static_cast<float>(tx);
 				float fty = static_cast<float>(ty);
-				auto addWallIf = [&](int ntx, int nty, FaceDir dir, uint8_t tex)
+
+				auto texUV = [&](uint8_t tex) -> std::pair<float, float>
+				{
+					return { static_cast<float>(tex) * invRepDim,
+							 static_cast<float>(tex) * invRepDim + invRepDim };
+				};
+				auto wallV = [&](float worldY) noexcept -> float {
+					return (-worldY + wallVBias) / wallVScale;
+				};
+
+				auto addWallIf = [&](int ntx, int nty, FaceDir dir)
 				{
 					bool neighborInBounds = map.InBounds(ntx, nty);
 					const Tile* neighbor = neighborInBounds ? &map.Get(ntx, nty) : nullptr;
 					bool neighborIsSolid = neighbor && neighbor->spaceType == TileSpaceType::SOLID;
 
-					float u0 = static_cast<float>(tex) * invRepDim;
-					float u1 = u0 + invRepDim;
-
-					auto wallV = [&](float worldY) noexcept -> float {
-						return (-worldY + wallVBias) / wallVScale;
-					};
-
-
+					uint8_t upperTex = isHighlighted(tx, ty) ? highlightTex : tile.GetWallTex(dir);
+					uint8_t lowerTex = isHighlighted(tx, ty) ? highlightTex : tile.GetWallBottomTex(dir);
+					int faceIdx = static_cast<int>(dir);
+					auto [u0, u1] = texUV(upperTex);
 
 					if (!neighborIsSolid)
 					{
@@ -180,7 +188,7 @@ namespace tile
 								{ 0, 0, -1 },
 								{ u0, wallV(fNW) }, { u1, wallV(fNE) },
 								{ u1, wallV(cNE) }, { u0, wallV(cNW) },
-								tx, ty, static_cast<int>(FaceDir::NORTH));
+								tx, ty, faceIdx);
 							break;
 
 						case FaceDir::SOUTH:
@@ -196,7 +204,7 @@ namespace tile
 								{ 0, 0, 1 },
 								{ u1, wallV(fSE) }, { u0, wallV(fSW) },
 								{ u0, wallV(cSW) }, { u1, wallV(cSE) },
-								tx, ty, static_cast<int>(FaceDir::SOUTH));
+								tx, ty, faceIdx);
 							break;
 
 						case FaceDir::EAST:
@@ -210,9 +218,9 @@ namespace tile
 								{ ftx + 0.5f, cNE, fty - 0.5f },
 								{ ftx + 0.5f, fNE, fty - 0.5f },
 								{ 1, 0, 0 },
-								{ u1, wallV(fSE) }, { u1, wallV(cSE) },
-								{ u0, wallV(cNE) }, { u0, wallV(fNE) },
-								tx, ty, static_cast<int>(FaceDir::EAST));
+								{ u0, wallV(fSE) }, { u0, wallV(cSE) },
+								{ u1, wallV(cNE) }, { u1, wallV(fNE) },
+								tx, ty, faceIdx);
 							break;
 
 						case FaceDir::WEST:
@@ -228,176 +236,147 @@ namespace tile
 								{ -1, 0, 0 },
 								{ u0, wallV(fNW) }, { u0, wallV(cNW) },
 								{ u1, wallV(cSW) }, { u1, wallV(fSW) },
-								tx, ty, static_cast<int>(FaceDir::WEST));
+								tx, ty, faceIdx);
 							break;
 
-						case FaceDir::FLOOR:
-						case FaceDir::CEILING:
-						case FaceDir::COUNT:
-							break;
+						default: break;
 						}
 					}
-				else
-				{
-					// Solid neighbor: render only non-overlapping portions (INWARD-facing)
-					float ourF[2], ourC[2], nF[2], nC[2];
-
-					auto faceIdx = static_cast<int>(dir);
-					switch (dir)
+					else
 					{
-					case FaceDir::NORTH:
-					{
-						// Our edge: corners 0 (NW = left), 1 (NE = right)
-						ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
-						ourF[1] = map.GetFloorHeightAt(tx, ty, 1);
-						ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
-						ourC[1] = map.GetCeilHeightAt(tx, ty, 1);
-						// Neighbor's shared edge: corners 3 (SW), 2 (SE)
-						nF[0] = map.GetFloorHeightAt(ntx, nty, 3);
-						nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
-						nC[0] = map.GetCeilHeightAt(ntx, nty, 3);
-						nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
+						// Solid neighbor: render only non-overlapping portions
+						float ourF[2], ourC[2], nF[2], nC[2];
 
-						auto add = [&](float b0, float b1, float t0, float t1)
+						auto addSeg = [&](float b0, float b1, float t0, float t1, uint8_t tex)
 						{
 							float hBL = std::min(b0, t0);
 							float hBR = std::min(b1, t1);
 							float hTL = std::max(b0, t0);
 							float hTR = std::max(b1, t1);
 							if (hBL >= hTL && hBR >= hTR) return;
-							glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
-							glm::vec3 pR{ ftx + 0.5f, 0, fty - 0.5f };
-							addQuad(
-								{ pL.x, hTL, pL.z }, { pR.x, hTR, pR.z },
-								{ pR.x, hBR, pR.z }, { pL.x, hBL, pL.z },
-								{ 0, 0, -1 },
-								{ u0, wallV(hTL) }, { u1, wallV(hTR) },
-								{ u1, wallV(hBR) }, { u0, wallV(hBL) },
-								tx, ty, faceIdx);
+							auto [u0, u1] = texUV(tex);
+
+							switch (dir)
+							{
+							case FaceDir::NORTH:
+							{
+								glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
+								glm::vec3 pR{ ftx + 0.5f, 0, fty - 0.5f };
+								addQuad(
+									{ pL.x, hTL, pL.z }, { pR.x, hTR, pR.z },
+									{ pR.x, hBR, pR.z }, { pL.x, hBL, pL.z },
+									{ 0, 0, -1 },
+									{ u0, wallV(hTL) }, { u1, wallV(hTR) },
+									{ u1, wallV(hBR) }, { u0, wallV(hBL) },
+									tx, ty, faceIdx);
+								break;
+							}
+							case FaceDir::SOUTH:
+							{
+								glm::vec3 pL{ ftx - 0.5f, 0, fty + 0.5f };
+								glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
+								addQuad(
+									{ pR.x, hTR, pR.z }, { pL.x, hTL, pL.z },
+									{ pL.x, hBL, pL.z }, { pR.x, hBR, pR.z },
+									{ 0, 0, 1 },
+									{ u1, wallV(hTR) }, { u0, wallV(hTL) },
+									{ u0, wallV(hBL) }, { u1, wallV(hBR) },
+									tx, ty, faceIdx);
+								break;
+							}
+							case FaceDir::EAST:
+							{
+								glm::vec3 pL{ ftx + 0.5f, 0, fty - 0.5f };
+								glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
+								addQuad(
+									{ pL.x, hBL, pL.z }, { pL.x, hTL, pL.z },
+									{ pR.x, hTR, pR.z }, { pR.x, hBR, pR.z },
+									{ 1, 0, 0 },
+									{ u0, wallV(hBL) }, { u0, wallV(hTL) },
+									{ u1, wallV(hTR) }, { u1, wallV(hBR) },
+									tx, ty, faceIdx);
+								break;
+							}
+							case FaceDir::WEST:
+							{
+								glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
+								glm::vec3 pR{ ftx - 0.5f, 0, fty + 0.5f };
+								addQuad(
+									{ pR.x, hBR, pR.z }, { pR.x, hTR, pR.z },
+									{ pL.x, hTL, pL.z }, { pL.x, hBL, pL.z },
+									{ -1, 0, 0 },
+									{ u1, wallV(hBR) }, { u1, wallV(hTR) },
+									{ u0, wallV(hTL) }, { u0, wallV(hBL) },
+									tx, ty, faceIdx);
+								break;
+							}
+							default: break;
+							}
 						};
 
-						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
-						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
-						break;
-					}
-					case FaceDir::SOUTH:
-					{
-						// Our edge: corners 3 (SW = left), 2 (SE = right)
-						ourF[0] = map.GetFloorHeightAt(tx, ty, 3);
-						ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
-						ourC[0] = map.GetCeilHeightAt(tx, ty, 3);
-						ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
-						// Neighbor's shared edge: corners 0 (NW), 1 (NE)
-						nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
-						nF[1] = map.GetFloorHeightAt(ntx, nty, 1);
-						nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
-						nC[1] = map.GetCeilHeightAt(ntx, nty, 1);
-
-						auto add = [&](float b0, float b1, float t0, float t1)
+						switch (dir)
 						{
-							float hBL = std::min(b0, t0);
-							float hBR = std::min(b1, t1);
-							float hTL = std::max(b0, t0);
-							float hTR = std::max(b1, t1);
-							if (hBL >= hTL && hBR >= hTR) return;
-							glm::vec3 pL{ ftx - 0.5f, 0, fty + 0.5f };
-							glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
-							addQuad(
-								{ pR.x, hTR, pR.z }, { pL.x, hTL, pL.z },
-								{ pL.x, hBL, pL.z }, { pR.x, hBR, pR.z },
-								{ 0, 0, 1 },
-								{ u1, wallV(hTR) }, { u0, wallV(hTL) },
-								{ u0, wallV(hBL) }, { u1, wallV(hBR) },
-								tx, ty, faceIdx);
-						};
+						case FaceDir::NORTH:
+							ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
+							ourF[1] = map.GetFloorHeightAt(tx, ty, 1);
+							ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
+							ourC[1] = map.GetCeilHeightAt(tx, ty, 1);
+							nF[0] = map.GetFloorHeightAt(ntx, nty, 3);
+							nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
+							nC[0] = map.GetCeilHeightAt(ntx, nty, 3);
+							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
+							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							break;
 
-						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
-						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
-						break;
+						case FaceDir::SOUTH:
+							ourF[0] = map.GetFloorHeightAt(tx, ty, 3);
+							ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
+							ourC[0] = map.GetCeilHeightAt(tx, ty, 3);
+							ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
+							nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
+							nF[1] = map.GetFloorHeightAt(ntx, nty, 1);
+							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
+							nC[1] = map.GetCeilHeightAt(ntx, nty, 1);
+							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							break;
+
+						case FaceDir::EAST:
+							ourF[0] = map.GetFloorHeightAt(tx, ty, 1);
+							ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
+							ourC[0] = map.GetCeilHeightAt(tx, ty, 1);
+							ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
+							nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
+							nF[1] = map.GetFloorHeightAt(ntx, nty, 3);
+							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
+							nC[1] = map.GetCeilHeightAt(ntx, nty, 3);
+							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							break;
+
+						case FaceDir::WEST:
+							ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
+							ourF[1] = map.GetFloorHeightAt(tx, ty, 3);
+							ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
+							ourC[1] = map.GetCeilHeightAt(tx, ty, 3);
+							nF[0] = map.GetFloorHeightAt(ntx, nty, 1);
+							nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
+							nC[0] = map.GetCeilHeightAt(ntx, nty, 1);
+							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
+							addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
+							addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
+							break;
+
+						default: break;
+						}
 					}
-					case FaceDir::EAST:
-					{
-						// Our edge: corners 1 (NE = left), 2 (SE = right)
-						ourF[0] = map.GetFloorHeightAt(tx, ty, 1);
-						ourF[1] = map.GetFloorHeightAt(tx, ty, 2);
-						ourC[0] = map.GetCeilHeightAt(tx, ty, 1);
-						ourC[1] = map.GetCeilHeightAt(tx, ty, 2);
-						// Neighbor's shared edge: corners 0 (NW), 3 (SW)
-						nF[0] = map.GetFloorHeightAt(ntx, nty, 0);
-						nF[1] = map.GetFloorHeightAt(ntx, nty, 3);
-						nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
-						nC[1] = map.GetCeilHeightAt(ntx, nty, 3);
-
-						auto add = [&](float b0, float b1, float t0, float t1)
-						{
-							float hBL = std::min(b0, t0);
-							float hBR = std::min(b1, t1);
-							float hTL = std::max(b0, t0);
-							float hTR = std::max(b1, t1);
-							if (hBL >= hTL && hBR >= hTR) return;
-							glm::vec3 pL{ ftx + 0.5f, 0, fty - 0.5f };
-							glm::vec3 pR{ ftx + 0.5f, 0, fty + 0.5f };
-							addQuad(
-								{ pL.x, hBL, pL.z }, { pL.x, hTL, pL.z },
-								{ pR.x, hTR, pR.z }, { pR.x, hBR, pR.z },
-								{ 1, 0, 0 },
-								{ u0, wallV(hBL) }, { u0, wallV(hTL) },
-								{ u1, wallV(hTR) }, { u1, wallV(hBR) },
-								tx, ty, faceIdx);
-						};
-
-						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
-						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
-						break;
-					}
-					case FaceDir::WEST:
-					{
-						// Our edge: corners 0 (NW = left), 3 (SW = right)
-						ourF[0] = map.GetFloorHeightAt(tx, ty, 0);
-						ourF[1] = map.GetFloorHeightAt(tx, ty, 3);
-						ourC[0] = map.GetCeilHeightAt(tx, ty, 0);
-						ourC[1] = map.GetCeilHeightAt(tx, ty, 3);
-						// Neighbor's shared edge: corners 1 (NE), 2 (SE)
-						nF[0] = map.GetFloorHeightAt(ntx, nty, 1);
-						nF[1] = map.GetFloorHeightAt(ntx, nty, 2);
-						nC[0] = map.GetCeilHeightAt(ntx, nty, 1);
-						nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
-
-						auto add = [&](float b0, float b1, float t0, float t1)
-						{
-							float hBL = std::min(b0, t0);
-							float hBR = std::min(b1, t1);
-							float hTL = std::max(b0, t0);
-							float hTR = std::max(b1, t1);
-							if (hBL >= hTL && hBR >= hTR) return;
-							glm::vec3 pL{ ftx - 0.5f, 0, fty - 0.5f };
-							glm::vec3 pR{ ftx - 0.5f, 0, fty + 0.5f };
-							addQuad(
-								{ pR.x, hBR, pR.z }, { pR.x, hTR, pR.z },
-								{ pL.x, hTL, pL.z }, { pL.x, hBL, pL.z },
-								{ -1, 0, 0 },
-								{ u1, wallV(hBR) }, { u1, wallV(hTR) },
-								{ u0, wallV(hTL) }, { u0, wallV(hBL) },
-								tx, ty, faceIdx);
-						};
-
-						add(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]));
-						add(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1]);
-						break;
-					}
-					case FaceDir::FLOOR:
-					case FaceDir::CEILING:
-					case FaceDir::COUNT:
-						break;
-					}
-				}
 				};
 
-				uint8_t wt = isHighlighted(tx, ty) ? highlightTex : tile.wallTex;
-				addWallIf(tx, ty - 1, FaceDir::NORTH, wt);
-				addWallIf(tx, ty + 1, FaceDir::SOUTH, wt);
-				addWallIf(tx + 1, ty, FaceDir::EAST, wt);
-				addWallIf(tx - 1, ty, FaceDir::WEST, wt);
+				addWallIf(tx, ty - 1, FaceDir::NORTH);
+				addWallIf(tx, ty + 1, FaceDir::SOUTH);
+				addWallIf(tx + 1, ty, FaceDir::EAST);
+				addWallIf(tx - 1, ty, FaceDir::WEST);
 			}
 		}
 	}

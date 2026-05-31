@@ -70,9 +70,18 @@ void GameRenderUI()
 							if (tt.spaceType == tile::TileSpaceType::SOLID) continue;
 							tt.spaceType   = tile::TileSpaceType::SOLID;
 							tt.renderSolid = true;
-							tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
-							tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
-							tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+							tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
+							tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
+							tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
+							tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+							tt.northTex       = (g_brushNorthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushNorthTex);
+							tt.southTex       = (g_brushSouthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushSouthTex);
+							tt.eastTex        = (g_brushEastTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushEastTex);
+							tt.westTex        = (g_brushWestTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushWestTex);
+							tt.bottomNorthTex = (g_brushBottomNorthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomNorthTex);
+							tt.bottomSouthTex = (g_brushBottomSouthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomSouthTex);
+							tt.bottomEastTex  = (g_brushBottomEastTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomEastTex);
+							tt.bottomWestTex  = (g_brushBottomWestTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomWestTex);
 						}
 					g_dirtyMesh = true;
 				}
@@ -92,6 +101,9 @@ void GameRenderUI()
 							tt.ceilHeight  =  0.5f;
 							tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
 							tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
+							tt.wallBottomTex = 0;
+							tt.northTex = tt.southTex = tt.eastTex = tt.westTex = tile::TEX_NOT_SET;
+							tt.bottomNorthTex = tt.bottomSouthTex = tt.bottomEastTex = tt.bottomWestTex = tile::TEX_NOT_SET;
 						}
 					g_dirtyMesh = true;
 				}
@@ -120,6 +132,9 @@ void GameRenderUI()
 							tt.ceilHeight  =  0.5f;
 							tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
 							tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
+							tt.wallBottomTex = 0;
+							tt.northTex = tt.southTex = tt.eastTex = tt.westTex = tile::TEX_NOT_SET;
+							tt.bottomNorthTex = tt.bottomSouthTex = tt.bottomEastTex = tt.bottomWestTex = tile::TEX_NOT_SET;
 						}
 					g_dirtyMesh = true;
 				}
@@ -290,9 +305,25 @@ void GameRenderUI()
 
 		ImGui::Text("Brush:");
 		ImGui::Checkbox("Solid", &g_brushSolid);
-		ImGui::SliderInt("Wall Tex",  &g_brushWallTex,  0, 63);
-		ImGui::SliderInt("Floor Tex", &g_brushFloorTex, 0, 63);
-		ImGui::SliderInt("Ceil Tex",  &g_brushCeilTex,  0, 63);
+		ImGui::SliderInt("Wall Tex",       &g_brushWallTex,       0, 63);
+		ImGui::SliderInt("Wall Bottom Tex",&g_brushWallBottomTex, 0, 63);
+		ImGui::SliderInt("Floor Tex",      &g_brushFloorTex,      0, 63);
+		ImGui::SliderInt("Ceil Tex",       &g_brushCeilTex,       0, 63);
+
+		if (ImGui::CollapsingHeader("Per-Direction Overrides"))
+		{
+			ImGui::Text("Upper (-1 = use Wall Tex)");
+			ImGui::SliderInt("North", &g_brushNorthTex, -1, 63);
+			ImGui::SliderInt("South", &g_brushSouthTex, -1, 63);
+			ImGui::SliderInt("East",  &g_brushEastTex,  -1, 63);
+			ImGui::SliderInt("West",  &g_brushWestTex,  -1, 63);
+			ImGui::Separator();
+			ImGui::Text("Lower (-1 = use Wall Bottom Tex -> Wall Tex)");
+			ImGui::SliderInt("Bottom North", &g_brushBottomNorthTex, -1, 63);
+			ImGui::SliderInt("Bottom South", &g_brushBottomSouthTex, -1, 63);
+			ImGui::SliderInt("Bottom East",  &g_brushBottomEastTex,  -1, 63);
+			ImGui::SliderInt("Bottom West",  &g_brushBottomWestTex,  -1, 63);
+		}
 
 		ImGui::Separator();
 		ImGui::Text("Click tile to select.");
@@ -334,6 +365,51 @@ void GameRenderUI()
 						tt.wallTex = static_cast<uint8_t>(wt);
 					}
 				g_dirtyMesh = true;
+			}
+			{
+				int wbt = t.wallBottomTex;
+				if (ImGui::SliderInt("Wall Bottom", &wbt, 0, 63))
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+							tt.wallBottomTex = static_cast<uint8_t>(wbt);
+						}
+					g_dirtyMesh = true;
+				}
+			}
+			if (ImGui::CollapsingHeader("Per-Dir Overrides"))
+			{
+				auto dirSlider = [&](const char* label, uint8_t& field)
+				{
+					int val = (field == tile::TEX_NOT_SET) ? -1 : static_cast<int>(field);
+					if (ImGui::SliderInt(label, &val, -1, 63))
+					{
+						for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+							for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+							{
+								if (!g_tileMap.InBounds(tx, ty)) continue;
+								auto& tt = g_tileMap.Get(tx, ty);
+								if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+								field = (val < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(val);
+							}
+						g_dirtyMesh = true;
+					}
+				};
+				ImGui::Text("Upper (-1 = use Wall Tex)");
+				dirSlider("North", t.northTex);
+				dirSlider("South", t.southTex);
+				dirSlider("East",  t.eastTex);
+				dirSlider("West",  t.westTex);
+				ImGui::Separator();
+				ImGui::Text("Lower (-1 = Wall Bottom -> Wall Tex)");
+				dirSlider("Bottom North", t.bottomNorthTex);
+				dirSlider("Bottom South", t.bottomSouthTex);
+				dirSlider("Bottom East",  t.bottomEastTex);
+				dirSlider("Bottom West",  t.bottomWestTex);
 			}
 			if (ImGui::SliderInt("Floor", &ft, 0, 63))
 			{
@@ -381,6 +457,9 @@ void GameRenderUI()
 						tt.ceilHeight  =  0.5f;
 						tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
 						tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
+						tt.wallBottomTex = 0;
+						tt.northTex = tt.southTex = tt.eastTex = tt.westTex = tile::TEX_NOT_SET;
+						tt.bottomNorthTex = tt.bottomSouthTex = tt.bottomEastTex = tt.bottomWestTex = tile::TEX_NOT_SET;
 					}
 				g_dirtyMesh = true;
 			}
@@ -394,9 +473,18 @@ void GameRenderUI()
 						auto& tt = g_tileMap.Get(tx, ty);
 						tt.spaceType   = tile::TileSpaceType::SOLID;
 						tt.renderSolid = true;
-						tt.wallTex     = static_cast<uint8_t>(g_brushWallTex);
-						tt.floorTex    = static_cast<uint8_t>(g_brushFloorTex);
-						tt.ceilTex     = static_cast<uint8_t>(g_brushCeilTex);
+						tt.wallTex       = static_cast<uint8_t>(g_brushWallTex);
+						tt.wallBottomTex = static_cast<uint8_t>(g_brushWallBottomTex);
+						tt.floorTex      = static_cast<uint8_t>(g_brushFloorTex);
+						tt.ceilTex       = static_cast<uint8_t>(g_brushCeilTex);
+						tt.northTex       = (g_brushNorthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushNorthTex);
+						tt.southTex       = (g_brushSouthTex      < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushSouthTex);
+						tt.eastTex        = (g_brushEastTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushEastTex);
+						tt.westTex        = (g_brushWestTex       < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushWestTex);
+						tt.bottomNorthTex = (g_brushBottomNorthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomNorthTex);
+						tt.bottomSouthTex = (g_brushBottomSouthTex < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomSouthTex);
+						tt.bottomEastTex  = (g_brushBottomEastTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomEastTex);
+						tt.bottomWestTex  = (g_brushBottomWestTex  < 0) ? tile::TEX_NOT_SET : static_cast<uint8_t>(g_brushBottomWestTex);
 					}
 				g_dirtyMesh = true;
 			}
@@ -447,7 +535,7 @@ void GameRenderUI()
 			else
 			{
 				int wt = t.wallTex;
-				if (ImGui::SliderInt("Wall Texture", &wt, 0, 63))
+				if (ImGui::SliderInt("Wall Texture (Upper)", &wt, 0, 63))
 				{
 					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
 						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
@@ -456,6 +544,19 @@ void GameRenderUI()
 							auto& tt = g_tileMap.Get(tx, ty);
 							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
 							tt.wallTex = static_cast<uint8_t>(wt);
+						}
+					g_dirtyMesh = true;
+				}
+				int wbt = t.wallBottomTex;
+				if (ImGui::SliderInt("Wall Texture (Lower)", &wbt, 0, 63))
+				{
+					for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+						{
+							if (!g_tileMap.InBounds(tx, ty)) continue;
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+							tt.wallBottomTex = static_cast<uint8_t>(wbt);
 						}
 					g_dirtyMesh = true;
 				}
