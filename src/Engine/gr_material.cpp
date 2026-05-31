@@ -59,5 +59,9 @@ void gr::Material::Bind(const gpu::program::ShaderProgramPtr& shader)
 	bindTex(normalMap, "u_normalMap", "u_hasNormalMap");
 	bindTex(specularMap, "u_specularMap", "u_hasSpecularMap");
 	bindTex(emissiveMap, "u_emissiveMap", "u_hasEmissiveMap");
+
+	// Wall atlas decode flag
+	auto locWall = gpu::program::GetUniformLocation(shader, "u_isWallAtlas");
+	gpu::program::SetUniform(shader, locWall, isWallAtlas);
 }
 //=============================================================================

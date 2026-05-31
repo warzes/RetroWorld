@@ -355,13 +355,17 @@ layout(binding = 1) uniform sampler2D u_normalMap;
 layout(binding = 2) uniform sampler2D u_specularMap;
 layout(binding = 3) uniform sampler2D u_emissiveMap;
 
+// Wall atlas grid decoding
+uniform bool       u_isWallAtlas;
+const float ATLAS_DIM = 8.0;
+
 // Shadow
 uniform bool       u_receiveShadow;
-uniform sampler2D  u_shadowMap;
+layout(binding = 4) uniform sampler2D  u_shadowMap;
 uniform float      u_shadowMapSize;
 
 // Point light shadow
-uniform samplerCube u_pointShadowMap;
+layout(binding = 5) uniform samplerCube u_pointShadowMap;
 uniform float       u_pointShadowMapSize;
 
 layout(location = 0) out vec4 o_color;
@@ -487,11 +491,25 @@ void main()
 	vec3 ambient  = u_ambientColor;
 	vec3 normal = normalize(v_worldNormal);
 
-	if (u_hasAlbedoMap)   albedo   *= texture(u_albedoMap,   v_texcoord).rgb;
-	if (u_hasSpecularMap) specular *= texture(u_specularMap, v_texcoord).rgb;
+	// Decode grid atlas UV: U encodes tile index + within-tile fraction,
+	// V uses fract() for seamless repeat within tile's row
+	vec2 final_uv = v_texcoord;
+	if (u_isWallAtlas)
+	{
+		float u_raw = v_texcoord.x;
+		float ti_f = floor(u_raw);
+		float u_in_tile = fract(u_raw);
+		float col = mod(ti_f, ATLAS_DIM);
+		float row = floor(ti_f / ATLAS_DIM);
+		float v_raw = v_texcoord.y;
+		float v_in_tile = fract(v_raw);
+		final_uv = vec2((col + u_in_tile) / ATLAS_DIM, (row + v_in_tile) / ATLAS_DIM);
+	}
+	if (u_hasAlbedoMap)   albedo   *= texture(u_albedoMap,   final_uv).rgb;
+	if (u_hasSpecularMap) specular *= texture(u_specularMap, final_uv).rgb;
 	if (u_hasNormalMap)
 	{
-		vec3 n = texture(u_normalMap, v_texcoord).xyz * 2.0 - 1.0;
+		vec3 n = texture(u_normalMap, final_uv).xyz * 2.0 - 1.0;
 		// Simple tangent-space normal: derive TBN from screen-space derivatives
 		vec3 dx = dFdx(v_worldPos);
 		vec3 dy = dFdy(v_worldPos);
@@ -573,17 +591,17 @@ bool GameInit()
 	g_tileMap.Resize(g_mapWidth, g_mapHeight);
 	g_tileMap.GenerateRandom(++g_genSeed);
 
-	// Atlas texture (repeating format for proper wall tiling)
-	g_atlasTex = tile::CreateRepeatingWallAtlas(64, 8);
+	// 8×8 grid atlas — wall repeat handled by shader fract(V)
+	g_atlasTex = tile::CreateWallAtlas(64, 8);
 	gpu::texture::SamplerState ss{};
 	ss.minFilter = gpu::Filter::Nearest;
 	ss.magFilter = gpu::Filter::Nearest;
-	ss.addressModeV = gpu::AddressMode::Repeat;
 	g_atlasSampler = gpu::texture::CreateSampler(ss);
 
 	// Material
 	g_tileMaterial.albedoMap  = g_atlasTex;
 	g_tileMaterial.sampler    = g_atlasSampler;
+	g_tileMaterial.isWallAtlas = true;
 	g_tileMaterial.albedoColor   = { 1, 1, 1 };
 	g_tileMaterial.specularColor = { 0.05f, 0.05f, 0.05f };
 	g_tileMaterial.ambientColor  = { 0.08f, 0.08f, 0.08f };

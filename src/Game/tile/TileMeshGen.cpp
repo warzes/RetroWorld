@@ -73,12 +73,8 @@ namespace tile
 	void TileMeshGen::BuildFromMap(const TileMap& map, int atlasDim,
 		int highlightTX, int highlightTY, uint8_t highlightTex)
 	{
+		(void)atlasDim;
 		Clear();
-		float invDim = 1.0f / static_cast<float>(atlasDim);
-		float invRepDim = 1.0f / static_cast<float>(atlasDim * atlasDim);
-		float wallVScale = static_cast<float>(atlasDim);
-		float wallVBias = static_cast<float>(atlasDim) - 0.5f;
-		float vTop = 1.0f - invDim * 0.001f; // slightly below 1.0 to avoid REPEAT wrapping at V=1.0
 
 		auto isHighlighted = [&](int tx, int ty) noexcept -> bool {
 			return tx == highlightTX && ty == highlightTY;
@@ -91,13 +87,13 @@ namespace tile
 				const Tile& tile = map.Get(tx, ty);
 				if (tile.spaceType != TileSpaceType::SOLID) continue;
 
-				// Floor (repeating atlas: column = ti, repetition 0)
+				// Floor
 				{
 					int ti = isHighlighted(tx, ty) ? highlightTex : tile.floorTex;
-					float u0 = static_cast<float>(ti) * invRepDim;
-					float u1 = u0 + invRepDim;
-					float v0 = vTop;
-					float v1 = vTop - invDim;
+					float u0 = static_cast<float>(ti);
+					float u1 = u0 + 1.0f;
+					float v0 = 0.001f;
+					float v1 = 0.999f;
 
 					float ftx = static_cast<float>(tx);
 					float fty = static_cast<float>(ty);
@@ -117,13 +113,13 @@ namespace tile
 						tx, ty, static_cast<int>(FaceDir::FLOOR));
 				}
 
-				// Ceiling (repeating atlas: column = ti, repetition 0)
+				// Ceiling
 				{
 					int ti = isHighlighted(tx, ty) ? highlightTex : tile.ceilTex;
-					float u0 = static_cast<float>(ti) * invRepDim;
-					float u1 = u0 + invRepDim;
-					float v0 = vTop;
-					float v1 = vTop - invDim;
+					float u0 = static_cast<float>(ti);
+					float u1 = u0 + 1.0f;
+					float v0 = 0.001f;
+					float v1 = 0.999f;
 
 					float ftx = static_cast<float>(tx);
 					float fty = static_cast<float>(ty);
@@ -147,13 +143,15 @@ namespace tile
 				float ftx = static_cast<float>(tx);
 				float fty = static_cast<float>(ty);
 
+				// Encode texture index + within-tile fraction in U; shader decodes grid UV
 				auto texUV = [&](uint8_t tex) -> std::pair<float, float>
 				{
-					return { static_cast<float>(tex) * invRepDim,
-							 static_cast<float>(tex) * invRepDim + invRepDim };
+					return { static_cast<float>(tex),
+							 static_cast<float>(tex) + 1.0f };
 				};
+				// Raw V for walls: shader applies fract(V) to repeat within tile row
 				auto wallV = [&](float worldY) noexcept -> float {
-					return (-worldY + wallVBias) / wallVScale;
+					return -worldY + 0.5f;
 				};
 
 				auto addWallIf = [&](int ntx, int nty, FaceDir dir)

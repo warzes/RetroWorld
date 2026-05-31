@@ -350,20 +350,23 @@ ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 
 // ---- Texture picker preview rows ----
 {
-	static constexpr float ATLAS_DIM = 8.0f; // grid dimension (8x8 source tiles)
-	float invTotal = 1.0f / (ATLAS_DIM * ATLAS_DIM); // 1/64 per column
-	float vStep = 1.0f / ATLAS_DIM; // 1/8 = one vertical repeat
+	static constexpr float ATLAS_DIM = 8.0f;
 	float thumbSize = 40.0f;
 	uint32_t glId = gpu::texture::Handle(g_atlasTex);
 	ImTextureID texId = (ImTextureID)(intptr_t)glId;
 
+	auto tileUV = [](int ti) -> std::pair<ImVec2, ImVec2>
+	{
+		float col = static_cast<float>(ti % 8);
+		float row = static_cast<float>(ti / 8);
+		float inv = 1.0f / 8.0f;
+		return { ImVec2(col * inv, row * inv), ImVec2((col + 1) * inv, (row + 1) * inv) };
+	};
+
 	auto drawPreview = [&](const char* label, int& texVar, int targetIdx)
 	{
-		int ti = texVar;
-		float u0 = static_cast<float>(ti) * invTotal;
-		float u1 = static_cast<float>(ti + 1) * invTotal;
-
-		ImGui::Image(ImTextureRef(texId), ImVec2(thumbSize, thumbSize), ImVec2(u0, 0.0f), ImVec2(u1, vStep));
+		auto [uv0, uv1] = tileUV(texVar);
+		ImGui::Image(ImTextureRef(texId), ImVec2(thumbSize, thumbSize), uv0, uv1);
 		if (ImGui::IsItemClicked())
 		{
 			g_pickerTarget = targetIdx;
@@ -407,11 +410,10 @@ ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 		int totalTex = static_cast<int>(ATLAS_DIM * ATLAS_DIM);
 		for (int ti = 0; ti < totalTex; ++ti)
 		{
-			float u0 = static_cast<float>(ti) * invTotal;
-			float u1 = static_cast<float>(ti + 1) * invTotal;
+			auto [uv0, uv1] = tileUV(ti);
 
 			ImGui::PushID(ti);
-			if (ImGui::ImageButton("##cell", ImTextureRef(texId), ImVec2(cellSize, cellSize), ImVec2(u0, 0.0f), ImVec2(u1, vStep)))
+			if (ImGui::ImageButton("##cell", ImTextureRef(texId), ImVec2(cellSize, cellSize), uv0, uv1))
 			{
 				*pickerTex[g_pickerTarget] = ti;
 				g_showTexturePicker = false;
