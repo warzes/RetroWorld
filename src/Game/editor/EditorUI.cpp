@@ -222,24 +222,16 @@ void GameRenderUI()
 			ImGui::Text("Selected: (%d, %d)  size %dx%d", g_selTX, g_selTY, g_selW, g_selH);
 			auto& t = g_tileMap.Get(g_selTX, g_selTY);
 
-			int st = static_cast<int>(t.spaceType);
-			ImGui::RadioButton("Empty", &st, 0); ImGui::SameLine();
-			ImGui::RadioButton("Solid", &st, 1);
 			{
-				auto newType = static_cast<tile::TileSpaceType>(st);
-				bool newSolid = (st == 1);
-				for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-					{
-						if (!g_tileMap.InBounds(tx, ty)) continue;
-						auto& tt = g_tileMap.Get(tx, ty);
-						if (tt.spaceType != newType || tt.renderSolid != newSolid)
-						{
-							tt.spaceType   = newType;
-							tt.renderSolid = newSolid;
-							g_dirtyMesh = true;
-						}
-					}
+				int st = static_cast<int>(t.spaceType);
+				ImGui::RadioButton("Empty", &st, 0); ImGui::SameLine();
+				ImGui::RadioButton("Solid", &st, 1);
+				if (st != static_cast<int>(t.spaceType))
+				{
+					t.spaceType   = static_cast<tile::TileSpaceType>(st);
+					t.renderSolid = (st == 1);
+					g_dirtyMesh   = true;
+				}
 			}
 
 			int wt = t.wallTex, ft = t.floorTex, ct = t.ceilTex;
@@ -249,7 +241,9 @@ void GameRenderUI()
 					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 					{
 						if (!g_tileMap.InBounds(tx, ty)) continue;
-						g_tileMap.Get(tx, ty).wallTex = static_cast<uint8_t>(wt);
+						auto& tt = g_tileMap.Get(tx, ty);
+						if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+						tt.wallTex = static_cast<uint8_t>(wt);
 					}
 				g_dirtyMesh = true;
 			}
@@ -259,7 +253,9 @@ void GameRenderUI()
 					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 					{
 						if (!g_tileMap.InBounds(tx, ty)) continue;
-						g_tileMap.Get(tx, ty).floorTex = static_cast<uint8_t>(ft);
+						auto& tt = g_tileMap.Get(tx, ty);
+						if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+						tt.floorTex = static_cast<uint8_t>(ft);
 					}
 				g_dirtyMesh = true;
 			}
@@ -269,7 +265,9 @@ void GameRenderUI()
 					for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 					{
 						if (!g_tileMap.InBounds(tx, ty)) continue;
-						g_tileMap.Get(tx, ty).ceilTex = static_cast<uint8_t>(ct);
+						auto& tt = g_tileMap.Get(tx, ty);
+						if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+						tt.ceilTex = static_cast<uint8_t>(ct);
 					}
 				g_dirtyMesh = true;
 			}
@@ -328,7 +326,9 @@ void GameRenderUI()
 						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 						{
 							if (!g_tileMap.InBounds(tx, ty)) continue;
-							g_tileMap.Get(tx, ty).floorTex = static_cast<uint8_t>(ft);
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+							tt.floorTex = static_cast<uint8_t>(ft);
 						}
 					g_dirtyMesh = true;
 				}
@@ -342,7 +342,9 @@ void GameRenderUI()
 						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 						{
 							if (!g_tileMap.InBounds(tx, ty)) continue;
-							g_tileMap.Get(tx, ty).ceilTex = static_cast<uint8_t>(ct);
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+							tt.ceilTex = static_cast<uint8_t>(ct);
 						}
 					g_dirtyMesh = true;
 				}
@@ -356,7 +358,9 @@ void GameRenderUI()
 						for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
 						{
 							if (!g_tileMap.InBounds(tx, ty)) continue;
-							g_tileMap.Get(tx, ty).wallTex = static_cast<uint8_t>(wt);
+							auto& tt = g_tileMap.Get(tx, ty);
+							if (tt.spaceType != tile::TileSpaceType::SOLID) continue;
+							tt.wallTex = static_cast<uint8_t>(wt);
 						}
 					g_dirtyMesh = true;
 				}
