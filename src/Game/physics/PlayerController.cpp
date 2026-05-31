@@ -123,6 +123,7 @@ void PlayerController::recreateCharacter(float inHeight)
 
 	auto* joltSystem = m_physics->GetJoltSystem();
 	m_character = new JPH::CharacterVirtual(&settings, JPH::RVec3::sZero(), JPH::Quat::sIdentity(), 0, joltSystem);
+	m_character->SetEnhancedInternalEdgeRemoval(true);
 }
 
 // ---- SetPosition ----
@@ -254,26 +255,33 @@ void PlayerController::Tick(float inDeltaTime)
 
 	// Гравитацию применяем сами — ExtendedUpdate её не добавляет к скорости
 	float vertVel = m_character->GetLinearVelocity().GetY();
-	vertVel += GRAVITY * inDeltaTime;
 
-	// Jump overrides gravity
+	// Jump
 	if (wantJump && m_onGround)
 	{
 		vertVel = m_jumpForce;
 		m_state = State::Jumping;
 	}
-	else if (m_onGround)
+	else if (!m_onGround)
 	{
-		// На земле не копим гравитацию — ExtendedUpdate сам удержит на полу
-		vertVel = 0.0f;
+		// В воздухе: накапливаем гравитацию
+		vertVel += GRAVITY * inDeltaTime;
+	}
+	else
+	{
+		// На земле: гравитацию не добавляем, ExtendedUpdate удержит контакт
+		// Небольшое отрицательное значение для подавления микроподскока
+		vertVel = JPH::min(vertVel, 0.0f);
 	}
 
 	JPH::Vec3 desiredVel(worldDX * speed, vertVel, worldDZ * speed);
 
 	m_character->SetLinearVelocity(desiredVel);
 
-	// ---- ExtendedUpdate (шаг + гравитация + ступеньки) ----
+	// ---- ExtendedUpdate ----
 	JPH::CharacterVirtual::ExtendedUpdateSettings euSettings{};
+	euSettings.mStickToFloorStepDown = JPH::Vec3::sZero();
+	euSettings.mWalkStairsStepUp = JPH::Vec3::sZero();
 
 	JPH::TempAllocatorMalloc tempAlloc;
 	m_character->ExtendedUpdate(
