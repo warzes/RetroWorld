@@ -4,12 +4,13 @@
 
 namespace
 {
-	// VertexCP — one corner marker in VERTEX mode
+	// VertexCP — one world-space vertex shared by 1..4 selected tiles
 	struct VertexCP
 	{
 		glm::vec3 pos;
-		int       tx, ty;      // tile coordinates
-		int       corner;      // 0-3 floor, 4-7 ceiling
+		int       refCount;                // how many tiles share this vertex
+		int       refTX[4], refTY[4];      // tile coordinates for each ref
+		int       refCorner[4];            // 0-3 floor, 4-7 ceiling per ref
 	};
 
 	constexpr int MAX_VERTEX_CPS = 2048;
@@ -62,7 +63,8 @@ namespace
 		}
 	}
 
-	// Collect all VERTEX-mode control points for the entire selection.
+	// Collect all VERTEX-mode control points for the entire selection,
+	// deduplicating by world-space position (epsilon 0.01).
 	int CollectVertexCPs(VertexCP* dst, int maxDst)
 	{
 		int n = 0;
@@ -77,15 +79,53 @@ namespace
 				float fz = static_cast<float>(ty);
 				float fh = t.floorHeight;
 				float ch = t.ceilHeight;
-				if (n + 8 > maxDst) return n;
-				dst[n++] = { {fx - 0.5f, fh + t.slopeNW, fz - 0.5f}, tx, ty, 0 };
-				dst[n++] = { {fx + 0.5f, fh + t.slopeNE, fz - 0.5f}, tx, ty, 1 };
-				dst[n++] = { {fx + 0.5f, fh + t.slopeSE, fz + 0.5f}, tx, ty, 2 };
-				dst[n++] = { {fx - 0.5f, fh + t.slopeSW, fz + 0.5f}, tx, ty, 3 };
-				dst[n++] = { {fx - 0.5f, ch + t.ceilSlopeNW, fz - 0.5f}, tx, ty, 4 };
-				dst[n++] = { {fx + 0.5f, ch + t.ceilSlopeNE, fz - 0.5f}, tx, ty, 5 };
-				dst[n++] = { {fx + 0.5f, ch + t.ceilSlopeSE, fz + 0.5f}, tx, ty, 6 };
-				dst[n++] = { {fx - 0.5f, ch + t.ceilSlopeSW, fz + 0.5f}, tx, ty, 7 };
+
+				glm::vec3 corners[8] = {
+					{fx - 0.5f, fh + t.slopeNW,     fz - 0.5f},
+					{fx + 0.5f, fh + t.slopeNE,     fz - 0.5f},
+					{fx + 0.5f, fh + t.slopeSE,     fz + 0.5f},
+					{fx - 0.5f, fh + t.slopeSW,     fz + 0.5f},
+					{fx - 0.5f, ch + t.ceilSlopeNW, fz - 0.5f},
+					{fx + 0.5f, ch + t.ceilSlopeNE, fz - 0.5f},
+					{fx + 0.5f, ch + t.ceilSlopeSE, fz + 0.5f},
+					{fx - 0.5f, ch + t.ceilSlopeSW, fz + 0.5f},
+				};
+
+				for (int c = 0; c < 8; ++c)
+				{
+					int found = -1;
+					for (int i = 0; i < n; ++i)
+					{
+						if (glm::distance(dst[i].pos, corners[c]) < 0.01f)
+						{
+							found = i;
+							break;
+						}
+					}
+					if (found >= 0)
+					{
+						auto& cp = dst[found];
+						if (cp.refCount < 4)
+						{
+							int ri = cp.refCount;
+							cp.refTX[ri] = tx;
+							cp.refTY[ri] = ty;
+							cp.refCorner[ri] = c;
+							cp.refCount++;
+						}
+					}
+					else
+					{
+						if (n >= maxDst) return n;
+						auto& cp = dst[n];
+						cp.pos = corners[c];
+						cp.refCount = 1;
+						cp.refTX[0] = tx;
+						cp.refTY[0] = ty;
+						cp.refCorner[0] = c;
+						n++;
+					}
+				}
 			}
 		}
 		return n;
@@ -609,28 +649,40 @@ void GameUpdate()
 			{
 				if (g_heightEditMode == HeightEditMode::VERTEX)
 				{
-					// Look up which tile owns this CP
 					VertexCP vcps[MAX_VERTEX_CPS];
 					int vn = CollectVertexCPs(vcps, MAX_VERTEX_CPS);
 					if (g_hoverCPIdx < vn)
 					{
 						const auto& vcp = vcps[g_hoverCPIdx];
-						auto& tile = g_tileMap.Get(vcp.tx, vcp.ty);
-						g_dragVtxTX = vcp.tx;
-						g_dragVtxTY = vcp.ty;
-						g_dragVtxCorner = vcp.corner;
+						g_dragVtxRefCount = vcp.refCount;
+						for (int ri = 0; ri < vcp.refCount; ++ri)
+						{
+							g_dragVtxTX[ri] = vcp.refTX[ri];
+							g_dragVtxTY[ri] = vcp.refTY[ri];
+							g_dragVtxCorner[ri] = vcp.refCorner[ri];
+							auto& t = g_tileMap.Get(vcp.refTX[ri], vcp.refTY[ri]);
+							int corner = vcp.refCorner[ri] & 3;
+							if (vcp.refCorner[ri] < 4)
+								g_dragVtxInitSlope[ri] = (&t.slopeNW)[corner];
+							else
+								g_dragVtxInitSlope[ri] = (&t.ceilSlopeNW)[corner];
+						}
+						// Save first tile slopes for reference
+						{
+							auto& t0 = g_tileMap.Get(vcp.refTX[0], vcp.refTY[0]);
+							g_dragSlopes[0] = t0.slopeNW;
+							g_dragSlopes[1] = t0.slopeNE;
+							g_dragSlopes[2] = t0.slopeSE;
+							g_dragSlopes[3] = t0.slopeSW;
+							g_dragCeilSlopes[0] = t0.ceilSlopeNW;
+							g_dragCeilSlopes[1] = t0.ceilSlopeNE;
+							g_dragCeilSlopes[2] = t0.ceilSlopeSE;
+							g_dragCeilSlopes[3] = t0.ceilSlopeSW;
+						}
 						g_draggingCP = true;
-						g_dragCPType = vcp.corner;
+						g_dragCPType = vcp.refCorner[0];
 						g_dragStartMouseY = mousePos.y;
 						g_lastAppliedDy = 0;
-						g_dragSlopes[0] = tile.slopeNW;
-						g_dragSlopes[1] = tile.slopeNE;
-						g_dragSlopes[2] = tile.slopeSE;
-						g_dragSlopes[3] = tile.slopeSW;
-						g_dragCeilSlopes[0] = tile.ceilSlopeNW;
-						g_dragCeilSlopes[1] = tile.ceilSlopeNE;
-						g_dragCeilSlopes[2] = tile.ceilSlopeSE;
-						g_dragCeilSlopes[3] = tile.ceilSlopeSW;
 						cpPicked = true;
 					}
 				}
@@ -871,23 +923,23 @@ void GameUpdate()
 				}
 				else
 				{
-					// VERTEX mode
-					if (g_dragVtxTX >= 0)
+					// VERTEX mode — apply delta to all tiles sharing this vertex
+					for (int ri = 0; ri < g_dragVtxRefCount; ++ri)
 					{
-						auto& tile = g_tileMap.Get(g_dragVtxTX, g_dragVtxTY);
-						int corner = g_dragVtxCorner & 3;
-						if (g_dragVtxCorner < 4) // floor corner
+						auto& tile = g_tileMap.Get(g_dragVtxTX[ri], g_dragVtxTY[ri]);
+						int corner = g_dragVtxCorner[ri] & 3;
+						if (g_dragVtxCorner[ri] < 4) // floor corner
 						{
 							float* dst[4] = { &tile.slopeNW, &tile.slopeNE, &tile.slopeSE, &tile.slopeSW };
 							float* cSlope[4] = { &tile.ceilSlopeNW, &tile.ceilSlopeNE, &tile.ceilSlopeSE, &tile.ceilSlopeSW };
-							*dst[corner] = g_dragSlopes[corner] + snappedDy;
+							*dst[corner] = g_dragVtxInitSlope[ri] + snappedDy;
 							clampFloorVertex(*dst[corner], tile.floorHeight, *cSlope[corner], tile.ceilHeight);
 						}
 						else // ceiling corner
 						{
 							float* dst[4] = { &tile.ceilSlopeNW, &tile.ceilSlopeNE, &tile.ceilSlopeSE, &tile.ceilSlopeSW };
 							float* fSlope[4] = { &tile.slopeNW, &tile.slopeNE, &tile.slopeSE, &tile.slopeSW };
-							*dst[corner] = g_dragCeilSlopes[corner] + snappedDy;
+							*dst[corner] = g_dragVtxInitSlope[ri] + snappedDy;
 							clampCeilVertex(*dst[corner], tile.ceilHeight, *fSlope[corner], tile.floorHeight);
 						}
 						ClampHeights(tile);
@@ -902,7 +954,7 @@ void GameUpdate()
 		if (!lmb && g_draggingCP)
 		{
 			g_draggingCP = false;
-			g_dragVtxTX = g_dragVtxTY = -1;
+			g_dragVtxRefCount = 0;
 		}
 
 		// Scroll to adjust height in VERTEX mode (slope adjustment)

@@ -64,8 +64,11 @@ extern bool g_draggingSel;          // active tile-rect drag
 extern int  g_dragStartTX, g_dragStartTY; // drag origin tile
 extern int  g_dragCPType;  // CPType as int
 extern int  g_dragCorner;  // for VERTEX mode corner index
-extern int  g_dragVtxTX, g_dragVtxTY;   // tile being vertex-dragged (-1 = none)
-extern int  g_dragVtxCorner;            // 0-7 corner (0-3 floor, 4-7 ceiling)
+extern int  g_dragVtxRefCount;           // number of refs sharing this vertex (0 = none)
+extern int  g_dragVtxTX[4];              // tile X of each sharing tile
+extern int  g_dragVtxTY[4];              // tile Y of each sharing tile
+extern int  g_dragVtxCorner[4];          // corner index per ref (0-7)
+extern float g_dragVtxInitSlope[4];      // initial slope per ref
 extern float g_dragStartMouseY;
 extern float g_lastAppliedDy;
 extern float g_dragSlopes[4];
