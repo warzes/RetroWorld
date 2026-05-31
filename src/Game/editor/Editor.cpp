@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "Editor.h"
 
 // ---- Global definitions ----
@@ -55,6 +55,7 @@ tile::FaceDir g_prevHoverFace = tile::FaceDir::COUNT;
 void GameAppTile()
 {
 	app::AppCreateInfo ci{};
+	ci.window.adaptiveVsync = true;
 	ci.init_cb        = GameInit;
 	ci.close_cb       = GameClose;
 	ci.update_cb      = GameUpdate;

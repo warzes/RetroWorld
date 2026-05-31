@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include <cstdint>
+#include <cstring>
 
 namespace
 {
@@ -138,13 +139,12 @@ namespace
 
 namespace tile
 {
-	gpu::texture::TexturePtr CreateTileAtlas(int tileSize, int atlasDim)
+	static std::vector<uint8_t> generateGridPixels(int tileSize, int atlasDim)
 	{
 		uint32_t totalW = static_cast<uint32_t>(tileSize * atlasDim);
 		uint32_t totalH = static_cast<uint32_t>(tileSize * atlasDim);
 		std::vector<uint8_t> pixels(totalW * totalH * 4, 255);
 
-		// Manual textures 0..15: position each at its atlas grid cell (idx % atlasDim, idx / atlasDim)
 		auto texPos = [&](int idx) -> std::pair<int,int> {
 			return { (idx % atlasDim) * tileSize, (idx / atlasDim) * tileSize };
 		};
@@ -247,6 +247,14 @@ namespace tile
 				fillMarblePattern(dst, tileSize, tileSize, totalW, idx * 73, r, g, b);
 		}
 
+		return pixels;
+	}
+
+	gpu::texture::TexturePtr CreateTileAtlas(int tileSize, int atlasDim)
+	{
+		auto pixels = generateGridPixels(tileSize, atlasDim);
+		uint32_t totalW = static_cast<uint32_t>(tileSize * atlasDim);
+		uint32_t totalH = static_cast<uint32_t>(tileSize * atlasDim);
 		auto tex = gpu::texture::CreateTexture2D(
 			{ totalW, totalH },
 			gpu::Format::R8G8B8A8_UNORM,
@@ -256,6 +264,55 @@ namespace tile
 		update.level  = 0;
 		update.extent = { totalW, totalH, 1u };
 		update.pixels = pixels.data();
+		update.format = gpu::UploadFormat::RGBA;
+		update.type   = gpu::UploadType::UBYTE;
+		gpu::texture::UpdateImage(tex, update);
+
+		return tex;
+	}
+
+	gpu::texture::TexturePtr CreateRepeatingWallAtlas(int tileSize, int atlasDim)
+	{
+		// Generate standard grid pixels first
+		auto gridPixels = generateGridPixels(tileSize, atlasDim);
+		uint32_t gridW = static_cast<uint32_t>(tileSize * atlasDim);
+
+		// Repeating atlas: atlasDim² columns, each tileSize wide, atlasDim * tileSize tall
+		uint32_t repW = static_cast<uint32_t>(tileSize * atlasDim * atlasDim);
+		uint32_t repH = static_cast<uint32_t>(tileSize * atlasDim);
+		std::vector<uint8_t> repPixels(repW * repH * 4, 255);
+		int bpp = 4;
+
+		for (int ti = 0; ti < atlasDim * atlasDim; ++ti)
+		{
+			int srcX = (ti % atlasDim) * tileSize;
+			int srcY = (ti / atlasDim) * tileSize;
+
+			// Destination column for this tile index
+			int dstCol = ti * tileSize;
+
+			// Copy tile atlasDim times stacked vertically
+			for (int rep = 0; rep < atlasDim; ++rep)
+			{
+				int dstY = rep * tileSize;
+				for (int y = 0; y < tileSize; ++y)
+				{
+					const uint8_t* srcRow = &gridPixels[((srcY + y) * gridW + srcX) * bpp];
+					uint8_t* dstRow = &repPixels[((dstY + y) * repW + dstCol) * bpp];
+					memcpy(dstRow, srcRow, static_cast<size_t>(tileSize) * bpp);
+				}
+			}
+		}
+
+		auto tex = gpu::texture::CreateTexture2D(
+			{ repW, repH },
+			gpu::Format::R8G8B8A8_UNORM,
+			"wallAtlas");
+
+		gpu::texture::TextureUpdateInfo update{};
+		update.level  = 0;
+		update.extent = { repW, repH, 1u };
+		update.pixels = repPixels.data();
 		update.format = gpu::UploadFormat::RGBA;
 		update.type   = gpu::UploadType::UBYTE;
 		gpu::texture::UpdateImage(tex, update);

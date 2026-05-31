@@ -57,6 +57,38 @@ namespace
 		}
 	}
 
+	void ClampHeights(tile::Tile& t) noexcept
+	{
+		constexpr float MIN_GAP = 0.02f;
+		if (t.ceilHeight - t.floorHeight < MIN_GAP)
+		{
+			float mid = (t.ceilHeight + t.floorHeight) * 0.5f;
+			t.floorHeight = mid - MIN_GAP * 0.5f;
+			t.ceilHeight  = mid + MIN_GAP * 0.5f;
+		}
+
+		for (int c = 0; c < 4; ++c)
+		{
+			float* fSlope;
+			float* cSlope;
+			switch (c)
+			{
+				case 0: fSlope = &t.slopeNW; cSlope = &t.ceilSlopeNW; break;
+				case 1: fSlope = &t.slopeNE; cSlope = &t.ceilSlopeNE; break;
+				case 2: fSlope = &t.slopeSE; cSlope = &t.ceilSlopeSE; break;
+				case 3: fSlope = &t.slopeSW; cSlope = &t.ceilSlopeSW; break;
+				default: fSlope = &t.slopeNW; cSlope = &t.ceilSlopeNW; break;
+			}
+
+			float fY = t.floorHeight + *fSlope;
+			float cY = t.ceilHeight + *cSlope;
+			if (cY - fY < MIN_GAP)
+			{
+				*cSlope += (MIN_GAP - (cY - fY));
+			}
+		}
+	}
+
 	// Marker colors
 	constexpr glm::vec4 COLOR_CENTER(1.0f, 1.0f, 0.0f, 1.0f);  // yellow for center markers
 	constexpr glm::vec4 COLOR_EDGE(0.3f, 0.6f, 1.0f, 1.0f);    // blue for edge markers
@@ -285,11 +317,12 @@ bool GameInit()
 	g_tileMap.Resize(g_mapWidth, g_mapHeight);
 	g_tileMap.GenerateRandom(++g_genSeed);
 
-	// Atlas texture
-	g_atlasTex = tile::CreateTileAtlas(64, 8);
+	// Atlas texture (repeating format for proper wall tiling)
+	g_atlasTex = tile::CreateRepeatingWallAtlas(64, 8);
 	gpu::texture::SamplerState ss{};
 	ss.minFilter = gpu::Filter::Nearest;
 	ss.magFilter = gpu::Filter::Nearest;
+	ss.addressModeV = gpu::AddressMode::Repeat;
 	g_atlasSampler = gpu::texture::CreateSampler(ss);
 
 	// Material
@@ -522,6 +555,7 @@ void GameUpdate()
 					float* dst[4] = { &t.slopeNW, &t.slopeNE, &t.slopeSE, &t.slopeSW };
 					*dst[g_dragCorner] = g_dragSlopes[g_dragCorner] + snappedDy;
 				}
+				ClampHeights(t);
 				g_lastAppliedDy = snappedDy;
 				g_dirtyMesh = true;
 			}
@@ -549,6 +583,7 @@ void GameUpdate()
 						case 2: t.slopeSE += delta; break;
 						case 3: t.slopeSW += delta; break;
 					}
+					ClampHeights(t);
 					g_dirtyMesh = true;
 					scrollAccum = 0.0f;
 				}

@@ -73,6 +73,10 @@ namespace tile
 	{
 		Clear();
 		float invDim = 1.0f / static_cast<float>(atlasDim);
+		float invRepDim = 1.0f / static_cast<float>(atlasDim * atlasDim);
+		float wallVScale = static_cast<float>(atlasDim);
+		float wallVBias = static_cast<float>(atlasDim) - 0.5f;
+		float vTop = 1.0f - invDim * 0.001f; // slightly below 1.0 to avoid REPEAT wrapping at V=1.0
 
 		auto isHighlighted = [&](int tx, int ty) noexcept -> bool {
 			return tx == highlightTX && ty == highlightTY;
@@ -85,12 +89,13 @@ namespace tile
 				const Tile& tile = map.Get(tx, ty);
 				if (tile.spaceType != TileSpaceType::SOLID) continue;
 
-				// Floor
+				// Floor (repeating atlas: column = ti, repetition 0)
 				{
 					int ti = isHighlighted(tx, ty) ? highlightTex : tile.floorTex;
-					float u0 = static_cast<float>(ti % atlasDim) * invDim;
-					float v0 = static_cast<float>(ti / atlasDim) * invDim;
-					float u1 = u0 + invDim, v1 = v0 + invDim;
+					float u0 = static_cast<float>(ti) * invRepDim;
+					float u1 = u0 + invRepDim;
+					float v0 = vTop;
+					float v1 = vTop - invDim;
 
 					float ftx = static_cast<float>(tx);
 					float fty = static_cast<float>(ty);
@@ -110,12 +115,13 @@ namespace tile
 						tx, ty, static_cast<int>(FaceDir::FLOOR));
 				}
 
-				// Ceiling
+				// Ceiling (repeating atlas: column = ti, repetition 0)
 				{
 					int ti = isHighlighted(tx, ty) ? highlightTex : tile.ceilTex;
-					float u0 = static_cast<float>(ti % atlasDim) * invDim;
-					float v0 = static_cast<float>(ti / atlasDim) * invDim;
-					float u1 = u0 + invDim, v1 = v0 + invDim;
+					float u0 = static_cast<float>(ti) * invRepDim;
+					float u1 = u0 + invRepDim;
+					float v0 = vTop;
+					float v1 = vTop - invDim;
 
 					float ftx = static_cast<float>(tx);
 					float fty = static_cast<float>(ty);
@@ -135,7 +141,7 @@ namespace tile
 						tx, ty, static_cast<int>(FaceDir::CEILING));
 				}
 
-				// Walls
+				// Walls (repeating atlas: column = ti, V = height-proportional)
 				float ftx = static_cast<float>(tx);
 				float fty = static_cast<float>(ty);
 				auto addWallIf = [&](int ntx, int nty, FaceDir dir, uint8_t tex)
@@ -143,13 +149,15 @@ namespace tile
 					if (!map.InBounds(ntx, nty) ||
 						map.Get(ntx, nty).spaceType != TileSpaceType::SOLID)
 					{
-						float ti = static_cast<float>(tex);
-						float u0 = (std::fmod(ti, static_cast<float>(atlasDim))) * invDim;
-						float v0 = (std::floor(ti * invDim)) * invDim;
-						float u1 = u0 + invDim, v1 = v0 + invDim;
+						float u0 = static_cast<float>(tex) * invRepDim;
+						float u1 = u0 + invRepDim;
 
 						float fNW = 0.0f, fNE = 0.0f, fSW = 0.0f, fSE = 0.0f;
 						float cNW = 0.0f, cNE = 0.0f, cSW = 0.0f, cSE = 0.0f;
+
+						auto wallV = [&](float worldY) noexcept -> float {
+							return (-worldY + wallVBias) / wallVScale;
+						};
 
 						switch (dir)
 						{
@@ -164,7 +172,8 @@ namespace tile
 								{ ftx + 0.5f, cNE, fty - 0.5f },
 								{ ftx - 0.5f, cNW, fty - 0.5f },
 								{ 0, 0, -1 },
-								{ u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 },
+								{ u0, wallV(fNW) }, { u1, wallV(fNE) },
+								{ u1, wallV(cNE) }, { u0, wallV(cNW) },
 								tx, ty, static_cast<int>(FaceDir::NORTH));
 							break;
 
@@ -179,7 +188,8 @@ namespace tile
 								{ ftx - 0.5f, cSW, fty + 0.5f },
 								{ ftx + 0.5f, cSE, fty + 0.5f },
 								{ 0, 0, 1 },
-								{ u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 },
+								{ u1, wallV(fSE) }, { u0, wallV(fSW) },
+								{ u0, wallV(cSW) }, { u1, wallV(cSE) },
 								tx, ty, static_cast<int>(FaceDir::SOUTH));
 							break;
 
@@ -194,7 +204,8 @@ namespace tile
 								{ ftx + 0.5f, cNE, fty - 0.5f },
 								{ ftx + 0.5f, fNE, fty - 0.5f },
 								{ 1, 0, 0 },
-								{ u0, v0 }, { u0, v1 }, { u1, v1 }, { u1, v0 },
+								{ u1, wallV(fSE) }, { u1, wallV(cSE) },
+								{ u0, wallV(cNE) }, { u0, wallV(fNE) },
 								tx, ty, static_cast<int>(FaceDir::EAST));
 							break;
 
@@ -209,7 +220,8 @@ namespace tile
 								{ ftx - 0.5f, cSW, fty + 0.5f },
 								{ ftx - 0.5f, fSW, fty + 0.5f },
 								{ -1, 0, 0 },
-								{ u0, v0 }, { u0, v1 }, { u1, v1 }, { u1, v0 },
+								{ u0, wallV(fNW) }, { u0, wallV(cNW) },
+								{ u1, wallV(cSW) }, { u1, wallV(fSW) },
 								tx, ty, static_cast<int>(FaceDir::WEST));
 							break;
 
