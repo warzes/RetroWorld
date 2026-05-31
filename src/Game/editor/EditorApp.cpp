@@ -15,6 +15,8 @@ namespace
 	constexpr int MAX_VERTEX_CPS = 2048;
 
 	// Fill positions for all 10 Plane-mode control points (uses selection bounding box).
+	// (selFX, selFZ) = position of tile (g_selTX, g_selTY), which is the tile CENTER.
+	// Selection spans: X [selFX-0.5, selFX+selW-0.5], Z [selFZ-0.5, selFZ+selH-0.5]
 	int GetCPPositions(glm::vec3* dst, int maxDst,
 		float selFX, float selFZ, int selW, int selH,
 		const tile::Tile& t, HeightEditMode mode) noexcept
@@ -23,22 +25,26 @@ namespace
 		float ch = t.ceilHeight;
 		float avgFS = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
 		float avgCS = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
-		float cx = selFX + 0.5f * static_cast<float>(selW);
-		float cz = selFZ + 0.5f * static_cast<float>(selH);
+		float cx = selFX + static_cast<float>(selW) * 0.5f - 0.5f;
+		float cz = selFZ + static_cast<float>(selH) * 0.5f - 0.5f;
+		float left   = selFX - 0.5f;
+		float right  = selFX + static_cast<float>(selW) - 0.5f;
+		float north  = selFZ - 0.5f;
+		float south  = selFZ + static_cast<float>(selH) - 0.5f;
 
 		if (mode == HeightEditMode::PLANE)
 		{
 			if (maxDst < 10) return 0;
 			dst[0] = { cx, fh + avgFS, cz };                        // FloorCenter
 			dst[1] = { cx, ch + avgCS, cz };                        // CeilCenter
-			dst[2] = { cx, fh + avgFS, selFZ };                     // FloorNorth
-			dst[3] = { cx, fh + avgFS, selFZ + selH };              // FloorSouth
-			dst[4] = { selFX,     fh + avgFS, cz };                 // FloorWest
-			dst[5] = { selFX + selW, fh + avgFS, cz };              // FloorEast
-			dst[6] = { cx, ch + avgCS, selFZ };                     // CeilNorth
-			dst[7] = { cx, ch + avgCS, selFZ + selH };              // CeilSouth
-			dst[8] = { selFX,     ch + avgCS, cz };                 // CeilWest
-			dst[9] = { selFX + selW, ch + avgCS, cz };              // CeilEast
+			dst[2] = { cx, fh + avgFS, north };                     // FloorNorth
+			dst[3] = { cx, fh + avgFS, south };                     // FloorSouth
+			dst[4] = { left,  fh + avgFS, cz };                    // FloorWest
+			dst[5] = { right, fh + avgFS, cz };                    // FloorEast
+			dst[6] = { cx, ch + avgCS, north };                     // CeilNorth
+			dst[7] = { cx, ch + avgCS, south };                     // CeilSouth
+			dst[8] = { left,  ch + avgCS, cz };                    // CeilWest
+			dst[9] = { right, ch + avgCS, cz };                    // CeilEast
 			return 10;
 		}
 		else // VERTEX — single-tile markers (used when W=H=1)
@@ -991,10 +997,10 @@ void DrawDebugOverlay()
 		auto& t = g_tileMap.Get(g_selTX, g_selTY);
 		float fx = static_cast<float>(g_selTX);
 		float fz = static_cast<float>(g_selTY);
-		float left   = fx - 0.5f;
-		float right  = fx + static_cast<float>(g_selW) - 0.5f;
-		float nz     = fz - 0.5f;
-		float sz     = fz + static_cast<float>(g_selH) - 0.5f;
+		float left  = fx - 0.5f;
+		float right = fx + static_cast<float>(g_selW) - 0.5f;
+		float nz    = fz - 0.5f;
+		float sz    = fz + static_cast<float>(g_selH) - 0.5f;
 
 		float avgFS = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
 		float avgCS = (t.ceilSlopeNW + t.ceilSlopeNE + t.ceilSlopeSE + t.ceilSlopeSW) * 0.25f;
