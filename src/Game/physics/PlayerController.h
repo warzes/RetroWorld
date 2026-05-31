@@ -42,7 +42,7 @@ public:
 	// Настраиваемые параметры
 	float m_moveSpeed        = 5.0f;
 	float m_sprintMultiplier = 1.5f;
-	float m_jumpForce        = 8.0f;
+	float m_jumpForce        = 3.0f;
 	float m_playerHeight     = 0.34f;
 	float m_playerRadius     = 0.16f;
 	float m_crouchHeight     = 0.18f;

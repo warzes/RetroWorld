@@ -38,7 +38,7 @@ namespace
 	constexpr float CLIMB_MAX_HEIGHT = 3.0f;
 	constexpr float CLIMB_MAX_STAMINA = 10.0f;
 	constexpr float WALL_DETECT_DIST = 0.5f;
-	constexpr float GRAVITY = -9.81f;
+	constexpr float GRAVITY = -6.0f;
 }
 
 // ---- Construction / Destruction ----
@@ -253,25 +253,22 @@ void PlayerController::Tick(float inDeltaTime)
 	float speed = m_moveSpeed * (sprinting ? m_sprintMultiplier : 1.0f);
 	if (m_crouching) speed *= 0.5f;
 
-	// Гравитацию применяем сами — ExtendedUpdate её не добавляет к скорости
+	// Гравитацию применяем всегда — ExtendedUpdate её не добавляет к скорости
 	float vertVel = m_character->GetLinearVelocity().GetY();
+	vertVel += GRAVITY * inDeltaTime;
 
-	// Jump
+	// Jump overrides gravity
 	if (wantJump && m_onGround)
 	{
 		vertVel = m_jumpForce;
 		m_state = State::Jumping;
 	}
-	else if (!m_onGround)
+	else if (m_onGround)
 	{
-		// В воздухе: накапливаем гравитацию
-		vertVel += GRAVITY * inDeltaTime;
-	}
-	else
-	{
-		// На земле: гравитацию не добавляем, ExtendedUpdate удержит контакт
-		// Небольшое отрицательное значение для подавления микроподскока
-		vertVel = JPH::min(vertVel, 0.0f);
+		// На земле: мягкое прижатие вместо полной гравитации
+		// Предотвращает тряску и даёт плавный сход с уступа
+		constexpr float GROUND_PUSH = -0.02f;
+		vertVel = JPH::max(vertVel, GROUND_PUSH);
 	}
 
 	JPH::Vec3 desiredVel(worldDX * speed, vertVel, worldDZ * speed);
