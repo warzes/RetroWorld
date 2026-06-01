@@ -1,9 +1,123 @@
 ﻿#include "stdafx.h"
 #include "Editor.h"
 
+namespace
+{
+	enum class FileDialogMode { NONE, OPEN, SAVE_AS };
+	FileDialogMode g_fileDialogMode = FileDialogMode::NONE;
+	char g_fileInputName[128] = "untitled";
+	int  g_fileSelectedIdx    = -1;
+	std::vector<std::string> g_fileList;
+
+	void openFileDialog(FileDialogMode mode) noexcept
+	{
+		g_fileDialogMode = mode;
+		g_fileSelectedIdx = -1;
+		g_fileList = ListSavedMaps();
+		memset(g_fileInputName, 0, sizeof(g_fileInputName));
+		if (mode == FileDialogMode::SAVE_AS)
+		{
+			strncpy_s(g_fileInputName, sizeof(g_fileInputName),
+				g_mapName.c_str(), _TRUNCATE);
+		}
+	}
+
+	void closeFileDialog() noexcept
+	{
+		g_fileDialogMode = FileDialogMode::NONE;
+		g_fileSelectedIdx = -1;
+	}
+
+	void showFileDialog() noexcept
+	{
+		if (g_fileDialogMode == FileDialogMode::NONE)
+			return;
+
+		const char* title = (g_fileDialogMode == FileDialogMode::OPEN)
+			? "Open Map" : "Save Map As";
+		ImGui::SetNextWindowSize(ImVec2(420, 360), ImGuiCond_Always);
+
+		if (!ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_NoResize))
+		{
+			if (g_fileDialogMode != FileDialogMode::NONE)
+				ImGui::OpenPopup(title);
+			return;
+		}
+
+		// Map list
+		ImGui::Text("Maps (%zu):", g_fileList.size());
+		ImGui::BeginChild("map_list", ImVec2(0, 180), true);
+		for (int i = 0; i < static_cast<int>(g_fileList.size()); ++i)
+		{
+			bool sel = (i == g_fileSelectedIdx);
+			if (ImGui::Selectable(g_fileList[i].c_str(), &sel))
+			{
+				g_fileSelectedIdx = i;
+				strncpy_s(g_fileInputName, sizeof(g_fileInputName),
+					g_fileList[i].c_str(), _TRUNCATE);
+			}
+		}
+		ImGui::EndChild();
+
+		ImGui::Separator();
+
+		// Name input
+		ImGui::Text("Map name:");
+		ImGui::InputText("##mapname", g_fileInputName, sizeof(g_fileInputName));
+
+		ImGui::Separator();
+
+		bool nameValid = (strlen(g_fileInputName) > 0);
+
+		// Action button
+		if (g_fileDialogMode == FileDialogMode::OPEN)
+		{
+			if (ImGui::Button("Open", ImVec2(120, 0)) && nameValid)
+			{
+				if (g_fileSelectedIdx >= 0 &&
+					g_fileSelectedIdx < static_cast<int>(g_fileList.size()))
+				{
+					std::string path = "data/maps/" + g_fileList[g_fileSelectedIdx] + ".json";
+					LoadMap(path);
+				}
+				closeFileDialog();
+			}
+		}
+		else // SAVE_AS
+		{
+			if (ImGui::Button("Save", ImVec2(120, 0)) && nameValid)
+			{
+				SaveMapToPath(g_fileInputName);
+				closeFileDialog();
+			}
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Cancel", ImVec2(120, 0)))
+		{
+			closeFileDialog();
+		}
+
+		ImGui::EndPopup();
+	}
+}
+
 // ---- GameRenderUI ----
 void GameRenderUI()
 {
+	// Check for hotkey-requested dialogs
+	if (g_requestOpenDialog)
+	{
+		g_requestOpenDialog = false;
+		openFileDialog(FileDialogMode::OPEN);
+	}
+	if (g_requestSaveAsDialog)
+	{
+		g_requestSaveAsDialog = false;
+		openFileDialog(FileDialogMode::SAVE_AS);
+	}
+
 	// ---- Game mode camera info ----
 	if (g_gameMode)
 	{
@@ -32,9 +146,25 @@ void GameRenderUI()
 	{
 		if (ImGui::BeginMenu("File"))
 		{
-			if (ImGui::MenuItem("New", "Ctrl+N")) {}
-			if (ImGui::MenuItem("Save", "Ctrl+S")) {}
-			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {}
+			if (ImGui::MenuItem("New", "Ctrl+N"))
+			{
+				NewMap();
+			}
+			if (ImGui::MenuItem("Open", "Ctrl+O"))
+			{
+				openFileDialog(FileDialogMode::OPEN);
+			}
+			if (ImGui::MenuItem("Save", "Ctrl+S"))
+			{
+				if (!g_currentMapPath.empty())
+					SaveMap(g_currentMapPath);
+				else
+					openFileDialog(FileDialogMode::SAVE_AS);
+			}
+			if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S"))
+			{
+				openFileDialog(FileDialogMode::SAVE_AS);
+			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Exit")) {}
 			ImGui::EndMenu();
@@ -549,6 +679,8 @@ ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 	ImGui::Text("Verts: %zu", g_tileMeshCPU.positions.size());
 	ImGui::Text("Tris:  %zu", g_tileMeshCPU.indices.size() / 3);
 	ImGui::Text("Draw calls: %u", g_scene->lastFrameStats.drawCalls);
+
+	showFileDialog();
 
 	ImGui::End();
 }

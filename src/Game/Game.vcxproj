@@ -103,6 +103,7 @@
     <ClCompile Include="editor\EditorActions.cpp" />
     <ClCompile Include="editor\EditorApp.cpp" />
     <ClCompile Include="editor\EditorUI.cpp" />
+    <ClCompile Include="editor\EditorFiles.cpp" />
     <ClCompile Include="tile\TileAtlas.cpp" />
     <ClCompile Include="tile\TileMap.cpp" />
     <ClCompile Include="tile\TileMeshGen.cpp" />

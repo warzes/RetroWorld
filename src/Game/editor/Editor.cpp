@@ -86,6 +86,11 @@ bool g_hoverDirty = false;
 bool g_gameMode = false;
 std::vector<glm::vec4> g_tileCleanColors;
 
+std::string g_currentMapPath;
+std::string g_mapName = "untitled";
+bool g_requestOpenDialog   = false;
+bool g_requestSaveAsDialog = false;
+
 // Physics
 std::unique_ptr<PhysicsSystem>   g_physicsSystem;
 std::unique_ptr<PlayerController> g_playerController;

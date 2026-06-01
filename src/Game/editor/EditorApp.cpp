@@ -823,6 +823,47 @@ void GameUpdate()
 		g_dirtyMesh = true;
 	}
 
+	// ---- File hotkeys (Ctrl+N/O/S/Shift+S) ----
+	{
+		static bool prevCtrlN = false;
+		bool ctrlN = (input::IsKeyDown(KeyboardType::KEY_LEFT_CONTROL) || input::IsKeyDown(KeyboardType::KEY_RIGHT_CONTROL))
+			&& input::IsKeyDown(KeyboardType::KEY_N);
+		if (ctrlN && !prevCtrlN)
+			NewMap();
+		prevCtrlN = ctrlN;
+	}
+	{
+		static bool prevCtrlO = false;
+		bool ctrlO = (input::IsKeyDown(KeyboardType::KEY_LEFT_CONTROL) || input::IsKeyDown(KeyboardType::KEY_RIGHT_CONTROL))
+			&& input::IsKeyDown(KeyboardType::KEY_O);
+		if (ctrlO && !prevCtrlO)
+			g_requestOpenDialog = true;
+		prevCtrlO = ctrlO;
+	}
+	{
+		static bool prevCtrlS = false;
+		bool ctrlS = (input::IsKeyDown(KeyboardType::KEY_LEFT_CONTROL) || input::IsKeyDown(KeyboardType::KEY_RIGHT_CONTROL))
+			&& input::IsKeyDown(KeyboardType::KEY_S)
+			&& !(input::IsKeyDown(KeyboardType::KEY_LEFT_SHIFT) || input::IsKeyDown(KeyboardType::KEY_RIGHT_SHIFT));
+		if (ctrlS && !prevCtrlS)
+		{
+			if (!g_currentMapPath.empty())
+				SaveMap(g_currentMapPath);
+			else
+				g_requestSaveAsDialog = true;
+		}
+		prevCtrlS = ctrlS;
+	}
+	{
+		static bool prevCtrlShiftS = false;
+		bool ctrlShiftS = (input::IsKeyDown(KeyboardType::KEY_LEFT_CONTROL) || input::IsKeyDown(KeyboardType::KEY_RIGHT_CONTROL))
+			&& input::IsKeyDown(KeyboardType::KEY_S)
+			&& (input::IsKeyDown(KeyboardType::KEY_LEFT_SHIFT) || input::IsKeyDown(KeyboardType::KEY_RIGHT_SHIFT));
+		if (ctrlShiftS && !prevCtrlShiftS)
+			g_requestSaveAsDialog = true;
+		prevCtrlShiftS = ctrlShiftS;
+	}
+
 	// Delete key — remove all selected tiles
 	if (input::IsKeyDown(KeyboardType::KEY_DELETE) && g_selTX >= 0)
 	{

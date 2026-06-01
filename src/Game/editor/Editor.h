@@ -208,3 +208,14 @@ void GameRender();
 void GameRenderUI();
 
 void GameAppTile();
+
+// ---- File I/O ----
+extern std::string g_currentMapPath;
+extern std::string g_mapName;
+extern bool g_requestOpenDialog;
+extern bool g_requestSaveAsDialog;
+void NewMap() noexcept;
+bool SaveMap(std::string_view path) noexcept;
+bool SaveMapToPath(std::string_view name) noexcept;
+bool LoadMap(std::string_view path) noexcept;
+std::vector<std::string> ListSavedMaps() noexcept;

@@ -122,6 +122,8 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 
+#include <nlohmann/json.hpp>
+
 #if defined(_MSC_VER)
 #	pragma warning(pop)
 #endif
