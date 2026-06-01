@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "TileTypes.h"
 #include "TileMap.h"
@@ -20,8 +20,7 @@ namespace tile
 
 		void Clear();
 
-		void BuildFromMap(const TileMap& map, int atlasDim = 4,
-			int highlightTX = -1, int highlightTY = -1, uint8_t highlightTex = 3);
+		void BuildFromMap(const TileMap& map, int atlasDim = 4, int highlightTX = -1, int highlightTY = -1, uint8_t highlightTex = 3);
 
 		gr::Mesh CreateMesh() const;
 

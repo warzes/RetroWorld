@@ -339,7 +339,7 @@ namespace tile
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 3);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
 							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
-							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							ownUpper = ourC[0] + ourC[1] > nC[0] + nC[1];
 							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
 							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
@@ -354,7 +354,7 @@ namespace tile
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 1);
 							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
-							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							ownUpper = ourC[0] + ourC[1] > nC[0] + nC[1];
 							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
 							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
@@ -369,7 +369,7 @@ namespace tile
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 0);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 3);
 							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
-							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							ownUpper = ourC[0] + ourC[1] > nC[0] + nC[1];
 							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
 							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
@@ -384,7 +384,7 @@ namespace tile
 							nC[0] = map.GetCeilHeightAt(ntx, nty, 1);
 							nC[1] = map.GetCeilHeightAt(ntx, nty, 2);
 							ownLower = ourF[0] + ourF[1] < nF[0] + nF[1];
-							ownUpper = ourC[0] + ourC[1] < nC[0] + nC[1];
+							ownUpper = ourC[0] + ourC[1] > nC[0] + nC[1];
 							if (ownLower) addSeg(ourF[0], ourF[1], std::min(nF[0], ourC[0]), std::min(nF[1], ourC[1]), lowerTex);
 							if (ownUpper) addSeg(std::max(nC[0], ourF[0]), std::max(nC[1], ourF[1]), ourC[0], ourC[1], upperTex);
 							break;
