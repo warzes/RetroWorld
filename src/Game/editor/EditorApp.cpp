@@ -651,6 +651,19 @@ bool GameInit()
 	tileNode.receiveShadow = true;
 	tileNode.material = std::make_shared<gr::Material>(g_tileMaterial);
 
+	// Decorations parent node
+	root.AddChild<scene::SceneNode>("decorations");
+
+	// Preview node for decoration placement
+	auto& previewNode = root.AddChild<scene::ModelNode>("deco_preview");
+	previewNode.visible = false;
+	previewNode.castShadow = false;
+	previewNode.receiveShadow = false;
+	g_decorationPreviewNode = &previewNode;
+
+	// Recreate any decoration scene nodes from loaded data
+	decorations::RebuildAllSceneNodes();
+
 	RebuildTileMesh();
 
 	// Physics
@@ -736,6 +749,9 @@ void GameUpdate()
 			g_gameMode = !g_gameMode;
 			if (g_gameMode)
 			{
+				g_editorMode = EditorMode::TILE;
+				if (g_decorationPreviewNode)
+					g_decorationPreviewNode->visible = false;
 				g_selTX = g_selTY = -1;
 				g_anchorTX = g_anchorTY = -1;
 				g_selW = 1; g_selH = 1;
@@ -798,9 +814,23 @@ void GameUpdate()
 		g_heightEditMode = (g_heightEditMode == HeightEditMode::PLANE) ? HeightEditMode::VERTEX : HeightEditMode::PLANE;
 	}
 
-	// Escape deselects
+	// Z key toggles decoration snap-to-tile
+	if (input::IsKeyDown(KeyboardType::KEY_Z) && g_editorMode == EditorMode::DECORATION_ADD)
+	{
+		g_decorationSnapToTile = !g_decorationSnapToTile;
+	}
+
+	// Escape deselects / returns to tile mode
 	if (input::IsKeyDown(KeyboardType::KEY_ESCAPE))
 	{
+		if (g_editorMode == EditorMode::DECORATION_ADD || g_editorMode == EditorMode::DECORATION_EDIT)
+		{
+			g_editorMode = EditorMode::TILE;
+			g_selectedDecoration = -1;
+			g_showDecorationPicker = false;
+			if (g_decorationPreviewNode)
+				g_decorationPreviewNode->visible = false;
+		}
 		g_selTX = g_selTY = -1;
 		g_anchorTX = g_anchorTY = -1;
 		g_selW = 1; g_selH = 1;
@@ -864,22 +894,33 @@ void GameUpdate()
 		prevCtrlShiftS = ctrlShiftS;
 	}
 
-	// Delete key — remove all selected tiles
-	if (input::IsKeyDown(KeyboardType::KEY_DELETE) && g_selTX >= 0)
+	// Delete key — remove selected decoration or selected tiles
+	if (input::IsKeyDown(KeyboardType::KEY_DELETE))
 	{
-		for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
-			for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
-			{
-				if (!g_tileMap.InBounds(tx, ty)) continue;
-				auto& tt = g_tileMap.Get(tx, ty);
-				tt.spaceType   = tile::TileSpaceType::EMPTY;
-				tt.renderSolid = false;
-				tt.floorHeight = -0.5f;
-				tt.ceilHeight  =  0.5f;
-				tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
-				tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
-			}
-		g_dirtyMesh = true;
+		if (g_editorMode == EditorMode::DECORATION_EDIT && g_selectedDecoration >= 0 &&
+			g_selectedDecoration < static_cast<int>(g_decorations.size()))
+		{
+			decorations::DestroySceneNode(g_selectedDecoration);
+			g_decorations.erase(g_decorations.begin() + g_selectedDecoration);
+			g_selectedDecoration = -1;
+			decorations::RebuildAllSceneNodes();
+		}
+		else if (g_selTX >= 0)
+		{
+			for (int ty = g_selTY; ty < g_selTY + g_selH; ++ty)
+				for (int tx = g_selTX; tx < g_selTX + g_selW; ++tx)
+				{
+					if (!g_tileMap.InBounds(tx, ty)) continue;
+					auto& tt = g_tileMap.Get(tx, ty);
+					tt.spaceType   = tile::TileSpaceType::EMPTY;
+					tt.renderSolid = false;
+					tt.floorHeight = -0.5f;
+					tt.ceilHeight  =  0.5f;
+					tt.slopeNW = tt.slopeNE = tt.slopeSE = tt.slopeSW     = 0.0f;
+					tt.ceilSlopeNW = tt.ceilSlopeNE = tt.ceilSlopeSE = tt.ceilSlopeSW = 0.0f;
+				}
+			g_dirtyMesh = true;
+		}
 	}
 
 	// Enter key — carve / texture-copy
@@ -1000,6 +1041,115 @@ void GameUpdate()
 			camPos = g_scene->activeCamera->GetPosition();
 		}
 
+		// ---- Decoration Add mode: raycast to ground, show preview, place on click ----
+		if (g_editorMode == EditorMode::DECORATION_ADD && g_scene->activeCamera)
+		{
+			if (fabsf(rayDir.y) > 1e-6f)
+			{
+				float groundT = -camPos.y / rayDir.y;
+				glm::vec3 groundPos = camPos + rayDir * groundT;
+
+				if (g_decorationSnapToTile)
+				{
+					int tx = static_cast<int>(floor(groundPos.x + 0.5f));
+					int ty = static_cast<int>(floor(groundPos.z + 0.5f));
+					groundPos.x = static_cast<float>(tx);
+					groundPos.z = static_cast<float>(ty);
+
+					if (g_tileMap.InBounds(tx, ty))
+					{
+						auto& t = g_tileMap.Get(tx, ty);
+						float avgSlope = (t.slopeNW + t.slopeNE + t.slopeSE + t.slopeSW) * 0.25f;
+						groundPos.y = t.floorHeight + avgSlope;
+					}
+					else
+					{
+						groundPos.y = 0.0f;
+					}
+				}
+				else
+				{
+					groundPos.y = 0.0f;
+				}
+
+				// Update preview
+				if (g_decorationPreviewNode && !g_decorationPickerModel.empty())
+				{
+					auto* cached = decorations::GetCachedModel(g_decorationPickerFolder, g_decorationPickerModel);
+					if (cached && cached->mesh)
+					{
+						g_decorationPreviewNode->mesh = cached->mesh;
+						g_decorationPreviewNode->material = decorations::GetPreviewMaterial();
+						g_decorationPreviewNode->transform.position = groundPos;
+						g_decorationPreviewNode->visible = true;
+					}
+				}
+
+				// Place on left click
+				if (lmbPressed && !g_decorationPickerModel.empty())
+				{
+					decorations::EnsureModelLoaded(g_decorationPickerFolder, g_decorationPickerModel);
+					auto* cached = decorations::GetCachedModel(g_decorationPickerFolder, g_decorationPickerModel);
+					if (cached && cached->mesh)
+					{
+						decorations::Instance inst;
+						inst.folder = g_decorationPickerFolder;
+						inst.modelFile = g_decorationPickerModel;
+						inst.position = groundPos;
+						inst.rotation = { 0.0f, 0.0f, 0.0f };
+						inst.scale = { 1.0f, 1.0f, 1.0f };
+						g_decorations.push_back(inst);
+
+						auto* node = decorations::CreateSceneNode(inst.folder, inst.modelFile, inst.position);
+						if (node)
+							node->material = cached->material;
+					}
+				}
+			}
+		}
+		// ---- Decoration Edit mode: click to select nearest decoration ----
+		else if (g_editorMode == EditorMode::DECORATION_EDIT && lmbPressed && g_scene->activeCamera)
+		{
+			float bestDist = std::numeric_limits<float>::max();
+			int bestIdx = -1;
+			auto* decoParent = g_scene->root->FindChild("decorations");
+			if (decoParent)
+			{
+				for (int i = 0; i < static_cast<int>(g_decorations.size()); ++i)
+				{
+					glm::vec3 toDeco = g_decorations[i].position - camPos;
+					float t = glm::dot(toDeco, rayDir);
+					if (t <= 0) continue;
+					glm::vec3 closest = camPos + rayDir * t;
+					float dist = glm::distance(closest, g_decorations[i].position);
+
+					auto* cached = decorations::GetCachedModel(g_decorations[i].folder, g_decorations[i].modelFile);
+					float radius = 0.5f;
+					if (cached)
+					{
+						auto bbSize = cached->aabb.max - cached->aabb.min;
+						radius = glm::length(bbSize) * 0.5f * glm::length(g_decorations[i].scale);
+					}
+					if (dist < radius && dist < bestDist)
+					{
+						bestDist = dist;
+						bestIdx = i;
+					}
+				}
+			}
+			g_selectedDecoration = bestIdx;
+		}
+
+		// ---- Skip tile picking in decoration modes ----
+		if (g_editorMode != EditorMode::TILE)
+		{
+			// In non-TILE modes, still do hover for face detection (not used)
+			g_hoverTX = g_hoverTY = -1;
+			g_hoverFace = tile::FaceDir::COUNT;
+			g_hoverCPIdx = -1;
+		}
+		else
+		{
 		// --- CP hover detection ---
 		g_hoverCPIdx = -1;
 		if (g_editMode == EditMode::TILE && g_selTX >= 0 && g_tileMap.InBounds(g_selTX, g_selTY) && g_scene->activeCamera)
@@ -1415,6 +1565,7 @@ void GameUpdate()
 			}
 			else scrollAccum = 0.0f;
 		}
+		} // else (TILE mode)
 	} // !wantCaptureMouse
 	} // !g_gameMode
 
@@ -1724,6 +1875,87 @@ void DrawColliderOverlay()
 	gpu::cmd::SetTopology(gpu::PrimitiveTopology::TriangleList);
 }
 
+// ---- DrawDecoOverlay (AABB for selected decoration) ----
+void DrawDecoOverlay()
+{
+	if (!g_debugProgram || !g_scene->activeCamera) return;
+	if (g_selectedDecoration < 0 || g_selectedDecoration >= static_cast<int>(g_decorations.size()))
+		return;
+
+	auto* cached = decorations::GetCachedModel(g_decorations[g_selectedDecoration].folder, g_decorations[g_selectedDecoration].modelFile);
+	if (!cached) return;
+
+	auto& inst = g_decorations[g_selectedDecoration];
+	auto bb = cached->aabb;
+	// Transform AABB by instance transform
+	glm::mat4 model = glm::translate(glm::mat4(1.0f), inst.position)
+		* glm::mat4_cast(glm::quat(glm::radians(inst.rotation)))
+		* glm::scale(glm::mat4(1.0f), inst.scale);
+
+	glm::vec3 corners[8] = {
+		model * glm::vec4(bb.min.x, bb.min.y, bb.min.z, 1),
+		model * glm::vec4(bb.max.x, bb.min.y, bb.min.z, 1),
+		model * glm::vec4(bb.max.x, bb.min.y, bb.max.z, 1),
+		model * glm::vec4(bb.min.x, bb.min.y, bb.max.z, 1),
+		model * glm::vec4(bb.min.x, bb.max.y, bb.min.z, 1),
+		model * glm::vec4(bb.max.x, bb.max.y, bb.min.z, 1),
+		model * glm::vec4(bb.max.x, bb.max.y, bb.max.z, 1),
+		model * glm::vec4(bb.min.x, bb.max.y, bb.max.z, 1),
+	};
+
+	std::vector<gr::MeshVertex> lines;
+	glm::vec4 wireColor(1.0f, 0.8f, 0.2f, 0.8f);
+
+	auto addLine = [&](glm::vec3 a, glm::vec3 b)
+	{
+		lines.push_back({ a, {}, {}, wireColor });
+		lines.push_back({ b, {}, {}, wireColor });
+	};
+
+	// Bottom face
+	for (int i = 0; i < 4; ++i)
+		addLine(corners[i], corners[(i + 1) % 4]);
+	// Top face
+	for (int i = 0; i < 4; ++i)
+		addLine(corners[4 + i], corners[4 + ((i + 1) % 4)]);
+	// Vertical edges
+	for (int i = 0; i < 4; ++i)
+		addLine(corners[i], corners[4 + i]);
+
+	if (lines.empty()) return;
+
+	static gpu::vao::VertexArrayPtr s_vao;
+	static gpu::buffer::BufferPtr s_vbo;
+	static size_t s_capacity = 0;
+
+	if (!s_vao)
+		s_vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
+
+	size_t totalBytes = lines.size() * sizeof(gr::MeshVertex);
+	if (!s_vbo || s_capacity < totalBytes)
+	{
+		s_vbo = gpu::buffer::CreateBuffer(totalBytes,
+			gpu::buffer::BufferStorageFlag::DynamicStorage, "deco_overlay");
+		s_capacity = totalBytes;
+	}
+
+	gpu::buffer::UpdateData(s_vbo, lines.data(), totalBytes, 0);
+
+	glLineWidth(2.0f);
+
+	gpu::vao::BindVertexArray(s_vao);
+	gpu::cmd::BindVertexBuffer(s_vao, 0, s_vbo, 0, sizeof(gr::MeshVertex));
+	gpu::program::BindShaderProgram(g_debugProgram);
+
+	auto vp = g_scene->activeCamera->GetViewProjectionMatrix();
+	int loc = gpu::program::GetUniformLocation(g_debugProgram, "u_viewProj");
+	gpu::program::SetUniform(g_debugProgram, loc, vp);
+
+	gpu::cmd::SetTopology(gpu::PrimitiveTopology::LineList);
+	gpu::cmd::Draw(static_cast<uint32_t>(lines.size()), 1, 0, 0);
+	gpu::cmd::SetTopology(gpu::PrimitiveTopology::TriangleList);
+}
+
 // ---- GameRender ----
 void GameRender()
 {
@@ -1758,6 +1990,8 @@ void GameRender()
 	g_scene->RenderTransparentPass(queue, g_program);
 	if (!g_gameMode)
 		DrawDebugOverlay();
+	if (!g_gameMode)
+		DrawDecoOverlay();
 	if (g_showCollider)
 		DrawColliderOverlay();
 	gpu::cmd::EndDraw();

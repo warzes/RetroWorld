@@ -104,6 +104,7 @@
     <ClCompile Include="editor\EditorApp.cpp" />
     <ClCompile Include="editor\EditorUI.cpp" />
     <ClCompile Include="editor\EditorFiles.cpp" />
+    <ClCompile Include="editor\Decorations.cpp" />
     <ClCompile Include="tile\TileAtlas.cpp" />
     <ClCompile Include="tile\TileMap.cpp" />
     <ClCompile Include="tile\TileMeshGen.cpp" />
@@ -114,6 +115,7 @@
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="editor\Editor.h" />
+    <ClInclude Include="editor\Decorations.h" />
     <ClInclude Include="tile\TileAtlas.h" />
     <ClInclude Include="tile\TileMap.h" />
     <ClInclude Include="tile\TileMeshGen.h" />

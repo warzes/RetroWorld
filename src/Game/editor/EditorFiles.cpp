@@ -118,6 +118,40 @@ namespace
 	}
 
 	//=====================================================================
+	json decorationsToJson(const decorations::Instance& d) noexcept
+	{
+		json j;
+		j["folder"]    = d.folder;
+		j["modelFile"] = d.modelFile;
+		j["px"]        = d.position.x;
+		j["py"]        = d.position.y;
+		j["pz"]        = d.position.z;
+		j["rx"]        = d.rotation.x;
+		j["ry"]        = d.rotation.y;
+		j["rz"]        = d.rotation.z;
+		j["sx"]        = d.scale.x;
+		j["sy"]        = d.scale.y;
+		j["sz"]        = d.scale.z;
+		return j;
+	}
+
+	//=====================================================================
+	void jsonToDecorations(const json& j, decorations::Instance& d) noexcept
+	{
+		d.folder    = j.value("folder", "");
+		d.modelFile = j.value("modelFile", "");
+		d.position.x = j.value("px", 0.0f);
+		d.position.y = j.value("py", 0.0f);
+		d.position.z = j.value("pz", 0.0f);
+		d.rotation.x = j.value("rx", 0.0f);
+		d.rotation.y = j.value("ry", 0.0f);
+		d.rotation.z = j.value("rz", 0.0f);
+		d.scale.x    = j.value("sx", 1.0f);
+		d.scale.y    = j.value("sy", 1.0f);
+		d.scale.z    = j.value("sz", 1.0f);
+	}
+
+	//=====================================================================
 	[[nodiscard]] std::vector<std::string> listMapFiles() noexcept
 	{
 		ensureMapsDir();
@@ -137,6 +171,8 @@ namespace
 void NewMap() noexcept
 {
 	g_tileMap.Clear();
+	g_decorations.clear();
+	g_selectedDecoration = -1;
 	g_selTX = g_selTY = -1;
 	g_anchorTX = g_anchorTY = -1;
 	g_selW = 1; g_selH = 1;
@@ -145,6 +181,7 @@ void NewMap() noexcept
 	g_dirtyMesh = true;
 	g_currentMapPath.clear();
 	g_mapName = "untitled";
+	decorations::RebuildAllSceneNodes();
 }
 
 //=====================================================================
@@ -167,6 +204,12 @@ bool SaveMap(std::string_view path) noexcept
 			tilesArr.push_back(tileToJson(g_tileMap.Get(tx, ty)));
 
 	root["tiles"] = std::move(tilesArr);
+
+	// Save decorations
+	json decoArr = json::array();
+	for (const auto& d : g_decorations)
+		decoArr.push_back(decorationsToJson(d));
+	root["decorations"] = std::move(decoArr);
 
 	std::string pathStr(path);
 	std::ofstream ofs(pathStr, std::ios::ate | std::ios::binary);
@@ -229,6 +272,30 @@ bool LoadMap(std::string_view path) noexcept
 
 	g_mapName = root.value("name", "untitled");
 	g_currentMapPath = std::string(path);
+
+	// Load decorations
+	g_decorations.clear();
+	g_selectedDecoration = -1;
+	if (root.contains("decorations"))
+	{
+		auto& decoArr = root["decorations"];
+		if (decoArr.is_array())
+		{
+			g_decorations.reserve(decoArr.size());
+			for (const auto& jd : decoArr)
+			{
+				decorations::Instance inst;
+				jsonToDecorations(jd, inst);
+				g_decorations.push_back(std::move(inst));
+			}
+		}
+	}
+
+	// Ensure all decoration models are loaded
+	for (const auto& d : g_decorations)
+		decorations::EnsureModelLoaded(d.folder, d.modelFile);
+
+	decorations::RebuildAllSceneNodes();
 
 	g_selTX = g_selTY = -1;
 	g_anchorTX = g_anchorTY = -1;

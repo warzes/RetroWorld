@@ -22,6 +22,7 @@ gpu::texture::SamplerPtr g_atlasSampler;
 scene::ModelNode* g_tileModelNode = nullptr;
 
 EditMode g_editMode = EditMode::TILE;
+EditorMode g_editorMode = EditorMode::TILE;
 int  g_selTX = -1, g_selTY = -1;
 int  g_selW = 1, g_selH = 1;
 int  g_anchorTX = -1, g_anchorTY = -1;
@@ -73,6 +74,17 @@ int  g_brushCeilAtlas       = 0;
 
 bool g_showTexturePicker   = false;
 int  g_pickerTarget        = 0;
+
+// Decoration state
+std::vector<decorations::Instance> g_decorations;
+int  g_selectedDecoration    = -1;
+bool g_showDecorationPicker  = false;
+bool g_showDecorationInspector = true;
+bool g_decorationSnapToTile  = true;
+std::string g_decorationPickerFolder;
+std::string g_decorationPickerModel;
+int  g_decorationPickerModelIdx = -1;
+scene::ModelNode* g_decorationPreviewNode = nullptr;
 
 int      g_mapWidth  = 20;
 int      g_mapHeight = 20;

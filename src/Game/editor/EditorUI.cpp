@@ -404,6 +404,46 @@ void GameRenderUI()
 			ImGui::EndMenu();
 		}
 
+		if (ImGui::BeginMenu("Decorations"))
+		{
+			if (ImGui::MenuItem("Add"))
+			{
+				g_editorMode = EditorMode::DECORATION_ADD;
+				g_showTexturePicker = false;
+				g_showDecorationPicker = true;
+				g_showDecorationInspector = true;
+				g_selectedDecoration = -1;
+				// Scan folders on first open
+				if (g_decorationPickerFolder.empty())
+				{
+					auto folders = decorations::ScanFolders();
+					if (!folders.empty())
+						g_decorationPickerFolder = folders[0];
+				}
+			}
+			if (ImGui::MenuItem("Edit"))
+			{
+				g_editorMode = EditorMode::DECORATION_EDIT;
+				g_showTexturePicker = false;
+				g_showDecorationInspector = true;
+			}
+			if (ImGui::MenuItem("Delete", "Del"))
+			{
+				if (g_selectedDecoration >= 0 && g_selectedDecoration < static_cast<int>(g_decorations.size()))
+				{
+					decorations::DestroySceneNode(g_selectedDecoration);
+					g_decorations.erase(g_decorations.begin() + g_selectedDecoration);
+					g_selectedDecoration = -1;
+					// Rebuild scene node names after removal
+					decorations::RebuildAllSceneNodes();
+				}
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Inspector", nullptr, &g_showDecorationInspector)) {}
+
+			ImGui::EndMenu();
+		}
+
 		if (ImGui::BeginMenu("Entity"))
 		{
 			if (ImGui::MenuItem("Delete", "Del")) {}
@@ -481,6 +521,8 @@ void GameRenderUI()
 	}
 
 	// Editor panel
+if (g_editorMode == EditorMode::TILE)
+{
 ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 
 // ---- Texture picker preview rows (T1/T2 atlas aware) ----
@@ -683,4 +725,247 @@ ImGui::Begin("Tile Editor", nullptr, ImGuiWindowFlags_NoCollapse);
 	showFileDialog();
 
 	ImGui::End();
+} // if (g_editorMode == EditorMode::TILE)
+
+	// ---- Decoration Picker (modal) ----
+	if (g_showDecorationPicker)
+		ImGui::OpenPopup("Decoration Picker");
+
+	ImGui::SetNextWindowSize(ImVec2(520, 480), ImGuiCond_Always);
+	if (ImGui::BeginPopupModal("Decoration Picker", &g_showDecorationPicker, ImGuiWindowFlags_NoResize))
+	{
+		auto folders = decorations::ScanFolders();
+
+		// Folder combo
+		if (!folders.empty())
+		{
+			int currentFolderIdx = 0;
+			for (size_t i = 0; i < folders.size(); ++i)
+			{
+				if (folders[i] == g_decorationPickerFolder)
+				{
+					currentFolderIdx = static_cast<int>(i);
+					break;
+				}
+			}
+
+			ImGui::Text("Folder:");
+			ImGui::SameLine();
+			if (ImGui::BeginCombo("##decoFolder", g_decorationPickerFolder.c_str()))
+			{
+				for (int i = 0; i < static_cast<int>(folders.size()); ++i)
+				{
+					bool sel = (i == currentFolderIdx);
+					if (ImGui::Selectable(folders[i].c_str(), &sel))
+					{
+						g_decorationPickerFolder = folders[i];
+						g_decorationPickerModelIdx = -1;
+						g_decorationPickerModel.clear();
+					}
+				}
+				ImGui::EndCombo();
+			}
+
+			ImGui::Separator();
+
+			// Model list
+			auto models = decorations::ScanModels(g_decorationPickerFolder);
+
+			ImGui::Text("Models (%zu):", models.size());
+
+			ImGui::BeginChild("decoList", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() - 10), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+
+			for (int mi = 0; mi < static_cast<int>(models.size()); ++mi)
+			{
+				decorations::EnsureModelLoaded(g_decorationPickerFolder, models[mi]);
+
+				bool selected = (mi == g_decorationPickerModelIdx);
+				ImGui::PushID(mi);
+				if (ImGui::Selectable(models[mi].c_str(), &selected, ImGuiSelectableFlags_None))
+				{
+					g_decorationPickerModelIdx = mi;
+					g_decorationPickerModel = models[mi];
+
+					// Set up scene preview node immediately
+					if (g_decorationPreviewNode)
+					{
+						auto* cached = decorations::GetCachedModel(g_decorationPickerFolder, models[mi]);
+						if (cached && cached->mesh)
+						{
+							g_decorationPreviewNode->mesh = cached->mesh;
+							g_decorationPreviewNode->material = decorations::GetPreviewMaterial();
+							g_decorationPreviewNode->visible = false; // shown when cursor enters scene
+						}
+					}
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndChild();
+
+			ImGui::Separator();
+
+			// Selected model info
+			bool hasSelection = !g_decorationPickerModel.empty();
+			if (hasSelection)
+			{
+				ImGui::Text("Selected: %s", g_decorationPickerModel.c_str());
+				auto* selCached = decorations::GetCachedModel(g_decorationPickerFolder, g_decorationPickerModel);
+				if (selCached)
+				{
+					auto& bb = selCached->aabb;
+					ImGui::Text("  Bounds: (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f)",
+						bb.min.x, bb.min.y, bb.min.z,
+						bb.max.x, bb.max.y, bb.max.z);
+				}
+
+				if (ImGui::Button("Place"))
+				{
+					g_showDecorationPicker = false;
+					ImGui::CloseCurrentPopup();
+				}
+				ImGui::SameLine();
+			}
+
+			ImGui::SameLine();
+			ImGui::Checkbox("Snap to Tile [Z]", &g_decorationSnapToTile);
+
+			if (ImGui::Button("Cancel"))
+			{
+				g_showDecorationPicker = false;
+				g_editorMode = EditorMode::TILE;
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		else
+		{
+			ImGui::TextWrapped("No decoration folders found in data/decorations/. Create a folder and place .obj files inside.");
+			if (ImGui::Button("Close"))
+			{
+				g_showDecorationPicker = false;
+				g_editorMode = EditorMode::TILE;
+				ImGui::CloseCurrentPopup();
+			}
+		}
+
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+		{
+			g_showDecorationPicker = false;
+			g_editorMode = EditorMode::TILE;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	// ---- Decoration Inspector window ----
+	if (g_showDecorationInspector)
+	{
+		ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
+		if (ImGui::Begin("Decoration Inspector", &g_showDecorationInspector))
+		{
+			if (g_decorations.empty())
+			{
+				ImGui::TextWrapped("No decorations placed. Use Decorations > Add to place models.");
+			}
+			else
+			{
+				// Group by folder
+				std::vector<std::string> folders;
+				for (const auto& d : g_decorations)
+				{
+					if (std::find(folders.begin(), folders.end(), d.folder) == folders.end())
+						folders.push_back(d.folder);
+				}
+
+				for (const auto& folder : folders)
+				{
+					if (ImGui::TreeNodeEx(folder.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+					{
+						for (int i = 0; i < static_cast<int>(g_decorations.size()); ++i)
+						{
+							if (g_decorations[i].folder != folder)
+								continue;
+
+							ImGui::PushID(i);
+							bool sel = (g_selectedDecoration == i);
+							if (ImGui::Selectable(g_decorations[i].modelFile.c_str(), &sel, ImGuiSelectableFlags_AllowDoubleClick))
+							{
+								g_selectedDecoration = i;
+								if (ImGui::IsMouseDoubleClicked(0))
+								{
+									g_editorMode = EditorMode::DECORATION_EDIT;
+								}
+							}
+
+							// Delete button inline
+							ImGui::SameLine();
+							if (ImGui::SmallButton("X"))
+							{
+								decorations::DestroySceneNode(i);
+								g_decorations.erase(g_decorations.begin() + i);
+								g_selectedDecoration = -1;
+								decorations::RebuildAllSceneNodes();
+								ImGui::PopID();
+								break; // iterator invalidated
+							}
+							ImGui::PopID();
+						}
+						ImGui::TreePop();
+					}
+				}
+			}
+		}
+		ImGui::End();
+	}
+
+	// ---- Decoration Add mode info overlay ----
+	if (g_editorMode == EditorMode::DECORATION_ADD)
+	{
+		ImGui::SetNextWindowPos(ImVec2(10, 30), ImGuiCond_Always);
+		ImGui::SetNextWindowBgAlpha(0.6f);
+		if (ImGui::Begin("DecoModeInfo", nullptr,
+			ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings))
+		{
+			ImGui::Text("Decoration Add Mode");
+			ImGui::Text("Snap to Tile: %s  [Z]", g_decorationSnapToTile ? "ON" : "OFF");
+			if (!g_decorationPickerModel.empty())
+				ImGui::Text("Model: %s", g_decorationPickerModel.c_str());
+			ImGui::Text("Click to place | Esc to exit");
+		}
+		ImGui::End();
+	}
+
+	// ---- Decoration Settings window (when editing a decoration) ----
+	if (g_editorMode != EditorMode::TILE && g_selectedDecoration >= 0 &&
+		g_selectedDecoration < static_cast<int>(g_decorations.size()))
+	{
+		ImGui::SetNextWindowSize(ImVec2(280, 260), ImGuiCond_FirstUseEver);
+		if (ImGui::Begin("Decoration Settings"))
+		{
+			auto& d = g_decorations[g_selectedDecoration];
+			ImGui::Text("Model: %s/%s", d.folder.c_str(), d.modelFile.c_str());
+
+			ImGui::Separator();
+
+			bool changed = false;
+			changed |= ImGui::DragFloat3("Position", &d.position.x, 0.1f);
+			changed |= ImGui::DragFloat3("Rotation", &d.rotation.x, 1.0f);
+			changed |= ImGui::DragFloat3("Scale", &d.scale.x, 0.05f, 0.01f, 100.0f);
+
+			if (changed)
+				decorations::UpdateSceneTransform(g_selectedDecoration);
+
+			ImGui::Separator();
+
+			if (ImGui::Button("Delete"))
+			{
+				decorations::DestroySceneNode(g_selectedDecoration);
+				g_decorations.erase(g_decorations.begin() + g_selectedDecoration);
+				g_selectedDecoration = -1;
+				decorations::RebuildAllSceneNodes();
+			}
+		}
+		ImGui::End();
+	}
 }

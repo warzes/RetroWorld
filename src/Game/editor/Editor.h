@@ -14,6 +14,7 @@
 #include <sc_sceneManager.h>
 #include <gr_camera.h>
 #include <app_mouseLook.h>
+#include "Decorations.h"
 
 // ---- Globals ----
 extern gpu::program::ShaderProgramPtr g_program;
@@ -37,6 +38,8 @@ extern scene::ModelNode* g_tileModelNode;
 enum class EditMode { TILE, FACE, VERTEX };
 
 extern EditMode g_editMode;
+enum class EditorMode { TILE, DECORATION_ADD, DECORATION_EDIT };
+extern EditorMode g_editorMode;
 extern int  g_selTX, g_selTY;     // top-left of selection rect
 extern int  g_selW, g_selH;       // selection dimensions (default 1×1)
 extern int  g_anchorTX, g_anchorTY; // tile the user first clicked (persistent anchor for heights)
@@ -106,6 +109,17 @@ extern int  g_brushCeilAtlas;
 // Texture picker state
 extern bool g_showTexturePicker;
 extern int  g_pickerTarget; // 0=UpperWall, 1=LowerWall, 2=Ceiling, 3=Floor
+
+// ---- Decoration state ----
+extern std::vector<decorations::Instance> g_decorations;
+extern int  g_selectedDecoration; // -1 = none
+extern bool g_showDecorationPicker;
+extern bool g_showDecorationInspector;
+extern bool g_decorationSnapToTile;
+extern std::string g_decorationPickerFolder;
+extern std::string g_decorationPickerModel;
+extern int  g_decorationPickerModelIdx;
+extern scene::ModelNode* g_decorationPreviewNode;
 
 extern int      g_mapWidth;
 extern int      g_mapHeight;
@@ -198,6 +212,7 @@ void UpdateHoverHighlight();
 void PickTile(const glm::vec3& rayOrigin, const glm::vec3& rayDir);
 void DrawDebugOverlay();
 void DrawColliderOverlay();
+void DrawDecoOverlay();
 void RebuildMapCollider();
 
 bool GameInit();
