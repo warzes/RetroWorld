@@ -62,12 +62,12 @@ namespace gpu::buffer
 	template<class T> requires(std::is_trivially_copyable_v<T> && !std::is_pointer_v<T>)
 	void UpdateData(const BufferPtr& buffer, const T& data, size_t startIndex = 0)
 	{
-		UpdateData(buffer, data, sizeof(T) * startIndex);
+		UpdateData(buffer, ByteSpan(data), sizeof(T) * startIndex);
 	}
 	template<class T> requires(std::is_trivially_copyable_v<T> && !std::is_pointer_v<T>)
 	void UpdateData(const BufferPtr& buffer, std::span<const T> data, size_t startIndex = 0)
 	{
-		UpdateData(buffer, data, sizeof(T) * startIndex);
+		UpdateData(buffer, ByteSpan(data), sizeof(T) * startIndex);
 	}
 
 } // namespace gpu::buffer
