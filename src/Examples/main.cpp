@@ -20,6 +20,7 @@ void gpu003_spherePhong();
 void gpu004_normalMap();
 void gpu005_cubeMapping();
 void gpu006_reflectionAndRefraction();
+void gpu007_simpleTerrain();
 
 void Demo001();
 //=============================================================================
@@ -32,7 +33,7 @@ int main(
 	//gpu003_spherePhong();
 	//gpu004_normalMap();
 	//gpu005_cubeMapping();
-	gpu006_reflectionAndRefraction();
+	gpu007_simpleTerrain();
 
 	//Demo001();
 }

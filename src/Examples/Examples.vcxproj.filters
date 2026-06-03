@@ -21,6 +21,9 @@
     <ClCompile Include="gpu006_reflectionAndRefraction.cpp">
       <Filter>GPUExamples</Filter>
     </ClCompile>
+    <ClCompile Include="gpu007_simpleTerrain.cpp">
+      <Filter>GPUExamples</Filter>
+    </ClCompile>
     <ClCompile Include="demo001.cpp">
       <Filter>demo</Filter>
     </ClCompile>
