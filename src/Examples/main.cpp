@@ -3,7 +3,6 @@
 #if defined(_MSC_VER)
 #	pragma comment( lib, "3rdparty.lib" )
 #	pragma comment( lib, "Engine.lib" )
-//#	pragma comment( lib, "slang-compiler.lib" )
 #endif
 // в этом видео по дагеру https://www.youtube.com/watch?v=4Lz5d-g4tik
 // визуальный стиль замка в первом отрывке - вот мне надо такую графикую
@@ -18,7 +17,7 @@
 void gpu001_cube();
 void gpu002_cubeSkybox();
 void gpu003_spherePhong();
-void gpu004_reflection();
+void gpu004_normalMap();
 
 void Demo001();
 //=============================================================================
@@ -29,8 +28,8 @@ int main(
 	//gpu001_cube();
 	//gpu002_cubeSkybox();
 	//gpu003_spherePhong();
-	//gpu004_reflection();
+	gpu004_normalMap();
 
-	Demo001();
+	//Demo001();
 }
 //=============================================================================

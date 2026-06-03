@@ -12,7 +12,7 @@
     <ClCompile Include="gpu003_spherePhong.cpp">
       <Filter>GPUExamples</Filter>
     </ClCompile>
-    <ClCompile Include="gpu004_reflection.cpp">
+    <ClCompile Include="gpu004_normalMap.cpp">
       <Filter>GPUExamples</Filter>
     </ClCompile>
     <ClCompile Include="demo001.cpp">
