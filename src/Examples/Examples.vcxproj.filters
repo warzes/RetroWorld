@@ -15,6 +15,9 @@
     <ClCompile Include="gpu004_normalMap.cpp">
       <Filter>GPUExamples</Filter>
     </ClCompile>
+    <ClCompile Include="gpu005_cubeMapping.cpp">
+      <Filter>GPUExamples</Filter>
+    </ClCompile>
     <ClCompile Include="demo001.cpp">
       <Filter>demo</Filter>
     </ClCompile>
