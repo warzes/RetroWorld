@@ -19,6 +19,7 @@ void gpu002_cubeSkybox();
 void gpu003_spherePhong();
 void gpu004_normalMap();
 void gpu005_cubeMapping();
+void gpu006_reflectionAndRefraction();
 
 void Demo001();
 //=============================================================================
@@ -30,7 +31,8 @@ int main(
 	//gpu002_cubeSkybox();
 	//gpu003_spherePhong();
 	//gpu004_normalMap();
-	gpu005_cubeMapping();
+	//gpu005_cubeMapping();
+	gpu006_reflectionAndRefraction();
 
 	//Demo001();
 }
