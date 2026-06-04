@@ -100,6 +100,7 @@
     <ClCompile Include="gpu005_cubeMapping.cpp" />
     <ClCompile Include="gpu006_reflectionAndRefraction.cpp" />
     <ClCompile Include="gpu007_simpleTerrain.cpp" />
+    <ClCompile Include="gpu008_water.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
