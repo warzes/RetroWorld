@@ -832,13 +832,12 @@ void MapEditor::buildMountainRpgMakerBatches(std::vector<MeshBatch>& batches)
 				float SF = mt.slopeFront.Total();
 				float SB = mt.slopeBack.Total();
 
-				// Adjacent tops in world Y
+				// Adjacent tops
 				float adjTop_L = neighborTop(x - 1, z);
 				float adjTop_R = neighborTop(x + 1, z);
 				float adjTop_B = neighborTop(x,     z - 1);
 				float adjTop_F = neighborTop(x,     z + 1);
 
-				// Wall visible portion: from max(baseY, adjTop) to topY
 				float wallBot_L = std::max(baseY, adjTop_L);
 				float wallBot_R = std::max(baseY, adjTop_R);
 				float wallBot_B = std::max(baseY, adjTop_B);
@@ -851,114 +850,142 @@ void MapEditor::buildMountainRpgMakerBatches(std::vector<MeshBatch>& batches)
 
 				auto& wallBatch = findWallGroup(mt.texWall);
 
+				// Each wall is split into two parts:
+				//   Upper — slope-trapezoid from wallBot up to topY (if visible)
+				//   Lower — flat quad at the cell boundary from baseY up to wallBot
+				//           (fills the gap when a neighbour covers the lower
+				//            portion; rendered WITHOUT slope so it doesn't
+				//            protrude into the neighbour's footprint).
+
 				//--- Left wall (-X) ---
 				if (showLeft)
 				{
-					float visibleH = topY - wallBot_L;
+					if (wallBot_L > baseY)
+						addWallFace(wallBatch,
+							{fx, wallBot_L, fz + 1}, {fx, wallBot_L, fz},
+							{fx, baseY,     fz + 1}, {fx, baseY,     fz},
+							{-1, 0, 0}, wallBot_L - baseY);
 					addWallFace(wallBatch,
-						{fx,       topY, fz + 1},
-						{fx,       topY, fz    },
-						{fx - SL,  wallBot_L, fz + 1},
-						{fx - SL,  wallBot_L, fz    },
-						{-1, 0, 0}, visibleH);
+						{fx,      topY, fz + 1}, {fx,      topY, fz},
+						{fx - SL, wallBot_L, fz + 1}, {fx - SL, wallBot_L, fz},
+						{-1, 0, 0}, topY - wallBot_L);
 				}
 
 				//--- Right wall (+X) ---
 				if (showRight)
 				{
-					float visibleH = topY - wallBot_R;
+					if (wallBot_R > baseY)
+						addWallFace(wallBatch,
+							{fx + 1, wallBot_R, fz}, {fx + 1, wallBot_R, fz + 1},
+							{fx + 1, baseY,     fz}, {fx + 1, baseY,     fz + 1},
+							{1, 0, 0}, wallBot_R - baseY);
 					addWallFace(wallBatch,
-						{fx + 1,       topY, fz    },
-						{fx + 1,       topY, fz + 1},
-						{fx + 1 + SR,  wallBot_R, fz    },
-						{fx + 1 + SR,  wallBot_R, fz + 1},
-						{1, 0, 0}, visibleH);
+						{fx + 1,      topY, fz}, {fx + 1,      topY, fz + 1},
+						{fx + 1 + SR, wallBot_R, fz}, {fx + 1 + SR, wallBot_R, fz + 1},
+						{1, 0, 0}, topY - wallBot_R);
 				}
 
 				//--- Back wall (-Z) ---
 				if (showBack)
 				{
-					float visibleH = topY - wallBot_B;
+					if (wallBot_B > baseY)
+						addWallFace(wallBatch,
+							{fx,     wallBot_B, fz}, {fx + 1, wallBot_B, fz},
+							{fx,     baseY,     fz}, {fx + 1, baseY,     fz},
+							{0, 0, -1}, wallBot_B - baseY);
 					addWallFace(wallBatch,
-						{fx,       topY, fz    },
-						{fx + 1,   topY, fz    },
-						{fx,       wallBot_B, fz - SB},
-						{fx + 1,   wallBot_B, fz - SB},
-						{0, 0, -1}, visibleH);
+						{fx,      topY, fz}, {fx + 1, topY, fz},
+						{fx,      wallBot_B, fz - SB}, {fx + 1, wallBot_B, fz - SB},
+						{0, 0, -1}, topY - wallBot_B);
 				}
 
 				//--- Front wall (+Z) ---
 				if (showFront)
 				{
-					float visibleH = topY - wallBot_F;
+					if (wallBot_F > baseY)
+						addWallFace(wallBatch,
+							{fx + 1, wallBot_F, fz + 1}, {fx, wallBot_F, fz + 1},
+							{fx + 1, baseY,     fz + 1}, {fx, baseY,     fz + 1},
+							{0, 0, 1}, wallBot_F - baseY);
 					addWallFace(wallBatch,
-						{fx + 1,   topY, fz + 1    },
-						{fx,       topY, fz + 1    },
-						{fx + 1,   wallBot_F, fz + 1 + SF},
-						{fx,       wallBot_F, fz + 1 + SF},
-						{0, 0, 1}, visibleH);
+						{fx + 1,      topY, fz + 1    }, {fx,      topY, fz + 1    },
+						{fx + 1,      wallBot_F, fz + 1 + SF}, {fx,      wallBot_F, fz + 1 + SF},
+						{0, 0, 1}, topY - wallBot_F);
 				}
 
 				//--- Corner triangles ---
-				// Back-left
+				// Bridge the gap between two adjacent walls' UPPER (sloped) portions.
+				// Lower (flat) fillers already meet at the cell corner with no gap.
+				// When one wall is invisible its outer vertex would be at topY
+				// (= degenerate); fall back to the visible neighbour's wallBot.
+
+				// Back-left (showBack || showLeft)
 				if (showBack || showLeft)
 				{
-					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					uint32_t baseIdx = static_cast<uint32_t>(wallBatch.vertices.size());
 					glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, -1.0f});
-					glm::vec3 p0 = {fx - SL, wallBot_L, fz    };
-					glm::vec3 p1 = {fx,      wallBot_B, fz - SB};
-					glm::vec3 p2 = {fx,      topY,      fz    };
-					wallBatch.vertices.push_back({p0, n, {1.0f,    wallBot_L}});
-					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
-					wallBatch.vertices.push_back({p1, n, {0.0f,    wallBot_B}});
-					wallBatch.indices.push_back(base + 0);
-					wallBatch.indices.push_back(base + 1);
-					wallBatch.indices.push_back(base + 2);
+					float p0y = showLeft ? wallBot_L : wallBot_B;
+					float p1y = showBack ? wallBot_B : wallBot_L;
+					glm::vec3 p0 = {fx - SL, p0y, fz    };
+					glm::vec3 p1 = {fx,      p1y, fz - SB};
+					glm::vec3 p2 = {fx,      topY, fz    };
+					wallBatch.vertices.push_back({p0, n, {1.0f, p0y}});
+					wallBatch.vertices.push_back({p2, n, {0.5f, topY}});
+					wallBatch.vertices.push_back({p1, n, {0.0f, p1y}});
+					wallBatch.indices.push_back(baseIdx + 0);
+					wallBatch.indices.push_back(baseIdx + 1);
+					wallBatch.indices.push_back(baseIdx + 2);
 				}
-				// Back-right
+				// Back-right (showBack || showRight)
 				if (showBack || showRight)
 				{
-					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					uint32_t baseIdx = static_cast<uint32_t>(wallBatch.vertices.size());
 					glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, -1.0f});
-					glm::vec3 p0 = {fx + 1 + SR, wallBot_R, fz    };
-					glm::vec3 p1 = {fx + 1,      wallBot_B, fz - SB};
-					glm::vec3 p2 = {fx + 1,      topY,      fz    };
-					wallBatch.vertices.push_back({p0, n, {0.0f,    wallBot_R}});
-					wallBatch.vertices.push_back({p1, n, {1.0f,    wallBot_B}});
-					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
-					wallBatch.indices.push_back(base + 0);
-					wallBatch.indices.push_back(base + 1);
-					wallBatch.indices.push_back(base + 2);
+					float p0y = showRight ? wallBot_R : wallBot_B;
+					float p1y = showBack  ? wallBot_B : wallBot_R;
+					glm::vec3 p0 = {fx + 1 + SR, p0y, fz    };
+					glm::vec3 p1 = {fx + 1,      p1y, fz - SB};
+					glm::vec3 p2 = {fx + 1,      topY, fz    };
+					wallBatch.vertices.push_back({p0, n, {0.0f, p0y}});
+					wallBatch.vertices.push_back({p1, n, {1.0f, p1y}});
+					wallBatch.vertices.push_back({p2, n, {0.5f, topY}});
+					wallBatch.indices.push_back(baseIdx + 0);
+					wallBatch.indices.push_back(baseIdx + 1);
+					wallBatch.indices.push_back(baseIdx + 2);
 				}
-				// Front-right
+				// Front-right (showFront || showRight)
 				if (showFront || showRight)
 				{
-					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					uint32_t baseIdx = static_cast<uint32_t>(wallBatch.vertices.size());
 					glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, 1.0f});
-					glm::vec3 p0 = {fx + 1 + SR, wallBot_R, fz + 1};
-					glm::vec3 p1 = {fx + 1,      wallBot_F, fz + 1 + SF};
-					glm::vec3 p2 = {fx + 1,      topY,      fz + 1};
-					wallBatch.vertices.push_back({p0, n, {1.0f,    wallBot_R}});
-					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
-					wallBatch.vertices.push_back({p1, n, {0.0f,    wallBot_F}});
-					wallBatch.indices.push_back(base + 0);
-					wallBatch.indices.push_back(base + 1);
-					wallBatch.indices.push_back(base + 2);
+					float p0y = showRight ? wallBot_R : wallBot_F;
+					float p1y = showFront ? wallBot_F : wallBot_R;
+					glm::vec3 p0 = {fx + 1 + SR, p0y, fz + 1};
+					glm::vec3 p1 = {fx + 1,      p1y, fz + 1 + SF};
+					glm::vec3 p2 = {fx + 1,      topY, fz + 1};
+					wallBatch.vertices.push_back({p0, n, {1.0f, p0y}});
+					wallBatch.vertices.push_back({p2, n, {0.5f, topY}});
+					wallBatch.vertices.push_back({p1, n, {0.0f, p1y}});
+					wallBatch.indices.push_back(baseIdx + 0);
+					wallBatch.indices.push_back(baseIdx + 1);
+					wallBatch.indices.push_back(baseIdx + 2);
 				}
-				// Front-left
+				// Front-left (showFront || showLeft)
 				if (showFront || showLeft)
 				{
-					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					uint32_t baseIdx = static_cast<uint32_t>(wallBatch.vertices.size());
 					glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, 1.0f});
-					glm::vec3 p0 = {fx - SL, wallBot_L, fz + 1};
-					glm::vec3 p1 = {fx,      wallBot_F, fz + 1 + SF};
-					glm::vec3 p2 = {fx,      topY,      fz + 1};
-					wallBatch.vertices.push_back({p0, n, {0.0f,    wallBot_L}});
-					wallBatch.vertices.push_back({p1, n, {1.0f,    wallBot_F}});
-					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
-					wallBatch.indices.push_back(base + 0);
-					wallBatch.indices.push_back(base + 1);
-					wallBatch.indices.push_back(base + 2);
+					float p0y = showLeft  ? wallBot_L : wallBot_F;
+					float p1y = showFront ? wallBot_F : wallBot_L;
+					glm::vec3 p0 = {fx - SL, p0y, fz + 1};
+					glm::vec3 p1 = {fx,      p1y, fz + 1 + SF};
+					glm::vec3 p2 = {fx,      topY, fz + 1};
+					wallBatch.vertices.push_back({p0, n, {0.0f, p0y}});
+					wallBatch.vertices.push_back({p1, n, {1.0f, p1y}});
+					wallBatch.vertices.push_back({p2, n, {0.5f, topY}});
+					wallBatch.indices.push_back(baseIdx + 0);
+					wallBatch.indices.push_back(baseIdx + 1);
+					wallBatch.indices.push_back(baseIdx + 2);
 				}
 
 				//--- Top face: flat quad ---
