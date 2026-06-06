@@ -111,6 +111,10 @@ namespace map
 
 	static constexpr int MAP_SIZE = 60;
 
+	// Number of vertical bands per wall face to reduce texture skew on
+	// sloped trapezoidal walls.  Higher = smoother but more geometry.
+	static constexpr int WALL_SUBDIVISIONS = 8;
+
 	//=== Material key for batching ===========================================
 	struct MaterialKey final
 	{
@@ -196,13 +200,16 @@ struct MeshBatch final
 			glm::vec3 n,
 			glm::vec2 uv0, glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3);
 
-		// Add a wall face to a batch (trapezoid or rectangle)
+		// Add a wall face to a batch (trapezoid or rectangle).
+		// Splits the wall into `subdivs` horizontal bands to minimise
+		// texture skew on sloped walls.
 		void addWallFace(
 			MeshBatch& batch,
 			glm::vec3 t0, glm::vec3 t1, // top edge
 			glm::vec3 b0, glm::vec3 b1, // bottom edge
 			glm::vec3 normal,
-			float texRepeatV);
+			float texRepeatV,
+			int subdivs = WALL_SUBDIVISIONS);
 
 		// Create a procedural texture with solid colour + noise
 		[[nodiscard]] gpu::texture::TexturePtr makeProceduralTex(

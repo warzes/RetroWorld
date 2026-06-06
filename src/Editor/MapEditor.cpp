@@ -671,95 +671,68 @@ void MapEditor::addWallFace(
 	glm::vec3 t0, glm::vec3 t1, // top edge (t0→t1)
 	glm::vec3 b0, glm::vec3 b1, // bottom edge (b0→b1)
 	glm::vec3 normal,
-	float texRepeatV)
+	float texRepeatV,
+	int subdivs)
 {
-	uint32_t base = static_cast<uint32_t>(batch.vertices.size());
-
-	// UV mapping:
-	// - U: along the edge direction (t0→t1 for top, b0→b1 for bottom)
-	//   U = 0 at start, U = edge_length at end (texture repeats every 1.0)
-	// - V: height, V = 0 at bottom, V = texRepeatV at top
-
+	// Edge lengths for centred UV
 	glm::vec3 topDir = t1 - t0;
 	glm::vec3 botDir = b1 - b0;
 	float topLen = glm::length(topDir);
 	float botLen = glm::length(botDir);
 
-	// For the top and bottom, we use the world-space distance along the wall
-	// so the texture tiles every 1.0 world unit.
-	float uTopStart = 0.0f;
-	float uTopEnd = topLen;
-	float uBotStart = 0.0f;
-	float uBotEnd = botLen;
+	// Centred UV: U=0.5 at the wall midpoint, expands symmetrically
+	float uTopStart = 0.5f - topLen * 0.5f;
+	float uTopEnd   = 0.5f + topLen * 0.5f;
+	float uBotStart = 0.5f - botLen * 0.5f;
+	float uBotEnd   = 0.5f + botLen * 0.5f;
 
-	// 4 vertices in triangle-strip order for a quad:
-	// t0 (top-start) → t1 (top-end) → b0 (bot-start) → b1 (bot-end)
-	// But for CCW winding from outside, we need:
-	// For a wall facing -X (left), looking from -x:
-	//   t0 is at front (+z), t1 is at back (-z) 
-	//   From outside (-x view): y is up, z goes from gz+1 (front, near) to gz (back, far)
-	//   CCW = start at top-left? hmm...
-
-	// Let me use a generic approach: order vertices as t0, t1, b1, b0
-	// This creates a quad where t0-t1 goes along the top and t0-b0 goes down.
-	// For CCW from outside, the order depends on the normal direction.
-	// With the convention that t0→t1 goes along the wall and b0 is below t0:
-	// 
-	// If the wall normal is +Z (front):
-	//   Looking from +Z direction, +X is right, +Y is up
-	//   t0 is at (left, H), t1 is at (right, H)
-	//   CCW from outside (+Z): t0 → t1 → b1 → b0
-	//   Normal (0,0,1)
-	//   Cross product (t1-t0) × (b0-t0) should give normal direction
-	//   t1-t0 = (1, 0, 0), b0-t0 = (0, -H, 0)
-	//   Cross = (1,0,0) × (0,-H,0) = (0,0,-H) ... that's -Z, not +Z
-	//   
-	//   So to get +Z normal, we need: b0-t0 × t1-t0 = (0,-H,0) × (1,0,0) = (0,0,H) = +Z ✓
-	//   So order is: t0, b0, b1, t1 → triangles (0,1,2), (2,3,0)
-
-	// Let me use t0, b0, b1, t1 as the vertex order:
-	// triangle 1: t0, b0, b1
-	// triangle 2: b1, t1, t0
-
-	// Actually, my addQuad uses these in CCW order: v0, v1, v2, v3
-	// where triangles are (0,1,2) and (2,3,0)
-	// So:
-	// For a wall with normal pointing outward:
-	// v0 = t0 (top, start of edge)
-	// v1 = b0 (bottom, start of edge)
-	// v2 = b1 (bottom, end of edge)
-	// v3 = t1 (top, end of edge)
-	// 
-	// Check: (v1-v0) × (v2-v0) = (b0-t0) × (b1-t0)
-	// For front wall (+Z), t0=(left,H), t1=(right,H), b0=(left,0), b1=(right,0):
-	// (b0-t0) × (b1-t0) = (0,-H,0) × (1,0,0) = (0,0,H) ✓
-
-	// Auto-correct winding: compute the face normal from (b0-t0) × (b1-t0)
-	// and choose vertex order so both triangles face outward.
-	glm::vec3 computedNormal = glm::cross(b0 - t0, b1 - t0);
-	if (glm::dot(computedNormal, normal) >= 0.0f)
+	// Split the wall into horizontal bands to minimise texture skew
+	for (int i = 0; i < subdivs; ++i)
 	{
-		// Order A: t0, b0, b1, t1 — triangles (t0,b0,b1) and (b1,t1,t0)
-		batch.vertices.push_back({ .position = t0, .normal = normal, .uv = {uTopStart, texRepeatV} });
-		batch.vertices.push_back({ .position = b0, .normal = normal, .uv = {uBotStart, 0.0f} });
-		batch.vertices.push_back({ .position = b1, .normal = normal, .uv = {uBotEnd, 0.0f} });
-		batch.vertices.push_back({ .position = t1, .normal = normal, .uv = {uTopEnd, texRepeatV} });
-	}
-	else
-	{
-		// Order B: t0, t1, b1, b0 — triangles (t0,t1,b1) and (b1,b0,t0)
-		batch.vertices.push_back({ .position = t0, .normal = normal, .uv = {uTopStart, texRepeatV} });
-		batch.vertices.push_back({ .position = t1, .normal = normal, .uv = {uTopEnd, texRepeatV} });
-		batch.vertices.push_back({ .position = b1, .normal = normal, .uv = {uBotEnd, 0.0f} });
-		batch.vertices.push_back({ .position = b0, .normal = normal, .uv = {uBotStart, 0.0f} });
-	}
+		float f0 = static_cast<float>(i)     / static_cast<float>(subdivs);
+		float f1 = static_cast<float>(i + 1) / static_cast<float>(subdivs);
 
-	batch.indices.push_back(base + 0);
-	batch.indices.push_back(base + 1);
-	batch.indices.push_back(base + 2);
-	batch.indices.push_back(base + 2);
-	batch.indices.push_back(base + 3);
-	batch.indices.push_back(base + 0);
+		// Interpolate vertex positions for this band
+		glm::vec3 band_t0 = b0 + (t0 - b0) * f1;
+		glm::vec3 band_t1 = b1 + (t1 - b1) * f1;
+		glm::vec3 band_b0 = b0 + (t0 - b0) * f0;
+		glm::vec3 band_b1 = b1 + (t1 - b1) * f0;
+
+		// Interpolate U for this band, V for this band
+		float uBandTopStart = uBotStart + (uTopStart - uBotStart) * f1;
+		float uBandTopEnd   = uBotEnd   + (uTopEnd   - uBotEnd)   * f1;
+		float uBandBotStart = uBotStart + (uTopStart - uBotStart) * f0;
+		float uBandBotEnd   = uBotEnd   + (uTopEnd   - uBotEnd)   * f0;
+		float vTop = f1 * texRepeatV;
+		float vBot = f0 * texRepeatV;
+
+		uint32_t base = static_cast<uint32_t>(batch.vertices.size());
+
+		// Auto-correct winding per band (band is nearly a rectangle
+		// so computedNormal should be consistent)
+		glm::vec3 computedNormal = glm::cross(band_b0 - band_t0, band_b1 - band_t0);
+		if (glm::dot(computedNormal, normal) >= 0.0f)
+		{
+			batch.vertices.push_back({ .position = band_t0, .normal = normal, .uv = {uBandTopStart, vTop} });
+			batch.vertices.push_back({ .position = band_b0, .normal = normal, .uv = {uBandBotStart, vBot} });
+			batch.vertices.push_back({ .position = band_b1, .normal = normal, .uv = {uBandBotEnd, vBot} });
+			batch.vertices.push_back({ .position = band_t1, .normal = normal, .uv = {uBandTopEnd, vTop} });
+		}
+		else
+		{
+			batch.vertices.push_back({ .position = band_t0, .normal = normal, .uv = {uBandTopStart, vTop} });
+			batch.vertices.push_back({ .position = band_t1, .normal = normal, .uv = {uBandTopEnd, vTop} });
+			batch.vertices.push_back({ .position = band_b1, .normal = normal, .uv = {uBandBotEnd, vBot} });
+			batch.vertices.push_back({ .position = band_b0, .normal = normal, .uv = {uBandBotStart, vBot} });
+		}
+
+		batch.indices.push_back(base + 0);
+		batch.indices.push_back(base + 1);
+		batch.indices.push_back(base + 2);
+		batch.indices.push_back(base + 2);
+		batch.indices.push_back(base + 3);
+		batch.indices.push_back(base + 0);
+	}
 }
 
 //=============================================================================
