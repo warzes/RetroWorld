@@ -286,11 +286,12 @@ void MapEditor::CreateTestMap()
 		uint8_t wallTex, uint8_t topTex)
 		{
 			auto& cell = m_grid[gz][gx];
-			cell.mountain.hasMountain = true;
-			cell.mountain.heightBlocks = static_cast<int16_t>(heightBlocks);
-			cell.mountain.heightPixels = static_cast<int16_t>(heightPixels);
-			cell.mountain.texWall = wallTex;
-			cell.mountain.texTop = topTex;
+			auto& ml = cell.mountainStack.emplace_back();
+			ml.hasMountain = true;
+			ml.heightBlocks = static_cast<int16_t>(heightBlocks);
+			ml.heightPixels = static_cast<int16_t>(heightPixels);
+			ml.texWall = wallTex;
+			ml.texTop = topTex;
 		};
 
 	// Mountain with slope
@@ -301,19 +302,20 @@ void MapEditor::CreateTestMap()
 		uint8_t wallTex, uint8_t topTex)
 		{
 			auto& cell = m_grid[gz][gx];
-			cell.mountain.hasMountain = true;
-			cell.mountain.heightBlocks = static_cast<int16_t>(heightBlocks);
-			cell.mountain.heightPixels = static_cast<int16_t>(heightPixels);
-			cell.mountain.texWall = wallTex;
-			cell.mountain.texTop = topTex;
-			if (slopeL) { cell.mountain.slopeLeft.blocks = static_cast<int16_t>(slopeBlocks);
-				cell.mountain.slopeLeft.pixels = static_cast<int16_t>(slopePixels); }
-			if (slopeR) { cell.mountain.slopeRight.blocks = static_cast<int16_t>(slopeBlocks);
-				cell.mountain.slopeRight.pixels = static_cast<int16_t>(slopePixels); }
-			if (slopeF) { cell.mountain.slopeFront.blocks = static_cast<int16_t>(slopeBlocks);
-				cell.mountain.slopeFront.pixels = static_cast<int16_t>(slopePixels); }
-			if (slopeB) { cell.mountain.slopeBack.blocks = static_cast<int16_t>(slopeBlocks);
-				cell.mountain.slopeBack.pixels = static_cast<int16_t>(slopePixels); }
+			auto& ml = cell.mountainStack.emplace_back();
+			ml.hasMountain = true;
+			ml.heightBlocks = static_cast<int16_t>(heightBlocks);
+			ml.heightPixels = static_cast<int16_t>(heightPixels);
+			ml.texWall = wallTex;
+			ml.texTop = topTex;
+			if (slopeL) { ml.slopeLeft.blocks = static_cast<int16_t>(slopeBlocks);
+				ml.slopeLeft.pixels = static_cast<int16_t>(slopePixels); }
+			if (slopeR) { ml.slopeRight.blocks = static_cast<int16_t>(slopeBlocks);
+				ml.slopeRight.pixels = static_cast<int16_t>(slopePixels); }
+			if (slopeF) { ml.slopeFront.blocks = static_cast<int16_t>(slopeBlocks);
+				ml.slopeFront.pixels = static_cast<int16_t>(slopePixels); }
+			if (slopeB) { ml.slopeBack.blocks = static_cast<int16_t>(slopeBlocks);
+				ml.slopeBack.pixels = static_cast<int16_t>(slopePixels); }
 		};
 
 	// Block mountains cluster
@@ -630,92 +632,105 @@ void MapEditor::buildMountainBatches(std::vector<MeshBatch>& batches)
 		for (int x = 0; x < MAP_SIZE; ++x)
 		{
 			const auto& cell = m_grid[z][x];
-			if (!cell.mountain.hasMountain) continue;
-			if (cell.mountain.mode != MountainMode::Pyramid) continue;
+			if (cell.mountainStack.empty()) continue;
 
-			const auto& mt = cell.mountain;
+			// Helper: total top of neighbor cell
+			auto neighborTop = [&](int nx, int nz) -> float
+				{
+					if (nx < 0 || nx >= MAP_SIZE || nz < 0 || nz >= MAP_SIZE)
+						return 0.0f;
+					return m_grid[nz][nx].MountainTopY();
+				};
+
 			float fx = static_cast<float>(x);
 			float fz = static_cast<float>(z);
-			float H = mt.Height();
 
-			float SL = mt.slopeLeft.Total();
-			float SR = mt.slopeRight.Total();
-			float SF = mt.slopeFront.Total();
-			float SB = mt.slopeBack.Total();
-
-			glm::vec3 bot[4] = {
-				{fx - SL,       0.0f, fz - SB      },
-				{fx + 1.0f + SR, 0.0f, fz - SB      },
-				{fx + 1.0f + SR, 0.0f, fz + 1.0f + SF},
-				{fx - SL,       0.0f, fz + 1.0f + SF},
-			};
-
-			glm::vec3 top[4] = {
-				{fx,       H, fz       },
-				{fx + 1.0f, H, fz       },
-				{fx + 1.0f, H, fz + 1.0f},
-				{fx,       H, fz + 1.0f},
-			};
-
-			// Walls — partial culling based on neighbor height
-			auto& wallBatch = findWallGroup(mt.texWall);
-
-			// Left wall (-X)
+			for (const auto& mt : cell.mountainStack)
 			{
-				float adjH = (x > 0 && m_grid[z][x - 1].mountain.hasMountain)
-					? m_grid[z][x - 1].mountain.Height() : 0.0f;
-				if (adjH < H)
-				{
-					float visibleH = H - adjH;
-					glm::vec3 b0 = bot[3]; b0.y = adjH;
-					glm::vec3 b1 = bot[0]; b1.y = adjH;
-					addWallFace(wallBatch, top[3], top[0], b0, b1, { -1.0f, 0.0f, 0.0f }, visibleH);
-				}
-			}
-			// Right wall (+X)
-			{
-				float adjH = (x < MAP_SIZE - 1 && m_grid[z][x + 1].mountain.hasMountain)
-					? m_grid[z][x + 1].mountain.Height() : 0.0f;
-				if (adjH < H)
-				{
-					float visibleH = H - adjH;
-					glm::vec3 b0 = bot[1]; b0.y = adjH;
-					glm::vec3 b1 = bot[2]; b1.y = adjH;
-					addWallFace(wallBatch, top[1], top[2], b0, b1, { 1.0f, 0.0f, 0.0f }, visibleH);
-				}
-			}
-			// Back wall (-Z)
-			{
-				float adjH = (z > 0 && m_grid[z - 1][x].mountain.hasMountain)
-					? m_grid[z - 1][x].mountain.Height() : 0.0f;
-				if (adjH < H)
-				{
-					float visibleH = H - adjH;
-					glm::vec3 b0 = bot[0]; b0.y = adjH;
-					glm::vec3 b1 = bot[1]; b1.y = adjH;
-					addWallFace(wallBatch, top[0], top[1], b0, b1, { 0.0f, 0.0f, -1.0f }, visibleH);
-				}
-			}
-			// Front wall (+Z)
-			{
-				float adjH = (z < MAP_SIZE - 1 && m_grid[z + 1][x].mountain.hasMountain)
-					? m_grid[z + 1][x].mountain.Height() : 0.0f;
-				if (adjH < H)
-				{
-					float visibleH = H - adjH;
-					glm::vec3 b0 = bot[2]; b0.y = adjH;
-					glm::vec3 b1 = bot[3]; b1.y = adjH;
-					addWallFace(wallBatch, top[2], top[3], b0, b1, { 0.0f, 0.0f, 1.0f }, visibleH);
-				}
-			}
+				if (mt.mode != MountainMode::Pyramid) continue;
 
-			// Top face
-			auto& topBatch = findTopGroup(mt.texTop);
-			// CCW from above: LB → LF → RF → RB
-			addQuad(topBatch,
-				top[0], top[3], top[2], top[1],
-				{ 0.0f, 1.0f, 0.0f },
-				{ 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f });
+				float baseY = mt.baseY;
+				float H = mt.Height();
+				float topY = baseY + H;
+
+				float SL = mt.slopeLeft.Total();
+				float SR = mt.slopeRight.Total();
+				float SF = mt.slopeFront.Total();
+				float SB = mt.slopeBack.Total();
+
+				glm::vec3 bot[4] = {
+					{fx - SL,       baseY, fz - SB      },
+					{fx + 1.0f + SR, baseY, fz - SB      },
+					{fx + 1.0f + SR, baseY, fz + 1.0f + SF},
+					{fx - SL,       baseY, fz + 1.0f + SF},
+				};
+
+				glm::vec3 top[4] = {
+					{fx,       topY, fz       },
+					{fx + 1.0f, topY, fz       },
+					{fx + 1.0f, topY, fz + 1.0f},
+					{fx,       topY, fz + 1.0f},
+				};
+
+				// Walls — partial culling based on neighbor top
+				auto& wallBatch = findWallGroup(mt.texWall);
+
+				// Left wall (-X)
+				{
+					float adjTop = neighborTop(x - 1, z);
+					float wallBot = std::max(baseY, adjTop);
+					if (wallBot < topY)
+					{
+						float visibleH = topY - wallBot;
+						glm::vec3 b0 = bot[3]; b0.y = wallBot;
+						glm::vec3 b1 = bot[0]; b1.y = wallBot;
+						addWallFace(wallBatch, top[3], top[0], b0, b1, { -1.0f, 0.0f, 0.0f }, visibleH);
+					}
+				}
+				// Right wall (+X)
+				{
+					float adjTop = neighborTop(x + 1, z);
+					float wallBot = std::max(baseY, adjTop);
+					if (wallBot < topY)
+					{
+						float visibleH = topY - wallBot;
+						glm::vec3 b0 = bot[1]; b0.y = wallBot;
+						glm::vec3 b1 = bot[2]; b1.y = wallBot;
+						addWallFace(wallBatch, top[1], top[2], b0, b1, { 1.0f, 0.0f, 0.0f }, visibleH);
+					}
+				}
+				// Back wall (-Z)
+				{
+					float adjTop = neighborTop(x, z - 1);
+					float wallBot = std::max(baseY, adjTop);
+					if (wallBot < topY)
+					{
+						float visibleH = topY - wallBot;
+						glm::vec3 b0 = bot[0]; b0.y = wallBot;
+						glm::vec3 b1 = bot[1]; b1.y = wallBot;
+						addWallFace(wallBatch, top[0], top[1], b0, b1, { 0.0f, 0.0f, -1.0f}, visibleH);
+					}
+				}
+				// Front wall (+Z)
+				{
+					float adjTop = neighborTop(x, z + 1);
+					float wallBot = std::max(baseY, adjTop);
+					if (wallBot < topY)
+					{
+						float visibleH = topY - wallBot;
+						glm::vec3 b0 = bot[2]; b0.y = wallBot;
+						glm::vec3 b1 = bot[3]; b1.y = wallBot;
+						addWallFace(wallBatch, top[2], top[3], b0, b1, { 0.0f, 0.0f, 1.0f }, visibleH);
+					}
+				}
+
+				// Top face
+				auto& topBatch = findTopGroup(mt.texTop);
+				addQuad(topBatch,
+					top[0], top[3], top[2], top[1],
+					{ 0.0f, 1.0f, 0.0f },
+					{ 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f });
+			}
 		}
 	}
 
@@ -788,178 +803,177 @@ void MapEditor::buildMountainRpgMakerBatches(std::vector<MeshBatch>& batches)
 			return g.batch;
 		};
 
-	auto neighborH = [&](int x, int z) -> float
+	auto neighborTop = [&](int nx, int nz) -> float
 		{
-			if (x < 0 || x >= MAP_SIZE || z < 0 || z >= MAP_SIZE) return 0.0f;
-			const auto& c = m_grid[z][x];
-			return c.mountain.hasMountain ? c.mountain.Height() : 0.0f;
+			if (nx < 0 || nx >= MAP_SIZE || nz < 0 || nz >= MAP_SIZE)
+				return 0.0f;
+			return m_grid[nz][nx].MountainTopY();
 		};
 
 	for (int z = 0; z < MAP_SIZE; ++z)
 		for (int x = 0; x < MAP_SIZE; ++x)
 		{
 			const auto& cell = m_grid[z][x];
-			if (!cell.mountain.hasMountain) continue;
-			if (cell.mountain.mode != MountainMode::CornerFaces) continue;
+			if (cell.mountainStack.empty()) continue;
 
-			const auto& mt = cell.mountain;
 			float fx = static_cast<float>(x);
 			float fz = static_cast<float>(z);
-			float H  = mt.Height();
 
-			float SL = mt.slopeLeft.Total();
-			float SR = mt.slopeRight.Total();
-			float SF = mt.slopeFront.Total();
-			float SB = mt.slopeBack.Total();
-
-			// Adjacent heights clamped to [0, H]
-			float adjH_L = std::min(H, std::max(neighborH(x - 1, z), 0.0f));
-			float adjH_R = std::min(H, std::max(neighborH(x + 1, z), 0.0f));
-			float adjH_B = std::min(H, std::max(neighborH(x,     z - 1), 0.0f));
-			float adjH_F = std::min(H, std::max(neighborH(x,     z + 1), 0.0f));
-
-			bool showLeft  = adjH_L < H;
-			bool showRight = adjH_R < H;
-			bool showBack  = adjH_B < H;
-			bool showFront = adjH_F < H;
-
-			auto& wallBatch = findWallGroup(mt.texWall);
-
-			//--- Left wall (-X) ---
-			if (showLeft)
+			for (const auto& mt : cell.mountainStack)
 			{
-				float visibleH = H - adjH_L;
-				addWallFace(wallBatch,
-					{fx,       H,      fz + 1},
-					{fx,       H,      fz    },
-					{fx - SL,  adjH_L, fz + 1},
-					{fx - SL,  adjH_L, fz    },
-					{-1, 0, 0}, visibleH);
+				if (mt.mode != MountainMode::CornerFaces) continue;
+
+				float baseY = mt.baseY;
+				float H  = mt.Height();
+				float topY = baseY + H;
+
+				float SL = mt.slopeLeft.Total();
+				float SR = mt.slopeRight.Total();
+				float SF = mt.slopeFront.Total();
+				float SB = mt.slopeBack.Total();
+
+				// Adjacent tops in world Y
+				float adjTop_L = neighborTop(x - 1, z);
+				float adjTop_R = neighborTop(x + 1, z);
+				float adjTop_B = neighborTop(x,     z - 1);
+				float adjTop_F = neighborTop(x,     z + 1);
+
+				// Wall visible portion: from max(baseY, adjTop) to topY
+				float wallBot_L = std::max(baseY, adjTop_L);
+				float wallBot_R = std::max(baseY, adjTop_R);
+				float wallBot_B = std::max(baseY, adjTop_B);
+				float wallBot_F = std::max(baseY, adjTop_F);
+
+				bool showLeft  = wallBot_L < topY;
+				bool showRight = wallBot_R < topY;
+				bool showBack  = wallBot_B < topY;
+				bool showFront = wallBot_F < topY;
+
+				auto& wallBatch = findWallGroup(mt.texWall);
+
+				//--- Left wall (-X) ---
+				if (showLeft)
+				{
+					float visibleH = topY - wallBot_L;
+					addWallFace(wallBatch,
+						{fx,       topY, fz + 1},
+						{fx,       topY, fz    },
+						{fx - SL,  wallBot_L, fz + 1},
+						{fx - SL,  wallBot_L, fz    },
+						{-1, 0, 0}, visibleH);
+				}
+
+				//--- Right wall (+X) ---
+				if (showRight)
+				{
+					float visibleH = topY - wallBot_R;
+					addWallFace(wallBatch,
+						{fx + 1,       topY, fz    },
+						{fx + 1,       topY, fz + 1},
+						{fx + 1 + SR,  wallBot_R, fz    },
+						{fx + 1 + SR,  wallBot_R, fz + 1},
+						{1, 0, 0}, visibleH);
+				}
+
+				//--- Back wall (-Z) ---
+				if (showBack)
+				{
+					float visibleH = topY - wallBot_B;
+					addWallFace(wallBatch,
+						{fx,       topY, fz    },
+						{fx + 1,   topY, fz    },
+						{fx,       wallBot_B, fz - SB},
+						{fx + 1,   wallBot_B, fz - SB},
+						{0, 0, -1}, visibleH);
+				}
+
+				//--- Front wall (+Z) ---
+				if (showFront)
+				{
+					float visibleH = topY - wallBot_F;
+					addWallFace(wallBatch,
+						{fx + 1,   topY, fz + 1    },
+						{fx,       topY, fz + 1    },
+						{fx + 1,   wallBot_F, fz + 1 + SF},
+						{fx,       wallBot_F, fz + 1 + SF},
+						{0, 0, 1}, visibleH);
+				}
+
+				//--- Corner triangles ---
+				// Back-left
+				if (showBack || showLeft)
+				{
+					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, -1.0f});
+					glm::vec3 p0 = {fx - SL, wallBot_L, fz    };
+					glm::vec3 p1 = {fx,      wallBot_B, fz - SB};
+					glm::vec3 p2 = {fx,      topY,      fz    };
+					wallBatch.vertices.push_back({p0, n, {1.0f,    wallBot_L}});
+					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
+					wallBatch.vertices.push_back({p1, n, {0.0f,    wallBot_B}});
+					wallBatch.indices.push_back(base + 0);
+					wallBatch.indices.push_back(base + 1);
+					wallBatch.indices.push_back(base + 2);
+				}
+				// Back-right
+				if (showBack || showRight)
+				{
+					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, -1.0f});
+					glm::vec3 p0 = {fx + 1 + SR, wallBot_R, fz    };
+					glm::vec3 p1 = {fx + 1,      wallBot_B, fz - SB};
+					glm::vec3 p2 = {fx + 1,      topY,      fz    };
+					wallBatch.vertices.push_back({p0, n, {0.0f,    wallBot_R}});
+					wallBatch.vertices.push_back({p1, n, {1.0f,    wallBot_B}});
+					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
+					wallBatch.indices.push_back(base + 0);
+					wallBatch.indices.push_back(base + 1);
+					wallBatch.indices.push_back(base + 2);
+				}
+				// Front-right
+				if (showFront || showRight)
+				{
+					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, 1.0f});
+					glm::vec3 p0 = {fx + 1 + SR, wallBot_R, fz + 1};
+					glm::vec3 p1 = {fx + 1,      wallBot_F, fz + 1 + SF};
+					glm::vec3 p2 = {fx + 1,      topY,      fz + 1};
+					wallBatch.vertices.push_back({p0, n, {1.0f,    wallBot_R}});
+					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
+					wallBatch.vertices.push_back({p1, n, {0.0f,    wallBot_F}});
+					wallBatch.indices.push_back(base + 0);
+					wallBatch.indices.push_back(base + 1);
+					wallBatch.indices.push_back(base + 2);
+				}
+				// Front-left
+				if (showFront || showLeft)
+				{
+					uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+					glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, 1.0f});
+					glm::vec3 p0 = {fx - SL, wallBot_L, fz + 1};
+					glm::vec3 p1 = {fx,      wallBot_F, fz + 1 + SF};
+					glm::vec3 p2 = {fx,      topY,      fz + 1};
+					wallBatch.vertices.push_back({p0, n, {0.0f,    wallBot_L}});
+					wallBatch.vertices.push_back({p1, n, {1.0f,    wallBot_F}});
+					wallBatch.vertices.push_back({p2, n, {0.5f,    topY     }});
+					wallBatch.indices.push_back(base + 0);
+					wallBatch.indices.push_back(base + 1);
+					wallBatch.indices.push_back(base + 2);
+				}
+
+				//--- Top face: flat quad ---
+				auto& topBatch = findTopGroup(mt.texTop);
+				addQuad(topBatch,
+					{fx,       topY, fz      },
+					{fx,       topY, fz + 1  },
+					{fx + 1,   topY, fz + 1  },
+					{fx + 1,   topY, fz      },
+					{0, 1, 0},
+					{0, 0},
+					{0, 1},
+					{1, 1},
+					{1, 0});
 			}
-
-			//--- Right wall (+X) ---
-			if (showRight)
-			{
-				float visibleH = H - adjH_R;
-				addWallFace(wallBatch,
-					{fx + 1,       H,      fz    },
-					{fx + 1,       H,      fz + 1},
-					{fx + 1 + SR,  adjH_R, fz    },
-					{fx + 1 + SR,  adjH_R, fz + 1},
-					{1, 0, 0}, visibleH);
-			}
-
-			//--- Back wall (-Z) ---
-			if (showBack)
-			{
-				float visibleH = H - adjH_B;
-				addWallFace(wallBatch,
-					{fx,       H,      fz    },
-					{fx + 1,   H,      fz    },
-					{fx,       adjH_B, fz - SB},
-					{fx + 1,   adjH_B, fz - SB},
-					{0, 0, -1}, visibleH);
-			}
-
-			//--- Front wall (+Z) ---
-			if (showFront)
-			{
-				float visibleH = H - adjH_F;
-				addWallFace(wallBatch,
-					{fx + 1,   H,      fz + 1    },
-					{fx,       H,      fz + 1    },
-					{fx + 1,   adjH_F, fz + 1 + SF},
-					{fx,       adjH_F, fz + 1 + SF},
-					{0, 0, 1}, visibleH);
-			}
-
-			//--- Corner triangles (fill gaps between adjacent walls) ---
-			// UV convention: U=0..1 along the wall length matching addWallFace,
-			// V = world-space Y (height).  This makes the texture continuous
-			// with the adjacent wall faces.
-			//
-			// Winding is CCW when viewed from the outward diagonal.
-
-			// Back-left corner (fx, H, fz): bridges Left wall (-X) and Back wall (-Z)
-			if (showBack || showLeft)
-			{
-				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
-				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, -1.0f});
-				// p0 = Left wall at back end (U=1 on left wall), p1 = Back wall at left end (U=0 on back wall)
-				glm::vec3 p0 = {fx - SL, adjH_L, fz    };
-				glm::vec3 p1 = {fx,      adjH_B, fz - SB};
-				glm::vec3 p2 = {fx,      H,       fz    };
-				wallBatch.vertices.push_back({p0, n, {1.0f,    adjH_L}});
-				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
-				wallBatch.vertices.push_back({p1, n, {0.0f,    adjH_B}});
-				wallBatch.indices.push_back(base + 0);
-				wallBatch.indices.push_back(base + 1);
-				wallBatch.indices.push_back(base + 2);
-			}
-
-			// Back-right corner (fx+1, H, fz): bridges Right wall (+X) and Back wall (-Z)
-			if (showBack || showRight)
-			{
-				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
-				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, -1.0f});
-				// Right wall at back end has U=0, Back wall at right end has U=1
-				glm::vec3 p0 = {fx + 1 + SR, adjH_R, fz    };
-				glm::vec3 p1 = {fx + 1,      adjH_B, fz - SB};
-				glm::vec3 p2 = {fx + 1,      H,       fz    };
-				wallBatch.vertices.push_back({p0, n, {0.0f,    adjH_R}});
-				wallBatch.vertices.push_back({p1, n, {1.0f,    adjH_B}});
-				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
-				wallBatch.indices.push_back(base + 0);
-				wallBatch.indices.push_back(base + 1);
-				wallBatch.indices.push_back(base + 2);
-			}
-
-			// Front-right corner (fx+1, H, fz+1): bridges Right wall (+X) and Front wall (+Z)
-			if (showFront || showRight)
-			{
-				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
-				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, 1.0f});
-				// Right wall at front end has U=1, Front wall at right end has U=0
-				glm::vec3 p0 = {fx + 1 + SR, adjH_R, fz + 1};
-				glm::vec3 p1 = {fx + 1,      adjH_F, fz + 1 + SF};
-				glm::vec3 p2 = {fx + 1,      H,       fz + 1};
-				wallBatch.vertices.push_back({p0, n, {1.0f,    adjH_R}});
-				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
-				wallBatch.vertices.push_back({p1, n, {0.0f,    adjH_F}});
-				wallBatch.indices.push_back(base + 0);
-				wallBatch.indices.push_back(base + 1);
-				wallBatch.indices.push_back(base + 2);
-			}
-
-			// Front-left corner (fx, H, fz+1): bridges Left wall (-X) and Front wall (+Z)
-			if (showFront || showLeft)
-			{
-				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
-				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, 1.0f});
-				// Left wall at front end has U=0, Front wall at left end has U=1
-				glm::vec3 p0 = {fx - SL, adjH_L, fz + 1};
-				glm::vec3 p1 = {fx,      adjH_F, fz + 1 + SF};
-				glm::vec3 p2 = {fx,      H,       fz + 1};
-				wallBatch.vertices.push_back({p0, n, {0.0f,    adjH_L}});
-				wallBatch.vertices.push_back({p1, n, {1.0f,    adjH_F}});
-				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
-				wallBatch.indices.push_back(base + 0);
-				wallBatch.indices.push_back(base + 1);
-				wallBatch.indices.push_back(base + 2);
-			}
-
-			//--- Top face: flat quad ---
-			auto& topBatch = findTopGroup(mt.texTop);
-			addQuad(topBatch,
-				{fx,       H, fz      },
-				{fx,       H, fz + 1  },
-				{fx + 1,   H, fz + 1  },
-				{fx + 1,   H, fz      },
-				{0, 1, 0},
-				{0, 0},
-				{0, 1},
-				{1, 1},
-				{1, 0});
 		}
 
 	for (auto& g : wallGroups)
@@ -1071,6 +1085,43 @@ void MapEditor::Update(scene::SceneManager& scene)
 	{
 		RebuildGeometry(scene);
 	}
+
+	// Ctrl height capture: on first frame Ctrl is held, capture Y at hover cell
+	bool ctrlDown = input::IsKeyDown(KeyboardType::KEY_LEFT_CONTROL)
+		|| input::IsKeyDown(KeyboardType::KEY_RIGHT_CONTROL);
+	if (ctrlDown)
+	{
+		if (!m_state.ctrlHeightLocked)
+		{
+			m_state.ctrlHeightLocked = true;
+			int gx = m_state.hoverGridX;
+			int gz = m_state.hoverGridZ;
+			if (gx >= 0 && gx < MAP_SIZE && gz >= 0 && gz < MAP_SIZE)
+			{
+				const auto& cell = m_grid[gz][gx];
+				m_state.ctrlBaseY = cell.MountainTopY();
+				if (!cell.mountainStack.empty())
+				{
+					// already set by MountainTopY()
+				}
+				else if (cell.floorTex != FLOOR_NONE)
+					m_state.ctrlBaseY = cell.FloorY();
+				else
+					m_state.ctrlBaseY = 0.0f;
+			}
+		}
+	}
+	else
+	{
+		m_state.ctrlHeightLocked = false;
+	}
+
+	// Track stroke: increment stroke ID on each LMB press
+	static bool s_prevMouseDown = false;
+	bool mouseDown = input::IsMouseDown( MouseType::MOUSE_BUTTON_LEFT );
+	if (mouseDown && !s_prevMouseDown)
+		++m_strokeId;
+	s_prevMouseDown = mouseDown;
 }
 
 //=============================================================================
@@ -1248,21 +1299,133 @@ void MapEditor::PaintCell(int gx, int gz)
 	}
 	else if (m_state.activeTool == EditorTool::MountainBrush)
 	{
-		cell.mountain.hasMountain = true;
-		cell.mountain.mode = m_state.mountainMode;
-		cell.mountain.heightBlocks = static_cast<int16_t>(m_state.mountainHeightBlocks);
-		cell.mountain.heightPixels = static_cast<int16_t>(m_state.mountainHeightPixels);
-		cell.mountain.texWall = m_state.selectedWallTex;
-		cell.mountain.texTop = m_state.selectedTopTex;
+		// Skip if already painted in this stroke (prevents infinite stacking on mouse-hold)
+		if (m_cellStrokeId[gz][gx] == m_strokeId)
+			return;
 
-		cell.mountain.slopeLeft.blocks  = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
-		cell.mountain.slopeLeft.pixels  = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopePixels) : 0;
-		cell.mountain.slopeRight.blocks = m_state.slopeRight ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
-		cell.mountain.slopeRight.pixels = m_state.slopeRight ? static_cast<int16_t>(m_state.slopePixels) : 0;
-		cell.mountain.slopeFront.blocks = m_state.slopeFront ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
-		cell.mountain.slopeFront.pixels = m_state.slopeFront ? static_cast<int16_t>(m_state.slopePixels) : 0;
-		cell.mountain.slopeBack.blocks  = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
-		cell.mountain.slopeBack.pixels  = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopePixels) : 0;
+		if (m_state.ctrlHeightLocked)
+		{
+			// Ctrl: clear stack, place fresh mountain at captured Y
+			MountainData candidate;
+			candidate.hasMountain  = true;
+			candidate.baseY        = m_state.ctrlBaseY;
+			candidate.mode         = m_state.mountainMode;
+			candidate.heightBlocks = static_cast<int16_t>(m_state.mountainHeightBlocks);
+			candidate.heightPixels = static_cast<int16_t>(m_state.mountainHeightPixels);
+			candidate.texWall      = m_state.selectedWallTex;
+			candidate.texTop       = m_state.selectedTopTex;
+			candidate.slopeLeft.blocks   = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeLeft.pixels   = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopePixels) : 0;
+			candidate.slopeRight.blocks  = m_state.slopeRight ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeRight.pixels  = m_state.slopeRight ? static_cast<int16_t>(m_state.slopePixels) : 0;
+			candidate.slopeFront.blocks  = m_state.slopeFront ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeFront.pixels  = m_state.slopeFront ? static_cast<int16_t>(m_state.slopePixels) : 0;
+			candidate.slopeBack.blocks   = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeBack.pixels   = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopePixels) : 0;
+
+			// Check if the cell already has an identical single mountain
+			auto isSame = []( const MountainData& a, const MountainData& b ) noexcept -> bool
+				{
+					if (a.hasMountain != b.hasMountain) return false;
+					if (!a.hasMountain) return true;
+					return a.mode == b.mode
+						&& a.baseY == b.baseY
+						&& a.heightBlocks == b.heightBlocks
+						&& a.heightPixels == b.heightPixels
+						&& a.texWall == b.texWall
+						&& a.texTop == b.texTop
+						&& a.slopeLeft.blocks  == b.slopeLeft.blocks  && a.slopeLeft.pixels  == b.slopeLeft.pixels
+						&& a.slopeRight.blocks == b.slopeRight.blocks && a.slopeRight.pixels == b.slopeRight.pixels
+						&& a.slopeFront.blocks == b.slopeFront.blocks && a.slopeFront.pixels == b.slopeFront.pixels
+						&& a.slopeBack.blocks  == b.slopeBack.blocks  && a.slopeBack.pixels  == b.slopeBack.pixels;
+				};
+
+			bool same = (cell.mountainStack.size() == 1)
+				&& isSame( cell.mountainStack.back(), candidate );
+
+			if (!same)
+			{
+				cell.mountainStack.clear();
+				cell.mountainStack.push_back( candidate );
+				m_cellStrokeId[gz][gx] = m_strokeId;
+			}
+		}
+		else if (!cell.mountainStack.empty())
+		{
+			auto& top = cell.mountainStack.back();
+
+			// Check if top layer has the same visual properties (mode, textures, slopes)
+			bool sameProperties = (top.mode == m_state.mountainMode)
+				&& (top.texWall == m_state.selectedWallTex)
+				&& (top.texTop == m_state.selectedTopTex)
+				&& (top.slopeLeft.blocks  == (m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopeBlocks) : 0))
+				&& (top.slopeLeft.pixels  == (m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopePixels) : 0))
+				&& (top.slopeRight.blocks == (m_state.slopeRight ? static_cast<int16_t>(m_state.slopeBlocks) : 0))
+				&& (top.slopeRight.pixels == (m_state.slopeRight ? static_cast<int16_t>(m_state.slopePixels) : 0))
+				&& (top.slopeFront.blocks == (m_state.slopeFront ? static_cast<int16_t>(m_state.slopeBlocks) : 0))
+				&& (top.slopeFront.pixels == (m_state.slopeFront ? static_cast<int16_t>(m_state.slopePixels) : 0))
+				&& (top.slopeBack.blocks  == (m_state.slopeBack  ? static_cast<int16_t>(m_state.slopeBlocks) : 0))
+				&& (top.slopeBack.pixels  == (m_state.slopeBack  ? static_cast<int16_t>(m_state.slopePixels) : 0));
+
+			if (sameProperties)
+			{
+				// Merge: grow the top layer
+				float placedH = static_cast<float>(m_state.mountainHeightBlocks)
+					+ static_cast<float>(m_state.mountainHeightPixels) / 16.0f;
+				float newH = top.Height() + placedH;
+				top.heightBlocks = static_cast<int16_t>( static_cast<int>( newH ));
+				top.heightPixels = static_cast<int16_t>(
+					( newH - static_cast<float>( static_cast<int>( newH ))) * 16.0f + 0.5f );
+			}
+			else
+			{
+				// Different properties: push a new layer on top
+				MountainData layer;
+				layer.hasMountain  = true;
+				layer.baseY        = top.baseY + top.Height();
+				layer.mode         = m_state.mountainMode;
+				layer.heightBlocks = static_cast<int16_t>(m_state.mountainHeightBlocks);
+				layer.heightPixels = static_cast<int16_t>(m_state.mountainHeightPixels);
+				layer.texWall      = m_state.selectedWallTex;
+				layer.texTop       = m_state.selectedTopTex;
+				layer.slopeLeft.blocks   = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+				layer.slopeLeft.pixels   = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopePixels) : 0;
+				layer.slopeRight.blocks  = m_state.slopeRight ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+				layer.slopeRight.pixels  = m_state.slopeRight ? static_cast<int16_t>(m_state.slopePixels) : 0;
+				layer.slopeFront.blocks  = m_state.slopeFront ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+				layer.slopeFront.pixels  = m_state.slopeFront ? static_cast<int16_t>(m_state.slopePixels) : 0;
+				layer.slopeBack.blocks   = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+				layer.slopeBack.pixels   = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopePixels) : 0;
+				cell.mountainStack.push_back( layer );
+			}
+
+			m_cellStrokeId[gz][gx] = m_strokeId;
+		}
+		else
+		{
+			// Fresh mountain on empty cell
+			float baseY = (cell.floorTex != FLOOR_NONE) ? cell.FloorY() : 0.0f;
+
+			MountainData candidate;
+			candidate.hasMountain  = true;
+			candidate.baseY        = baseY;
+			candidate.mode         = m_state.mountainMode;
+			candidate.heightBlocks = static_cast<int16_t>(m_state.mountainHeightBlocks);
+			candidate.heightPixels = static_cast<int16_t>(m_state.mountainHeightPixels);
+			candidate.texWall      = m_state.selectedWallTex;
+			candidate.texTop       = m_state.selectedTopTex;
+			candidate.slopeLeft.blocks   = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeLeft.pixels   = m_state.slopeLeft  ? static_cast<int16_t>(m_state.slopePixels) : 0;
+			candidate.slopeRight.blocks  = m_state.slopeRight ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeRight.pixels  = m_state.slopeRight ? static_cast<int16_t>(m_state.slopePixels) : 0;
+			candidate.slopeFront.blocks  = m_state.slopeFront ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeFront.pixels  = m_state.slopeFront ? static_cast<int16_t>(m_state.slopePixels) : 0;
+			candidate.slopeBack.blocks   = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopeBlocks) : 0;
+			candidate.slopeBack.pixels   = m_state.slopeBack  ? static_cast<int16_t>(m_state.slopePixels) : 0;
+
+			cell.mountainStack.push_back( candidate );
+			m_cellStrokeId[gz][gx] = m_strokeId;
+		}
 	}
 
 	m_dirty = true;
@@ -1287,7 +1450,7 @@ void MapEditor::EraseCell(int gx, int gz)
 	}
 	else if (m_state.activeTool == EditorTool::MountainBrush)
 	{
-		cell.mountain.hasMountain = false;
+		cell.mountainStack.clear();
 	}
 
 	m_dirty = true;
@@ -1343,10 +1506,37 @@ bool MapEditor::BuildGhostPreview(
 		mt.texWall = m_state.selectedWallTex;
 		mt.texTop = m_state.selectedTopTex;
 
+		// Determine baseY for the ghost:
+		//   Ctrl → fixed captured Y
+		//   otherwise → stack on top of whatever is in the hover cell
+		{
+			const auto& cell = m_grid[gz][gx];
+			if (m_state.ctrlHeightLocked)
+			{
+				mt.baseY = m_state.ctrlBaseY;
+			}
+			else if (!cell.mountainStack.empty() && cell.mountainStack.back().mode == m_state.mountainMode)
+			{
+				// Ghost shows the stacking result: on top of the existing top layer
+				const auto& top = cell.mountainStack.back();
+				mt.baseY = top.baseY + top.Height();
+			}
+			else if (cell.floorTex != FLOOR_NONE)
+			{
+				mt.baseY = cell.FloorY();
+			}
+			else
+			{
+				mt.baseY = 0.0f;
+			}
+		}
+
 		MeshBatch tmp;
 		tmp.material = nullptr;
 
+		float baseY = mt.baseY;
 		float H = mt.Height();
+		float topY = baseY + H;
 
 		if (m_state.mountainMode == MountainMode::CornerFaces)
 		{
@@ -1365,14 +1555,14 @@ bool MapEditor::BuildGhostPreview(
 			float SB = mt.slopeBack.Total();
 
 			//--- Walls: only extend in own normal direction ---
-			addWallFace(tmp, {fx,     H, fz + 1}, {fx,     H, fz    },
-				{fx - SL, 0, fz + 1}, {fx - SL, 0, fz    }, {-1, 0, 0}, H);
-			addWallFace(tmp, {fx + 1, H, fz    }, {fx + 1, H, fz + 1},
-				{fx + 1 + SR, 0, fz    }, {fx + 1 + SR, 0, fz + 1}, {1, 0, 0}, H);
-			addWallFace(tmp, {fx,     H, fz    }, {fx + 1, H, fz    },
-				{fx,     0, fz - SB}, {fx + 1, 0, fz - SB}, {0, 0, -1}, H);
-			addWallFace(tmp, {fx + 1, H, fz + 1}, {fx,     H, fz + 1},
-				{fx + 1, 0, fz + 1 + SF}, {fx, 0, fz + 1 + SF}, {0, 0, 1}, H);
+			addWallFace(tmp, {fx,     topY, fz + 1}, {fx,     topY, fz    },
+				{fx - SL, baseY, fz + 1}, {fx - SL, baseY, fz    }, {-1, 0, 0}, H);
+			addWallFace(tmp, {fx + 1, topY, fz    }, {fx + 1, topY, fz + 1},
+				{fx + 1 + SR, baseY, fz    }, {fx + 1 + SR, baseY, fz + 1}, {1, 0, 0}, H);
+			addWallFace(tmp, {fx,     topY, fz    }, {fx + 1, topY, fz    },
+				{fx,     baseY, fz - SB}, {fx + 1, baseY, fz - SB}, {0, 0, -1}, H);
+			addWallFace(tmp, {fx + 1, topY, fz + 1}, {fx,     topY, fz + 1},
+				{fx + 1, baseY, fz + 1 + SF}, {fx, baseY, fz + 1 + SF}, {0, 0, 1}, H);
 
 			//--- Corner triangles ---
 			// UV convention: U=0..1 along the wall, V = world-space Y.
@@ -1382,9 +1572,9 @@ bool MapEditor::BuildGhostPreview(
 			{
 				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
 				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, -1.0f});
-				tmp.vertices.push_back({{fx - SL, 0, fz      }, n, {1.0f, 0}});
-				tmp.vertices.push_back({{fx,      H, fz      }, n, {0.5f, H}});
-				tmp.vertices.push_back({{fx,      0, fz - SB }, n, {0.0f, 0}});
+				tmp.vertices.push_back({{fx - SL, baseY, fz      }, n, {1.0f, baseY}});
+				tmp.vertices.push_back({{fx,      topY, fz      }, n, {0.5f, topY}});
+				tmp.vertices.push_back({{fx,      baseY, fz - SB }, n, {0.0f, baseY}});
 				tmp.indices.push_back(base + 0);
 				tmp.indices.push_back(base + 1);
 				tmp.indices.push_back(base + 2);
@@ -1394,9 +1584,9 @@ bool MapEditor::BuildGhostPreview(
 			{
 				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
 				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, -1.0f});
-				tmp.vertices.push_back({{fx + 1 + SR, 0, fz      }, n, {0.0f, 0}});
-				tmp.vertices.push_back({{fx + 1,      0, fz - SB }, n, {1.0f, 0}});
-				tmp.vertices.push_back({{fx + 1,      H, fz      }, n, {0.5f, H}});
+				tmp.vertices.push_back({{fx + 1 + SR, baseY, fz      }, n, {0.0f, baseY}});
+				tmp.vertices.push_back({{fx + 1,      baseY, fz - SB }, n, {1.0f, baseY}});
+				tmp.vertices.push_back({{fx + 1,      topY, fz      }, n, {0.5f, topY}});
 				tmp.indices.push_back(base + 0);
 				tmp.indices.push_back(base + 1);
 				tmp.indices.push_back(base + 2);
@@ -1406,9 +1596,9 @@ bool MapEditor::BuildGhostPreview(
 			{
 				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
 				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, 1.0f});
-				tmp.vertices.push_back({{fx + 1 + SR, 0, fz + 1  }, n, {1.0f, 0}});
-				tmp.vertices.push_back({{fx + 1,      H, fz + 1  }, n, {0.5f, H}});
-				tmp.vertices.push_back({{fx + 1,      0, fz + 1 + SF}, n, {0.0f, 0}});
+				tmp.vertices.push_back({{fx + 1 + SR, baseY, fz + 1  }, n, {1.0f, baseY}});
+				tmp.vertices.push_back({{fx + 1,      topY, fz + 1  }, n, {0.5f, topY}});
+				tmp.vertices.push_back({{fx + 1,      baseY, fz + 1 + SF}, n, {0.0f, baseY}});
 				tmp.indices.push_back(base + 0);
 				tmp.indices.push_back(base + 1);
 				tmp.indices.push_back(base + 2);
@@ -1418,9 +1608,9 @@ bool MapEditor::BuildGhostPreview(
 			{
 				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
 				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, 1.0f});
-				tmp.vertices.push_back({{fx - SL, 0, fz + 1  }, n, {0.0f, 0}});
-				tmp.vertices.push_back({{fx,      0, fz + 1 + SF}, n, {1.0f, 0}});
-				tmp.vertices.push_back({{fx,      H, fz + 1  }, n, {0.5f, H}});
+				tmp.vertices.push_back({{fx - SL, baseY, fz + 1  }, n, {0.0f, baseY}});
+				tmp.vertices.push_back({{fx,      baseY, fz + 1 + SF}, n, {1.0f, baseY}});
+				tmp.vertices.push_back({{fx,      topY, fz + 1  }, n, {0.5f, topY}});
 				tmp.indices.push_back(base + 0);
 				tmp.indices.push_back(base + 1);
 				tmp.indices.push_back(base + 2);
@@ -1428,10 +1618,10 @@ bool MapEditor::BuildGhostPreview(
 
 			//--- Top face: flat quad ---
 			addQuad(tmp,
-				{fx,       H, fz      },
-				{fx,       H, fz + 1  },
-				{fx + 1,   H, fz + 1  },
-				{fx + 1,   H, fz      },
+				{fx,       topY, fz      },
+				{fx,       topY, fz + 1  },
+				{fx + 1,   topY, fz + 1  },
+				{fx + 1,   topY, fz      },
 				{0, 1, 0},
 				{0, 0}, {0, 1}, {1, 1}, {1, 0});
 		}
@@ -1451,18 +1641,18 @@ bool MapEditor::BuildGhostPreview(
 			float SF = mt.slopeFront.Total();
 			float SB = mt.slopeBack.Total();
 
-			// Corner vertices at y=0 and y=H (no partial culling — show full wall)
+			// Corner vertices at y=baseY and y=topY (no partial culling — show full wall)
 			glm::vec3 bot[4] = {
-				{fx - SL,       0.0f, fz - SB      },
-				{fx + 1.0f + SR, 0.0f, fz - SB      },
-				{fx + 1.0f + SR, 0.0f, fz + 1.0f + SF},
-				{fx - SL,       0.0f, fz + 1.0f + SF},
+				{fx - SL,       baseY, fz - SB      },
+				{fx + 1.0f + SR, baseY, fz - SB      },
+				{fx + 1.0f + SR, baseY, fz + 1.0f + SF},
+				{fx - SL,       baseY, fz + 1.0f + SF},
 			};
 			glm::vec3 top[4] = {
-				{fx,       H, fz       },
-				{fx + 1.0f, H, fz       },
-				{fx + 1.0f, H, fz + 1.0f},
-				{fx,       H, fz + 1.0f},
+				{fx,       topY, fz       },
+				{fx + 1.0f, topY, fz       },
+				{fx + 1.0f, topY, fz + 1.0f},
+				{fx,       topY, fz + 1.0f},
 			};
 
 			// Walls (no neighbour culling — show full height)

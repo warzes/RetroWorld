@@ -92,6 +92,7 @@ namespace map
 	{
 		bool        hasMountain   = false;
 		MountainMode mode         = MountainMode::Pyramid;
+		float       baseY        = 0.0f; //< Y-offset from ground (for stacking / Ctrl placement)
 		int16_t heightBlocks = 1;
 		int16_t heightPixels = 0; //< 0..16
 
@@ -128,11 +129,24 @@ namespace map
 		uint8_t      floorTex     = FLOOR_NONE;
 		int8_t       floorHeight  = 0; //< -5..5 → -0.5..0.5 world units
 		uint8_t      floorWallTex = WALL_STONE; //< wall texture for height gaps
-		MountainData mountain;
+
+		// Stacked mountain layers.  Each layer has its own baseY, mode,
+		// textures and slopes.  Layers are rendered bottom-to-top, and
+		// neighbour culling considers the TOTAL height (= top of last layer).
+		std::vector<MountainData> mountainStack;
 
 		[[nodiscard]] float FloorY() const noexcept
 		{
 			return static_cast<float>(floorHeight) * FLOOR_HEIGHT_SCALE;
+		}
+
+		// Total top Y of the highest layer (0 if no mountain).
+		[[nodiscard]] float MountainTopY() const noexcept
+		{
+			if (mountainStack.empty())
+				return 0.0f;
+			const auto& back = mountainStack.back();
+			return back.baseY + back.Height();
 		}
 	};
 
@@ -182,6 +196,10 @@ struct MeshBatch final
 		// Show current cell highlight
 		int         hoverGridX  = -1;
 		int         hoverGridZ  = -1;
+
+		// Ctrl height capture for "place at height" mode
+		bool        ctrlHeightLocked   = false;
+		float       ctrlBaseY          = 0.0f;
 	};
 
 	//=== Map Editor ==========================================================
@@ -295,6 +313,11 @@ struct MeshBatch final
 		EditorState m_state;
 
 		bool m_dirty = true; //< rebuild geometry on next frame
+
+		// Stroke tracking: each LMB press increments a counter; cells remember
+		// which stroke they were last painted in to prevent re-paint on hold.
+		uint64_t m_strokeId = 0;
+		std::array<std::array<uint64_t, MAP_SIZE>, MAP_SIZE> m_cellStrokeId{};
 	};
 
 } //namespace map
