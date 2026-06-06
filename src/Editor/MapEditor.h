@@ -68,6 +68,13 @@ namespace map
 		Count,
 	};
 
+	//=== Mountain render mode ================================================
+	enum class MountainMode : uint8_t
+	{
+		Pyramid,      // expanded base, trapezoid walls, shared corners
+		CornerFaces,  // independent wall bottoms + visible corner faces
+	};
+
 	//=== Slope data ==========================================================
 	struct SideSlope final
 	{
@@ -83,7 +90,8 @@ namespace map
 	//=== Mountain data =======================================================
 	struct MountainData final
 	{
-		bool    hasMountain   = false;
+		bool        hasMountain   = false;
+		MountainMode mode         = MountainMode::Pyramid;
 		int16_t heightBlocks = 1;
 		int16_t heightPixels = 0; //< 0..16
 
@@ -168,6 +176,9 @@ struct MeshBatch final
 		bool        slopeFront  = true;
 		bool        slopeBack   = true;
 
+		// Mountain render mode
+		MountainMode mountainMode = MountainMode::Pyramid;
+
 		// Show current cell highlight
 		int         hoverGridX  = -1;
 		int         hoverGridZ  = -1;
@@ -233,6 +244,7 @@ struct MeshBatch final
 		void generateTextures();
 		void buildFloorBatches(std::vector<MeshBatch>& batches);
 		void buildMountainBatches(std::vector<MeshBatch>& batches);
+		void buildMountainRpgMakerBatches(std::vector<MeshBatch>& batches);
 
 		// Add a quad to a batch
 		void addQuad(

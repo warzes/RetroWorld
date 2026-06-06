@@ -370,6 +370,7 @@ void MapEditor::RebuildGeometry(scene::SceneManager& scene)
 
 	buildFloorBatches(newBatches);
 	buildMountainBatches(newBatches);
+	buildMountainRpgMakerBatches(newBatches);
 
 	// Create model nodes for each batch
 	for (auto& batch : newBatches)
@@ -630,6 +631,7 @@ void MapEditor::buildMountainBatches(std::vector<MeshBatch>& batches)
 		{
 			const auto& cell = m_grid[z][x];
 			if (!cell.mountain.hasMountain) continue;
+			if (cell.mountain.mode != MountainMode::Pyramid) continue;
 
 			const auto& mt = cell.mountain;
 			float fx = static_cast<float>(x);
@@ -730,6 +732,243 @@ void MapEditor::buildMountainBatches(std::vector<MeshBatch>& batches)
 		if (g.batch.vertices.empty()) continue;
 		batches.push_back(std::move(g.batch));
 	}
+}
+
+//=============================================================================
+void MapEditor::buildMountainRpgMakerBatches(std::vector<MeshBatch>& batches)
+{
+	struct WallGroup
+	{
+		uint8_t texId;
+		MeshBatch batch;
+	};
+
+	struct TopGroup
+	{
+		uint8_t texId;
+		MeshBatch batch;
+	};
+
+	std::vector<WallGroup> wallGroups;
+	std::vector<TopGroup> topGroups;
+
+	auto findWallGroup = [&](uint8_t texId) -> MeshBatch&
+		{
+			for (auto& g : wallGroups)
+				if (g.texId == texId) return g.batch;
+
+			auto& g = wallGroups.emplace_back();
+			g.texId = texId;
+			g.batch.material = std::make_shared<gr::Material>();
+			g.batch.material->albedoMap = m_wallTex[texId];
+			g.batch.material->albedoColor = glm::vec3(1.0f);
+			g.batch.material->specularColor = glm::vec3(0.3f);
+			g.batch.material->ambientColor = glm::vec3(0.08f);
+			g.batch.material->shininess = 32.0f;
+			static int wc = 0;
+			g.batch.nodeName = "rmwall_batch_" + std::to_string(wc++);
+			return g.batch;
+		};
+
+	auto findTopGroup = [&](uint8_t texId) -> MeshBatch&
+		{
+			for (auto& g : topGroups)
+				if (g.texId == texId) return g.batch;
+
+			auto& g = topGroups.emplace_back();
+			g.texId = texId;
+			g.batch.material = std::make_shared<gr::Material>();
+			g.batch.material->albedoMap = m_topTex[texId];
+			g.batch.material->albedoColor = glm::vec3(1.0f);
+			g.batch.material->specularColor = glm::vec3(0.1f);
+			g.batch.material->ambientColor = glm::vec3(0.08f);
+			g.batch.material->shininess = 16.0f;
+			static int tc = 0;
+			g.batch.nodeName = "rmtop_batch_" + std::to_string(tc++);
+			return g.batch;
+		};
+
+	auto neighborH = [&](int x, int z) -> float
+		{
+			if (x < 0 || x >= MAP_SIZE || z < 0 || z >= MAP_SIZE) return 0.0f;
+			const auto& c = m_grid[z][x];
+			return c.mountain.hasMountain ? c.mountain.Height() : 0.0f;
+		};
+
+	for (int z = 0; z < MAP_SIZE; ++z)
+		for (int x = 0; x < MAP_SIZE; ++x)
+		{
+			const auto& cell = m_grid[z][x];
+			if (!cell.mountain.hasMountain) continue;
+			if (cell.mountain.mode != MountainMode::CornerFaces) continue;
+
+			const auto& mt = cell.mountain;
+			float fx = static_cast<float>(x);
+			float fz = static_cast<float>(z);
+			float H  = mt.Height();
+
+			float SL = mt.slopeLeft.Total();
+			float SR = mt.slopeRight.Total();
+			float SF = mt.slopeFront.Total();
+			float SB = mt.slopeBack.Total();
+
+			// Adjacent heights clamped to [0, H]
+			float adjH_L = std::min(H, std::max(neighborH(x - 1, z), 0.0f));
+			float adjH_R = std::min(H, std::max(neighborH(x + 1, z), 0.0f));
+			float adjH_B = std::min(H, std::max(neighborH(x,     z - 1), 0.0f));
+			float adjH_F = std::min(H, std::max(neighborH(x,     z + 1), 0.0f));
+
+			bool showLeft  = adjH_L < H;
+			bool showRight = adjH_R < H;
+			bool showBack  = adjH_B < H;
+			bool showFront = adjH_F < H;
+
+			auto& wallBatch = findWallGroup(mt.texWall);
+
+			//--- Left wall (-X) ---
+			if (showLeft)
+			{
+				float visibleH = H - adjH_L;
+				addWallFace(wallBatch,
+					{fx,       H,      fz + 1},
+					{fx,       H,      fz    },
+					{fx - SL,  adjH_L, fz + 1},
+					{fx - SL,  adjH_L, fz    },
+					{-1, 0, 0}, visibleH);
+			}
+
+			//--- Right wall (+X) ---
+			if (showRight)
+			{
+				float visibleH = H - adjH_R;
+				addWallFace(wallBatch,
+					{fx + 1,       H,      fz    },
+					{fx + 1,       H,      fz + 1},
+					{fx + 1 + SR,  adjH_R, fz    },
+					{fx + 1 + SR,  adjH_R, fz + 1},
+					{1, 0, 0}, visibleH);
+			}
+
+			//--- Back wall (-Z) ---
+			if (showBack)
+			{
+				float visibleH = H - adjH_B;
+				addWallFace(wallBatch,
+					{fx,       H,      fz    },
+					{fx + 1,   H,      fz    },
+					{fx,       adjH_B, fz - SB},
+					{fx + 1,   adjH_B, fz - SB},
+					{0, 0, -1}, visibleH);
+			}
+
+			//--- Front wall (+Z) ---
+			if (showFront)
+			{
+				float visibleH = H - adjH_F;
+				addWallFace(wallBatch,
+					{fx + 1,   H,      fz + 1    },
+					{fx,       H,      fz + 1    },
+					{fx + 1,   adjH_F, fz + 1 + SF},
+					{fx,       adjH_F, fz + 1 + SF},
+					{0, 0, 1}, visibleH);
+			}
+
+			//--- Corner triangles (fill gaps between adjacent walls) ---
+			// UV convention: U=0..1 along the wall length matching addWallFace,
+			// V = world-space Y (height).  This makes the texture continuous
+			// with the adjacent wall faces.
+			//
+			// Winding is CCW when viewed from the outward diagonal.
+
+			// Back-left corner (fx, H, fz): bridges Left wall (-X) and Back wall (-Z)
+			if (showBack || showLeft)
+			{
+				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, -1.0f});
+				// p0 = Left wall at back end (U=1 on left wall), p1 = Back wall at left end (U=0 on back wall)
+				glm::vec3 p0 = {fx - SL, adjH_L, fz    };
+				glm::vec3 p1 = {fx,      adjH_B, fz - SB};
+				glm::vec3 p2 = {fx,      H,       fz    };
+				wallBatch.vertices.push_back({p0, n, {1.0f,    adjH_L}});
+				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
+				wallBatch.vertices.push_back({p1, n, {0.0f,    adjH_B}});
+				wallBatch.indices.push_back(base + 0);
+				wallBatch.indices.push_back(base + 1);
+				wallBatch.indices.push_back(base + 2);
+			}
+
+			// Back-right corner (fx+1, H, fz): bridges Right wall (+X) and Back wall (-Z)
+			if (showBack || showRight)
+			{
+				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, -1.0f});
+				// Right wall at back end has U=0, Back wall at right end has U=1
+				glm::vec3 p0 = {fx + 1 + SR, adjH_R, fz    };
+				glm::vec3 p1 = {fx + 1,      adjH_B, fz - SB};
+				glm::vec3 p2 = {fx + 1,      H,       fz    };
+				wallBatch.vertices.push_back({p0, n, {0.0f,    adjH_R}});
+				wallBatch.vertices.push_back({p1, n, {1.0f,    adjH_B}});
+				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
+				wallBatch.indices.push_back(base + 0);
+				wallBatch.indices.push_back(base + 1);
+				wallBatch.indices.push_back(base + 2);
+			}
+
+			// Front-right corner (fx+1, H, fz+1): bridges Right wall (+X) and Front wall (+Z)
+			if (showFront || showRight)
+			{
+				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, 1.0f});
+				// Right wall at front end has U=1, Front wall at right end has U=0
+				glm::vec3 p0 = {fx + 1 + SR, adjH_R, fz + 1};
+				glm::vec3 p1 = {fx + 1,      adjH_F, fz + 1 + SF};
+				glm::vec3 p2 = {fx + 1,      H,       fz + 1};
+				wallBatch.vertices.push_back({p0, n, {1.0f,    adjH_R}});
+				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
+				wallBatch.vertices.push_back({p1, n, {0.0f,    adjH_F}});
+				wallBatch.indices.push_back(base + 0);
+				wallBatch.indices.push_back(base + 1);
+				wallBatch.indices.push_back(base + 2);
+			}
+
+			// Front-left corner (fx, H, fz+1): bridges Left wall (-X) and Front wall (+Z)
+			if (showFront || showLeft)
+			{
+				uint32_t base = static_cast<uint32_t>(wallBatch.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, 1.0f});
+				// Left wall at front end has U=0, Front wall at left end has U=1
+				glm::vec3 p0 = {fx - SL, adjH_L, fz + 1};
+				glm::vec3 p1 = {fx,      adjH_F, fz + 1 + SF};
+				glm::vec3 p2 = {fx,      H,       fz + 1};
+				wallBatch.vertices.push_back({p0, n, {0.0f,    adjH_L}});
+				wallBatch.vertices.push_back({p1, n, {1.0f,    adjH_F}});
+				wallBatch.vertices.push_back({p2, n, {0.5f,    H     }});
+				wallBatch.indices.push_back(base + 0);
+				wallBatch.indices.push_back(base + 1);
+				wallBatch.indices.push_back(base + 2);
+			}
+
+			//--- Top face: flat quad ---
+			auto& topBatch = findTopGroup(mt.texTop);
+			addQuad(topBatch,
+				{fx,       H, fz      },
+				{fx,       H, fz + 1  },
+				{fx + 1,   H, fz + 1  },
+				{fx + 1,   H, fz      },
+				{0, 1, 0},
+				{0, 0},
+				{0, 1},
+				{1, 1},
+				{1, 0});
+		}
+
+	for (auto& g : wallGroups)
+		if (!g.batch.vertices.empty())
+			batches.push_back(std::move(g.batch));
+
+	for (auto& g : topGroups)
+		if (!g.batch.vertices.empty())
+			batches.push_back(std::move(g.batch));
 }
 
 //=============================================================================
@@ -873,6 +1112,12 @@ void MapEditor::RenderUI()
 
 	if (m_state.activeTool == EditorTool::MountainBrush)
 	{
+		// Render mode
+		const char* modeNames[] = { "Pyramid", "Corner Faces" };
+		int currentMode = static_cast<int>(m_state.mountainMode);
+		if (ImGui::Combo("Mode", &currentMode, modeNames, IM_ARRAYSIZE(modeNames)))
+			m_state.mountainMode = static_cast<MountainMode>(currentMode);
+
 		const char* wallNames[] = { "Stone", "Brick", "Dirt" };
 		int currentWall = static_cast<int>(m_state.selectedWallTex) - 1;
 		if (ImGui::Combo("Wall Texture", &currentWall, wallNames, IM_ARRAYSIZE(wallNames)))
@@ -919,13 +1164,14 @@ void MapEditor::RenderUI()
 		ImGui::Checkbox("Back side", &m_state.slopeBack);
 
 		ImGui::Separator();
-		float totalHeight = static_cast<float>(m_state.mountainHeightBlocks) +
-			static_cast<float>(m_state.mountainHeightPixels) / 16.0f;
-		ImGui::Text("Total height: %.2f", totalHeight);
-
 		float totalSlope = static_cast<float>(m_state.slopeBlocks) +
 			static_cast<float>(m_state.slopePixels) / 16.0f;
 		ImGui::Text("Total slope: %.2f", totalSlope);
+
+		ImGui::Separator();
+		float totalHeight = static_cast<float>(m_state.mountainHeightBlocks) +
+			static_cast<float>(m_state.mountainHeightPixels) / 16.0f;
+		ImGui::Text("Total height: %.2f", totalHeight);
 	}
 
 	ImGui::Separator();
@@ -1003,6 +1249,7 @@ void MapEditor::PaintCell(int gx, int gz)
 	else if (m_state.activeTool == EditorTool::MountainBrush)
 	{
 		cell.mountain.hasMountain = true;
+		cell.mountain.mode = m_state.mountainMode;
 		cell.mountain.heightBlocks = static_cast<int16_t>(m_state.mountainHeightBlocks);
 		cell.mountain.heightPixels = static_cast<int16_t>(m_state.mountainHeightPixels);
 		cell.mountain.texWall = m_state.selectedWallTex;
@@ -1096,50 +1343,139 @@ bool MapEditor::BuildGhostPreview(
 		mt.texWall = m_state.selectedWallTex;
 		mt.texTop = m_state.selectedTopTex;
 
-		mt.slopeLeft.blocks   = m_state.slopeLeft  ? m_state.slopeBlocks : 0;
-		mt.slopeLeft.pixels   = m_state.slopeLeft  ? m_state.slopePixels : 0;
-		mt.slopeRight.blocks  = m_state.slopeRight ? m_state.slopeBlocks : 0;
-		mt.slopeRight.pixels  = m_state.slopeRight ? m_state.slopePixels : 0;
-		mt.slopeFront.blocks  = m_state.slopeFront ? m_state.slopeBlocks : 0;
-		mt.slopeFront.pixels  = m_state.slopeFront ? m_state.slopePixels : 0;
-		mt.slopeBack.blocks   = m_state.slopeBack  ? m_state.slopeBlocks : 0;
-		mt.slopeBack.pixels   = m_state.slopeBack  ? m_state.slopePixels : 0;
+		MeshBatch tmp;
+		tmp.material = nullptr;
 
 		float H = mt.Height();
-		float SL = mt.slopeLeft.Total();
-		float SR = mt.slopeRight.Total();
-		float SF = mt.slopeFront.Total();
-		float SB = mt.slopeBack.Total();
 
-		// Build a temporary MeshBatch, populate it via addQuad/addWallFace,
-		// then move the data out.
-		MeshBatch tmp;
-		tmp.material = nullptr; // not needed for geometry generation
+		if (m_state.mountainMode == MountainMode::CornerFaces)
+		{
+			mt.slopeLeft.blocks   = m_state.slopeLeft  ? m_state.slopeBlocks : 0;
+			mt.slopeLeft.pixels   = m_state.slopeLeft  ? m_state.slopePixels : 0;
+			mt.slopeRight.blocks  = m_state.slopeRight ? m_state.slopeBlocks : 0;
+			mt.slopeRight.pixels  = m_state.slopeRight ? m_state.slopePixels : 0;
+			mt.slopeFront.blocks  = m_state.slopeFront ? m_state.slopeBlocks : 0;
+			mt.slopeFront.pixels  = m_state.slopeFront ? m_state.slopePixels : 0;
+			mt.slopeBack.blocks   = m_state.slopeBack  ? m_state.slopeBlocks : 0;
+			mt.slopeBack.pixels   = m_state.slopeBack  ? m_state.slopePixels : 0;
 
-		// Corner vertices at y=0 and y=H (no partial culling — show full wall)
-		glm::vec3 bot[4] = {
-			{fx - SL,       0.0f, fz - SB      },
-			{fx + 1.0f + SR, 0.0f, fz - SB      },
-			{fx + 1.0f + SR, 0.0f, fz + 1.0f + SF},
-			{fx - SL,       0.0f, fz + 1.0f + SF},
-		};
-		glm::vec3 top[4] = {
-			{fx,       H, fz       },
-			{fx + 1.0f, H, fz       },
-			{fx + 1.0f, H, fz + 1.0f},
-			{fx,       H, fz + 1.0f},
-		};
+			float SL = mt.slopeLeft.Total();
+			float SR = mt.slopeRight.Total();
+			float SF = mt.slopeFront.Total();
+			float SB = mt.slopeBack.Total();
 
-		// Walls (no neighbour culling — show full height)
-		addWallFace(tmp, top[3], top[0], bot[3], bot[0], { -1.0f, 0.0f, 0.0f }, H);
-		addWallFace(tmp, top[1], top[2], bot[1], bot[2], {  1.0f, 0.0f, 0.0f }, H);
-		addWallFace(tmp, top[0], top[1], bot[0], bot[1], {  0.0f, 0.0f, -1.0f}, H);
-		addWallFace(tmp, top[2], top[3], bot[2], bot[3], {  0.0f, 0.0f,  1.0f}, H);
+			//--- Walls: only extend in own normal direction ---
+			addWallFace(tmp, {fx,     H, fz + 1}, {fx,     H, fz    },
+				{fx - SL, 0, fz + 1}, {fx - SL, 0, fz    }, {-1, 0, 0}, H);
+			addWallFace(tmp, {fx + 1, H, fz    }, {fx + 1, H, fz + 1},
+				{fx + 1 + SR, 0, fz    }, {fx + 1 + SR, 0, fz + 1}, {1, 0, 0}, H);
+			addWallFace(tmp, {fx,     H, fz    }, {fx + 1, H, fz    },
+				{fx,     0, fz - SB}, {fx + 1, 0, fz - SB}, {0, 0, -1}, H);
+			addWallFace(tmp, {fx + 1, H, fz + 1}, {fx,     H, fz + 1},
+				{fx + 1, 0, fz + 1 + SF}, {fx, 0, fz + 1 + SF}, {0, 0, 1}, H);
 
-		// Top face (CCW from above: LB -> LF -> RF -> RB)
-		addQuad(tmp, top[0], top[3], top[2], top[1],
-			{ 0.0f, 1.0f, 0.0f },
-			{ 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f });
+			//--- Corner triangles ---
+			// UV convention: U=0..1 along the wall, V = world-space Y.
+			// Winding is CCW when viewed from the outward diagonal.
+
+			// Back-left
+			{
+				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, -1.0f});
+				tmp.vertices.push_back({{fx - SL, 0, fz      }, n, {1.0f, 0}});
+				tmp.vertices.push_back({{fx,      H, fz      }, n, {0.5f, H}});
+				tmp.vertices.push_back({{fx,      0, fz - SB }, n, {0.0f, 0}});
+				tmp.indices.push_back(base + 0);
+				tmp.indices.push_back(base + 1);
+				tmp.indices.push_back(base + 2);
+			}
+
+			// Back-right
+			{
+				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, -1.0f});
+				tmp.vertices.push_back({{fx + 1 + SR, 0, fz      }, n, {0.0f, 0}});
+				tmp.vertices.push_back({{fx + 1,      0, fz - SB }, n, {1.0f, 0}});
+				tmp.vertices.push_back({{fx + 1,      H, fz      }, n, {0.5f, H}});
+				tmp.indices.push_back(base + 0);
+				tmp.indices.push_back(base + 1);
+				tmp.indices.push_back(base + 2);
+			}
+
+			// Front-right
+			{
+				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{1.0f, 0.0f, 1.0f});
+				tmp.vertices.push_back({{fx + 1 + SR, 0, fz + 1  }, n, {1.0f, 0}});
+				tmp.vertices.push_back({{fx + 1,      H, fz + 1  }, n, {0.5f, H}});
+				tmp.vertices.push_back({{fx + 1,      0, fz + 1 + SF}, n, {0.0f, 0}});
+				tmp.indices.push_back(base + 0);
+				tmp.indices.push_back(base + 1);
+				tmp.indices.push_back(base + 2);
+			}
+
+			// Front-left
+			{
+				uint32_t base = static_cast<uint32_t>(tmp.vertices.size());
+				glm::vec3 n = glm::normalize(glm::vec3{-1.0f, 0.0f, 1.0f});
+				tmp.vertices.push_back({{fx - SL, 0, fz + 1  }, n, {0.0f, 0}});
+				tmp.vertices.push_back({{fx,      0, fz + 1 + SF}, n, {1.0f, 0}});
+				tmp.vertices.push_back({{fx,      H, fz + 1  }, n, {0.5f, H}});
+				tmp.indices.push_back(base + 0);
+				tmp.indices.push_back(base + 1);
+				tmp.indices.push_back(base + 2);
+			}
+
+			//--- Top face: flat quad ---
+			addQuad(tmp,
+				{fx,       H, fz      },
+				{fx,       H, fz + 1  },
+				{fx + 1,   H, fz + 1  },
+				{fx + 1,   H, fz      },
+				{0, 1, 0},
+				{0, 0}, {0, 1}, {1, 1}, {1, 0});
+		}
+		else
+		{
+			mt.slopeLeft.blocks   = m_state.slopeLeft  ? m_state.slopeBlocks : 0;
+			mt.slopeLeft.pixels   = m_state.slopeLeft  ? m_state.slopePixels : 0;
+			mt.slopeRight.blocks  = m_state.slopeRight ? m_state.slopeBlocks : 0;
+			mt.slopeRight.pixels  = m_state.slopeRight ? m_state.slopePixels : 0;
+			mt.slopeFront.blocks  = m_state.slopeFront ? m_state.slopeBlocks : 0;
+			mt.slopeFront.pixels  = m_state.slopeFront ? m_state.slopePixels : 0;
+			mt.slopeBack.blocks   = m_state.slopeBack  ? m_state.slopeBlocks : 0;
+			mt.slopeBack.pixels   = m_state.slopeBack  ? m_state.slopePixels : 0;
+
+			float SL = mt.slopeLeft.Total();
+			float SR = mt.slopeRight.Total();
+			float SF = mt.slopeFront.Total();
+			float SB = mt.slopeBack.Total();
+
+			// Corner vertices at y=0 and y=H (no partial culling — show full wall)
+			glm::vec3 bot[4] = {
+				{fx - SL,       0.0f, fz - SB      },
+				{fx + 1.0f + SR, 0.0f, fz - SB      },
+				{fx + 1.0f + SR, 0.0f, fz + 1.0f + SF},
+				{fx - SL,       0.0f, fz + 1.0f + SF},
+			};
+			glm::vec3 top[4] = {
+				{fx,       H, fz       },
+				{fx + 1.0f, H, fz       },
+				{fx + 1.0f, H, fz + 1.0f},
+				{fx,       H, fz + 1.0f},
+			};
+
+			// Walls (no neighbour culling — show full height)
+			addWallFace(tmp, top[3], top[0], bot[3], bot[0], { -1.0f, 0.0f, 0.0f }, H);
+			addWallFace(tmp, top[1], top[2], bot[1], bot[2], {  1.0f, 0.0f, 0.0f }, H);
+			addWallFace(tmp, top[0], top[1], bot[0], bot[1], {  0.0f, 0.0f, -1.0f}, H);
+			addWallFace(tmp, top[2], top[3], bot[2], bot[3], {  0.0f, 0.0f,  1.0f}, H);
+
+			// Top face (CCW from above: LB -> LF -> RF -> RB)
+			addQuad(tmp, top[0], top[3], top[2], top[1],
+				{ 0.0f, 1.0f, 0.0f },
+				{ 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f });
+		}
 
 		verts = std::move(tmp.vertices);
 		indices = std::move(tmp.indices);
