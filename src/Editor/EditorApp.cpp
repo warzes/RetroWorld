@@ -241,6 +241,12 @@ void main() {}
 	// Reusable vertex/index buffers for highlight
 	std::vector<gr::MeshVertex> g_hlVerts;
 	std::vector<uint32_t> g_hlIndices;
+
+	// Ghost preview (semi-transparent preview of what will be placed)
+	std::unique_ptr<gr::Mesh> g_ghostMesh;
+	scene::ModelNode* g_ghostNode = nullptr;
+	std::vector<gr::MeshVertex> g_ghostVerts;
+	std::vector<uint32_t> g_ghostIndices;
 }
 
 //=============================================================================
@@ -329,6 +335,62 @@ static void BuildHighlightMesh(int gx, int gz)
 
 	gpu::buffer::UpdateData(mesh.vbo, g_hlVerts.data(), g_hlVerts.size() * sizeof(gr::MeshVertex));
 	gpu::buffer::UpdateData(mesh.ibo, g_hlIndices.data(), g_hlIndices.size() * sizeof(uint32_t));
+}
+
+//=============================================================================
+static void BuildGhostMesh(int gx, int gz)
+{
+	if (!g_ghostNode || !g_ghostNode->mesh || !g_editor)
+	{
+		if (g_ghostNode) g_ghostNode->visible = false;
+		return;
+	}
+
+	g_ghostVerts.clear();
+	g_ghostIndices.clear();
+
+	if (!g_editor->BuildGhostPreview(gx, gz, g_ghostVerts, g_ghostIndices))
+	{
+		g_ghostNode->visible = false;
+		return;
+	}
+
+	auto& mesh = *g_ghostNode->mesh;
+	uint32_t vertCount = static_cast<uint32_t>(g_ghostVerts.size());
+	uint32_t idxCount  = static_cast<uint32_t>(g_ghostIndices.size());
+
+	mesh.vertexCount = vertCount;
+	mesh.indexCount = idxCount;
+	mesh.isIndexed = true;
+
+	if (vertCount > 0)
+	{
+		gpu::buffer::UpdateData(mesh.vbo, g_ghostVerts.data(), vertCount * sizeof(gr::MeshVertex));
+	}
+	if (idxCount > 0)
+	{
+		gpu::buffer::UpdateData(mesh.ibo, g_ghostIndices.data(), idxCount * sizeof(uint32_t));
+	}
+
+	// Update ghost material with the appropriate texture for the active tool
+	if (g_editor)
+	{
+		auto& state = g_editor->GetState();
+		auto* mat = g_ghostNode->material.get();
+		if (state.activeTool == map::EditorTool::FloorBrush)
+		{
+			mat->albedoMap = g_editor->GetFloorTex(state.selectedFloorTex);
+			mat->albedoColor = glm::vec3(1.0f);
+		}
+		else if (state.activeTool == map::EditorTool::MountainBrush)
+		{
+			// Use wall texture for the ghost (dominant visual)
+			mat->albedoMap = g_editor->GetWallTex(state.selectedWallTex);
+			mat->albedoColor = glm::vec3(1.0f);
+		}
+	}
+
+	g_ghostNode->visible = true;
 }
 
 //=============================================================================
@@ -438,6 +500,42 @@ static bool GameInit()
 		g_highlightNode = static_cast<scene::ModelNode*>(root.FindChild("highlight"));
 	}
 
+	// Ghost preview node (semi-transparent shape at hovered cell)
+	{
+		constexpr size_t MAX_GHOST_VERTS = 512;
+		constexpr size_t MAX_GHOST_IDX   = 768;
+
+		g_ghostMesh = std::make_unique<gr::Mesh>();
+		g_ghostMesh->vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
+
+		g_ghostVerts.reserve(MAX_GHOST_VERTS);
+		g_ghostIndices.reserve(MAX_GHOST_IDX);
+		g_ghostMesh->vbo = gpu::buffer::CreateBuffer(
+			sizeof(gr::MeshVertex) * MAX_GHOST_VERTS,
+			gpu::buffer::BufferStorageFlag::DynamicStorage);
+		g_ghostMesh->ibo = gpu::buffer::CreateBuffer(
+			sizeof(uint32_t) * MAX_GHOST_IDX,
+			gpu::buffer::BufferStorageFlag::DynamicStorage);
+
+		g_ghostMesh->vertexCount = 0;
+		g_ghostMesh->indexCount = 0;
+		g_ghostMesh->isIndexed = true;
+
+		auto& ghNode = root.AddChild<scene::ModelNode>("ghost");
+		ghNode.mesh = std::make_shared<gr::Mesh>(*g_ghostMesh);
+		ghNode.material = std::make_shared<gr::Material>();
+		ghNode.material->albedoColor = glm::vec3(1.0f);
+		ghNode.material->specularColor = glm::vec3(0.0f);
+		ghNode.material->ambientColor = glm::vec3(1.0f);
+		ghNode.material->shininess = 1.0f;
+		ghNode.material->opacity = 0.35f;
+		ghNode.material->cullMode = gpu::CullMode::None;
+		ghNode.castShadow = false;
+		ghNode.receiveShadow = false;
+
+		g_ghostNode = static_cast<scene::ModelNode*>(root.FindChild("ghost"));
+	}
+
 	g_scene->enableShadows = true;
 	g_scene->enableInstancing = true;
 
@@ -447,6 +545,8 @@ static bool GameInit()
 //=============================================================================
 static void GameClose()
 {
+	g_ghostNode = nullptr;
+	g_ghostMesh.reset();
 	g_highlightNode = nullptr;
 	g_highlightMesh.reset();
 	g_editor.reset();
@@ -528,6 +628,16 @@ static void GameUpdate()
 	else if (g_highlightNode)
 	{
 		g_highlightNode->visible = false;
+	}
+
+	// Update ghost preview
+	if (g_hoverValid && g_ghostNode)
+	{
+		BuildGhostMesh(g_hoverGx, g_hoverGz);
+	}
+	else if (g_ghostNode)
+	{
+		g_ghostNode->visible = false;
 	}
 
 	// Update scene graph (collect lights, update world matrices)

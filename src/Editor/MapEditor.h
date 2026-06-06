@@ -102,18 +102,31 @@ namespace map
 		}
 	};
 
-	//=== Per-cell data =======================================================
-	struct MapCell final
-	{
-		uint8_t      floorTex = FLOOR_NONE;
-		MountainData mountain;
-	};
-
+	//=== Constants ============================================================
 	static constexpr int MAP_SIZE = 60;
+
+	// Floor height range: -5..5, each unit = 0.1 world units (5 = 0.5 blocks)
+	static constexpr int FLOOR_HEIGHT_MIN = -5;
+	static constexpr int FLOOR_HEIGHT_MAX =  5;
+	static constexpr float FLOOR_HEIGHT_SCALE = 0.1f;
 
 	// Number of vertical bands per wall face to reduce texture skew on
 	// sloped trapezoidal walls.  Higher = smoother but more geometry.
 	static constexpr int WALL_SUBDIVISIONS = 8;
+
+	//=== Per-cell data =======================================================
+	struct MapCell final
+	{
+		uint8_t      floorTex     = FLOOR_NONE;
+		int8_t       floorHeight  = 0; //< -5..5 → -0.5..0.5 world units
+		uint8_t      floorWallTex = WALL_STONE; //< wall texture for height gaps
+		MountainData mountain;
+
+		[[nodiscard]] float FloorY() const noexcept
+		{
+			return static_cast<float>(floorHeight) * FLOOR_HEIGHT_SCALE;
+		}
+	};
 
 	//=== Material key for batching ===========================================
 	struct MaterialKey final
@@ -136,10 +149,12 @@ struct MeshBatch final
 	//=== Editor state ========================================================
 	struct EditorState final
 	{
-		EditorTool  activeTool       = EditorTool::FloorBrush;
-		uint8_t     selectedFloorTex = FLOOR_GRASS;
-		uint8_t     selectedWallTex  = WALL_STONE;
-		uint8_t     selectedTopTex   = TOP_GRASS;
+		EditorTool  activeTool           = EditorTool::FloorBrush;
+		uint8_t     selectedFloorTex     = FLOOR_GRASS;
+		int8_t      floorHeight          = 0; //< -5..5 → -0.5..0.5 world units
+		uint8_t     selectedFloorWallTex = WALL_STONE;
+		uint8_t     selectedWallTex      = WALL_STONE;
+		uint8_t     selectedTopTex       = TOP_GRASS;
 
 		int16_t     mountainHeightBlocks = 2;
 		int16_t     mountainHeightPixels = 0;
@@ -188,6 +203,32 @@ struct MeshBatch final
 		// Ray-pick: project screen coords onto y=0 plane
 		[[nodiscard]] bool ScreenToGrid(int sx, int sy, int& outGx, int& outGz) const;
 
+		// Build ghost preview mesh for the cell hovered by the mouse.
+		// The ghost shows a semi-transparent version of what would be
+		// placed with the current tool.  Returns false if no ghost needed
+		// (e.g. Eraser tool), true otherwise.
+		[[nodiscard]] bool BuildGhostPreview(
+			int gx, int gz,
+			std::vector<gr::MeshVertex>& verts,
+			std::vector<uint32_t>& indices) const;
+
+		// State accessor
+		[[nodiscard]] const EditorState& GetState() const { return m_state; }
+
+		// Texture accessors for ghost material setup
+		[[nodiscard]] gpu::texture::TexturePtr GetFloorTex(uint8_t id) const
+		{
+			return (id < FLOOR_COUNT) ? m_floorTex[id] : nullptr;
+		}
+		[[nodiscard]] gpu::texture::TexturePtr GetWallTex(uint8_t id) const
+		{
+			return (id < WALL_COUNT) ? m_wallTex[id] : nullptr;
+		}
+		[[nodiscard]] gpu::texture::TexturePtr GetTopTex(uint8_t id) const
+		{
+			return (id < TOP_COUNT) ? m_topTex[id] : nullptr;
+		}
+
 	private:
 		void generateTextures();
 		void buildFloorBatches(std::vector<MeshBatch>& batches);
@@ -198,7 +239,7 @@ struct MeshBatch final
 			MeshBatch& batch,
 			glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 v3,
 			glm::vec3 n,
-			glm::vec2 uv0, glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3);
+			glm::vec2 uv0, glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3) const;
 
 		// Add a wall face to a batch (trapezoid or rectangle).
 		// Splits the wall into `subdivs` horizontal bands to minimise
@@ -209,7 +250,7 @@ struct MeshBatch final
 			glm::vec3 b0, glm::vec3 b1, // bottom edge
 			glm::vec3 normal,
 			float texRepeatV,
-			int subdivs = WALL_SUBDIVISIONS);
+			int subdivs = WALL_SUBDIVISIONS) const;
 
 		// Create a procedural texture with solid colour + noise
 		[[nodiscard]] gpu::texture::TexturePtr makeProceduralTex(

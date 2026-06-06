@@ -418,62 +418,151 @@ void MapEditor::RebuildGeometry(scene::SceneManager& scene)
 //=============================================================================
 void MapEditor::buildFloorBatches(std::vector<MeshBatch>& batches)
 {
-	// Group floor cells by texture type
-	struct FloorGroup
-	{
-		uint8_t texId = 0;
-		std::vector<std::pair<int, int>> cells; // (gx, gz) pairs
-	};
-
-	std::array<FloorGroup, FLOOR_COUNT> groups;
-	for (uint8_t i = FLOOR_FIRST; i < FLOOR_COUNT; ++i)
-		groups[i].texId = i;
-
-	for (int z = 0; z < MAP_SIZE; ++z)
-	{
-		for (int x = 0; x < MAP_SIZE; ++x)
+	auto cellFloorY = [&](int x, int z) -> float
 		{
-			uint8_t tex = m_grid[z][x].floorTex;
-			if (tex != FLOOR_NONE && tex < FLOOR_COUNT)
-				groups[tex].cells.emplace_back(x, z);
+			if (x < 0 || x >= MAP_SIZE || z < 0 || z >= MAP_SIZE) return 0.0f;
+			const auto& c = m_grid[z][x];
+			return (c.floorTex != FLOOR_NONE) ? c.FloorY() : 0.0f;
+		};
+
+	//--- Floor quads (grouped by texture) ---
+	{
+		struct FloorGroup
+		{
+			uint8_t texId = 0;
+			std::vector<std::pair<int, int>> cells;
+		};
+
+		std::array<FloorGroup, FLOOR_COUNT> groups;
+		for (uint8_t i = FLOOR_FIRST; i < FLOOR_COUNT; ++i)
+			groups[i].texId = i;
+
+		for (int z = 0; z < MAP_SIZE; ++z)
+			for (int x = 0; x < MAP_SIZE; ++x)
+			{
+				uint8_t tex = m_grid[z][x].floorTex;
+				if (tex != FLOOR_NONE && tex < FLOOR_COUNT)
+					groups[tex].cells.emplace_back(x, z);
+			}
+
+		for (uint8_t texId = FLOOR_FIRST; texId < FLOOR_COUNT; ++texId)
+		{
+			auto& group = groups[texId];
+			if (group.cells.empty()) continue;
+
+			MeshBatch batch;
+			batch.material = std::make_shared<gr::Material>();
+			batch.material->albedoMap = m_floorTex[texId];
+			batch.material->albedoColor = glm::vec3(1.0f);
+			batch.material->specularColor = glm::vec3(0.1f);
+			batch.material->ambientColor = glm::vec3(0.08f);
+			batch.material->shininess = 16.0f;
+
+			static int fbc = 0;
+			batch.nodeName = "floor_batch_" + std::to_string(fbc++);
+
+			for (auto& [gx, gz] : group.cells)
+			{
+				float fx = static_cast<float>(gx);
+				float fz = static_cast<float>(gz);
+				float y  = cellFloorY(gx, gz);
+
+				addQuad(batch,
+					{ fx,       y, fz       },
+					{ fx,       y, fz + 1.0f },
+					{ fx + 1.0f, y, fz + 1.0f },
+					{ fx + 1.0f, y, fz       },
+					{ 0.0f, 1.0f, 0.0f },
+					{ 0.0f, 0.0f },
+					{ 0.0f, 1.0f },
+					{ 1.0f, 1.0f },
+					{ 1.0f, 0.0f });
+			}
+
+			batches.push_back(std::move(batch));
 		}
 	}
 
-	for (uint8_t texId = FLOOR_FIRST; texId < FLOOR_COUNT; ++texId)
+	//--- Gap walls between floor cells at different heights ---
 	{
-		auto& group = groups[texId];
-		if (group.cells.empty()) continue;
-
-		MeshBatch batch;
-		batch.material = std::make_shared<gr::Material>();
-		batch.material->albedoMap = m_floorTex[texId];
-		batch.material->albedoColor = glm::vec3(1.0f);
-		batch.material->specularColor = glm::vec3(0.1f);
-		batch.material->ambientColor = glm::vec3(0.08f);
-		batch.material->shininess = 16.0f;
-
-		static int floorBatchCounter = 0;
-		batch.nodeName = "floor_batch_" + std::to_string(floorBatchCounter++);
-
-		for (auto& [gx, gz] : group.cells)
+		struct WallGroup
 		{
-			float fx = static_cast<float>(gx);
-			float fz = static_cast<float>(gz);
+			uint8_t   texId = 0;
+			MeshBatch batch;
+		};
 
-			// CCW from above: LB → LF → RF → RB
-			addQuad(batch,
-				{ fx,       0.0f, fz       }, // v0 = left-back
-				{ fx,       0.0f, fz + 1.0f }, // v1 = left-front
-				{ fx + 1.0f, 0.0f, fz + 1.0f }, // v2 = right-front
-				{ fx + 1.0f, 0.0f, fz       }, // v3 = right-back
-				{ 0.0f, 1.0f, 0.0f },           // normal up
-				{ 0.0f, 0.0f },                  // uv0 (LB)
-				{ 0.0f, 1.0f },                  // uv1 (LF)
-				{ 1.0f, 1.0f },                  // uv2 (RF)
-				{ 1.0f, 0.0f });                 // uv3 (RB)
+		std::array<WallGroup, WALL_COUNT> wallGroups;
+		for (uint8_t i = WALL_FIRST; i < WALL_COUNT; ++i)
+		{
+			wallGroups[i].texId = i;
+			wallGroups[i].batch.material = std::make_shared<gr::Material>();
+			wallGroups[i].batch.material->albedoMap = m_wallTex[i];
+			wallGroups[i].batch.material->albedoColor = glm::vec3(1.0f);
+			wallGroups[i].batch.material->specularColor = glm::vec3(0.3f);
+			wallGroups[i].batch.material->ambientColor = glm::vec3(0.08f);
+			wallGroups[i].batch.material->shininess = 32.0f;
+			wallGroups[i].batch.material->cullMode = gpu::CullMode::None;
+			static int fwc = 0;
+			wallGroups[i].batch.nodeName = "floor_wall_" + std::to_string(i) + "_" + std::to_string(fwc++);
 		}
 
-		batches.push_back(std::move(batch));
+		for (int z = 0; z < MAP_SIZE; ++z)
+			for (int x = 0; x < MAP_SIZE; ++x)
+			{
+				const auto& cell = m_grid[z][x];
+				if (cell.floorTex == FLOOR_NONE) continue;
+
+				float h0 = cell.FloorY();
+				uint8_t wallTex = cell.floorWallTex;
+
+				// +X neighbor
+				if (x + 1 < MAP_SIZE)
+				{
+					const auto& nb = m_grid[z][x + 1];
+					if (nb.floorTex != FLOOR_NONE)
+					{
+						float h1 = nb.FloorY();
+						if (h0 != h1)
+						{
+							float lowY  = std::min(h0, h1);
+							float highY = std::max(h0, h1);
+							float fx1 = static_cast<float>(x + 1);
+							float fz  = static_cast<float>(z);
+							glm::vec3 normal = (h0 < h1) ? glm::vec3(-1, 0, 0) : glm::vec3(1, 0, 0);
+							addWallFace(wallGroups[wallTex].batch,
+								{fx1, highY, fz}, {fx1, highY, fz + 1.0f},
+								{fx1, lowY,  fz}, {fx1, lowY,  fz + 1.0f},
+								normal, highY - lowY);
+						}
+					}
+				}
+
+				// +Z neighbor
+				if (z + 1 < MAP_SIZE)
+				{
+					const auto& nb = m_grid[z + 1][x];
+					if (nb.floorTex != FLOOR_NONE)
+					{
+						float h1 = nb.FloorY();
+						if (h0 != h1)
+						{
+							float lowY  = std::min(h0, h1);
+							float highY = std::max(h0, h1);
+							float fx  = static_cast<float>(x);
+							float fz1 = static_cast<float>(z + 1);
+							glm::vec3 normal = (h0 < h1) ? glm::vec3(0, 0, -1) : glm::vec3(0, 0, 1);
+							addWallFace(wallGroups[wallTex].batch,
+								{fx,     highY, fz1}, {fx + 1.0f, highY, fz1},
+								{fx,     lowY,  fz1}, {fx + 1.0f, lowY,  fz1},
+								normal, highY - lowY);
+						}
+					}
+				}
+			}
+
+		for (auto& wg : wallGroups)
+			if (!wg.batch.vertices.empty())
+				batches.push_back(std::move(wg.batch));
 	}
 }
 
@@ -648,7 +737,7 @@ void MapEditor::addQuad(
 	MeshBatch& batch,
 	glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 v3,
 	glm::vec3 n,
-	glm::vec2 uv0, glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3)
+	glm::vec2 uv0, glm::vec2 uv1, glm::vec2 uv2, glm::vec2 uv3) const
 {
 	uint32_t base = static_cast<uint32_t>(batch.vertices.size());
 
@@ -672,7 +761,7 @@ void MapEditor::addWallFace(
 	glm::vec3 b0, glm::vec3 b1, // bottom edge (b0→b1)
 	glm::vec3 normal,
 	float texRepeatV,
-	int subdivs)
+	int subdivs) const
 {
 	// Edge lengths for centred UV
 	glm::vec3 topDir = t1 - t0;
@@ -764,6 +853,22 @@ void MapEditor::RenderUI()
 		int currentFloor = static_cast<int>(m_state.selectedFloorTex) - 1;
 		if (ImGui::Combo("Floor Texture", &currentFloor, floorNames, IM_ARRAYSIZE(floorNames)))
 			m_state.selectedFloorTex = static_cast<uint8_t>(currentFloor + 1);
+
+		// Floor height (-5..5, 5 = 0.5 blocks)
+		int floorH = m_state.floorHeight;
+		ImGui::SliderInt("Height", &floorH, FLOOR_HEIGHT_MIN, FLOOR_HEIGHT_MAX);
+		m_state.floorHeight = static_cast<int8_t>(std::clamp(floorH, FLOOR_HEIGHT_MIN, FLOOR_HEIGHT_MAX));
+
+		float floorWorldY = static_cast<float>(m_state.floorHeight) * FLOOR_HEIGHT_SCALE;
+		ImGui::Text("World Y: %.2f", floorWorldY);
+
+		ImGui::Separator();
+		ImGui::Text("Gap Walls");
+
+		const char* wallNames[] = { "Stone", "Brick", "Dirt" };
+		int currentFloorWall = static_cast<int>(m_state.selectedFloorWallTex) - 1;
+		if (ImGui::Combo("Wall Texture", &currentFloorWall, wallNames, IM_ARRAYSIZE(wallNames)))
+			m_state.selectedFloorWallTex = static_cast<uint8_t>(currentFloorWall + 1);
 	}
 
 	if (m_state.activeTool == EditorTool::MountainBrush)
@@ -891,7 +996,9 @@ void MapEditor::PaintCell(int gx, int gz)
 
 	if (m_state.activeTool == EditorTool::FloorBrush)
 	{
-		cell.floorTex = m_state.selectedFloorTex;
+		cell.floorTex     = m_state.selectedFloorTex;
+		cell.floorHeight  = m_state.floorHeight;
+		cell.floorWallTex = m_state.selectedFloorWallTex;
 	}
 	else if (m_state.activeTool == EditorTool::MountainBrush)
 	{
@@ -937,6 +1044,109 @@ void MapEditor::EraseCell(int gx, int gz)
 	}
 
 	m_dirty = true;
+}
+
+//=============================================================================
+bool MapEditor::BuildGhostPreview(
+	int gx, int gz,
+	std::vector<gr::MeshVertex>& verts,
+	std::vector<uint32_t>& indices) const
+{
+	if (gx < 0 || gx >= MAP_SIZE || gz < 0 || gz >= MAP_SIZE)
+		return false;
+
+	verts.clear();
+	indices.clear();
+
+	if (m_state.activeTool == EditorTool::Eraser)
+		return false;
+
+	if (m_state.activeTool == EditorTool::FloorBrush)
+	{
+		float fx = static_cast<float>(gx);
+		float fz = static_cast<float>(gz);
+		float h  = static_cast<float>(m_state.floorHeight) * FLOOR_HEIGHT_SCALE + 0.01f;
+		glm::vec3 n = { 0.0f, 1.0f, 0.0f };
+		uint32_t base = 0;
+
+		verts.push_back({ .position = {fx,     h, fz     }, .normal = n, .uv = {0, 0} });
+		verts.push_back({ .position = {fx,     h, fz + 1}, .normal = n, .uv = {0, 1} });
+		verts.push_back({ .position = {fx + 1, h, fz + 1}, .normal = n, .uv = {1, 1} });
+		verts.push_back({ .position = {fx + 1, h, fz     }, .normal = n, .uv = {1, 0} });
+
+		indices.push_back(base + 0);
+		indices.push_back(base + 1);
+		indices.push_back(base + 2);
+		indices.push_back(base + 2);
+		indices.push_back(base + 3);
+		indices.push_back(base + 0);
+		return true;
+	}
+
+	if (m_state.activeTool == EditorTool::MountainBrush)
+	{
+		float fx = static_cast<float>(gx);
+		float fz = static_cast<float>(gz);
+
+		// Build a temporary MountainData from editor state
+		MountainData mt;
+		mt.hasMountain = true;
+		mt.heightBlocks = m_state.mountainHeightBlocks;
+		mt.heightPixels = m_state.mountainHeightPixels;
+		mt.texWall = m_state.selectedWallTex;
+		mt.texTop = m_state.selectedTopTex;
+
+		mt.slopeLeft.blocks   = m_state.slopeLeft  ? m_state.slopeBlocks : 0;
+		mt.slopeLeft.pixels   = m_state.slopeLeft  ? m_state.slopePixels : 0;
+		mt.slopeRight.blocks  = m_state.slopeRight ? m_state.slopeBlocks : 0;
+		mt.slopeRight.pixels  = m_state.slopeRight ? m_state.slopePixels : 0;
+		mt.slopeFront.blocks  = m_state.slopeFront ? m_state.slopeBlocks : 0;
+		mt.slopeFront.pixels  = m_state.slopeFront ? m_state.slopePixels : 0;
+		mt.slopeBack.blocks   = m_state.slopeBack  ? m_state.slopeBlocks : 0;
+		mt.slopeBack.pixels   = m_state.slopeBack  ? m_state.slopePixels : 0;
+
+		float H = mt.Height();
+		float SL = mt.slopeLeft.Total();
+		float SR = mt.slopeRight.Total();
+		float SF = mt.slopeFront.Total();
+		float SB = mt.slopeBack.Total();
+
+		// Build a temporary MeshBatch, populate it via addQuad/addWallFace,
+		// then move the data out.
+		MeshBatch tmp;
+		tmp.material = nullptr; // not needed for geometry generation
+
+		// Corner vertices at y=0 and y=H (no partial culling — show full wall)
+		glm::vec3 bot[4] = {
+			{fx - SL,       0.0f, fz - SB      },
+			{fx + 1.0f + SR, 0.0f, fz - SB      },
+			{fx + 1.0f + SR, 0.0f, fz + 1.0f + SF},
+			{fx - SL,       0.0f, fz + 1.0f + SF},
+		};
+		glm::vec3 top[4] = {
+			{fx,       H, fz       },
+			{fx + 1.0f, H, fz       },
+			{fx + 1.0f, H, fz + 1.0f},
+			{fx,       H, fz + 1.0f},
+		};
+
+		// Walls (no neighbour culling — show full height)
+		addWallFace(tmp, top[3], top[0], bot[3], bot[0], { -1.0f, 0.0f, 0.0f }, H);
+		addWallFace(tmp, top[1], top[2], bot[1], bot[2], {  1.0f, 0.0f, 0.0f }, H);
+		addWallFace(tmp, top[0], top[1], bot[0], bot[1], {  0.0f, 0.0f, -1.0f}, H);
+		addWallFace(tmp, top[2], top[3], bot[2], bot[3], {  0.0f, 0.0f,  1.0f}, H);
+
+		// Top face (CCW from above: LB -> LF -> RF -> RB)
+		addQuad(tmp, top[0], top[3], top[2], top[1],
+			{ 0.0f, 1.0f, 0.0f },
+			{ 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f });
+
+		verts = std::move(tmp.vertices);
+		indices = std::move(tmp.indices);
+		return true;
+	}
+
+	return false;
 }
 
 } //namespace map
