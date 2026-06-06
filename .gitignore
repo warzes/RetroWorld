@@ -15,6 +15,9 @@ Thumbs.db
 /bin/Game_Release.*
 /bin/Examples_Debug.*
 /bin/Examples_Release.*
+/bin/Editor_Debug.*
+/bin/Editor_Release.*
+
 
 /bin/imgui.ini
 /_line

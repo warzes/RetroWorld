@@ -552,11 +552,6 @@ void MapEditor::buildMountainBatches(std::vector<MeshBatch>& batches)
 			float SF = mt.slopeFront.Total();
 			float SB = mt.slopeBack.Total();
 
-			bool adjLeft  = (x > 0) && m_grid[z][x - 1].mountain.hasMountain;
-			bool adjRight = (x < MAP_SIZE - 1) && m_grid[z][x + 1].mountain.hasMountain;
-			bool adjBack  = (z > 0) && m_grid[z - 1][x].mountain.hasMountain;
-			bool adjFront = (z < MAP_SIZE - 1) && m_grid[z + 1][x].mountain.hasMountain;
-
 			glm::vec3 bot[4] = {
 				{fx - SL,       0.0f, fz - SB      },
 				{fx + 1.0f + SR, 0.0f, fz - SB      },
@@ -571,36 +566,56 @@ void MapEditor::buildMountainBatches(std::vector<MeshBatch>& batches)
 				{fx,       H, fz + 1.0f},
 			};
 
-			// Walls
+			// Walls — partial culling based on neighbor height
 			auto& wallBatch = findWallGroup(mt.texWall);
 
-			if (!adjLeft)
+			// Left wall (-X)
 			{
-				addWallFace(wallBatch,
-					top[3], top[0],
-					bot[3], bot[0],
-					{ -1.0f, 0.0f, 0.0f }, H);
+				float adjH = (x > 0 && m_grid[z][x - 1].mountain.hasMountain)
+					? m_grid[z][x - 1].mountain.Height() : 0.0f;
+				if (adjH < H)
+				{
+					float visibleH = H - adjH;
+					glm::vec3 b0 = bot[3]; b0.y = adjH;
+					glm::vec3 b1 = bot[0]; b1.y = adjH;
+					addWallFace(wallBatch, top[3], top[0], b0, b1, { -1.0f, 0.0f, 0.0f }, visibleH);
+				}
 			}
-			if (!adjRight)
+			// Right wall (+X)
 			{
-				addWallFace(wallBatch,
-					top[1], top[2],
-					bot[1], bot[2],
-					{ 1.0f, 0.0f, 0.0f }, H);
+				float adjH = (x < MAP_SIZE - 1 && m_grid[z][x + 1].mountain.hasMountain)
+					? m_grid[z][x + 1].mountain.Height() : 0.0f;
+				if (adjH < H)
+				{
+					float visibleH = H - adjH;
+					glm::vec3 b0 = bot[1]; b0.y = adjH;
+					glm::vec3 b1 = bot[2]; b1.y = adjH;
+					addWallFace(wallBatch, top[1], top[2], b0, b1, { 1.0f, 0.0f, 0.0f }, visibleH);
+				}
 			}
-			if (!adjBack)
+			// Back wall (-Z)
 			{
-				addWallFace(wallBatch,
-					top[0], top[1],
-					bot[0], bot[1],
-					{ 0.0f, 0.0f, -1.0f }, H);
+				float adjH = (z > 0 && m_grid[z - 1][x].mountain.hasMountain)
+					? m_grid[z - 1][x].mountain.Height() : 0.0f;
+				if (adjH < H)
+				{
+					float visibleH = H - adjH;
+					glm::vec3 b0 = bot[0]; b0.y = adjH;
+					glm::vec3 b1 = bot[1]; b1.y = adjH;
+					addWallFace(wallBatch, top[0], top[1], b0, b1, { 0.0f, 0.0f, -1.0f }, visibleH);
+				}
 			}
-			if (!adjFront)
+			// Front wall (+Z)
 			{
-				addWallFace(wallBatch,
-					top[2], top[3],
-					bot[2], bot[3],
-					{ 0.0f, 0.0f, 1.0f }, H);
+				float adjH = (z < MAP_SIZE - 1 && m_grid[z + 1][x].mountain.hasMountain)
+					? m_grid[z + 1][x].mountain.Height() : 0.0f;
+				if (adjH < H)
+				{
+					float visibleH = H - adjH;
+					glm::vec3 b0 = bot[2]; b0.y = adjH;
+					glm::vec3 b1 = bot[3]; b1.y = adjH;
+					addWallFace(wallBatch, top[2], top[3], b0, b1, { 0.0f, 0.0f, 1.0f }, visibleH);
+				}
 			}
 
 			// Top face
