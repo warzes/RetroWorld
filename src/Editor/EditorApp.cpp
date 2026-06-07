@@ -92,8 +92,8 @@ void ed::EditorApp::Settings::to_json(nlohmann::json& j, const Settings& s)
 //=============================================================================
 void ed::EditorApp::Settings::from_json(const nlohmann::json& j, Settings& s)
 {
-	s.texturesDir = j.value("texturesDir", "data/textures");
-	s.shapesDir = j.value("shapesDir", "data/models");
+	s.texturesDir = j.value("texturesDir", "data/assets/textures/tiles");
+	s.shapesDir = j.value("shapesDir", "data/assets/models/shapes");
 	s.undoMax = j.value("undoMax", 64u);
 	s.mouseSensitivity = j.value("mouseSensitivity", 0.002f);
 	s.exportSeparateGeometry = j.value("exportSeparateGeometry", false);
@@ -317,7 +317,7 @@ void ed::EditorApp::LoadSettings()
 
 	// Validate saved paths – fall back to defaults if they don't exist
 	if (!fs::exists(_settings.texturesDir))
-		_settings.texturesDir = "data/textures";
+		_settings.texturesDir = "data/assets/textures/tiles";
 	if (!fs::exists(_settings.shapesDir))
 		_settings.shapesDir = "data/assets/models/shapes";
 }
@@ -337,6 +337,18 @@ void ed::EditorApp::Update()
 	// Sync scene graph if map was modified
 	if (_mapMan->IsSceneGraphDirty())
 		SyncMapToSceneGraph();
+
+	// Restore grid Y after sync (SyncSceneGraph recreates grid at y=0)
+	if (_sceneManager && _sceneManager->root)
+	{
+		auto* gridNode = _sceneManager->root->FindChild("grid");
+		if (gridNode && _editorMode)
+		{
+			auto* placeMode = dynamic_cast<ed::PlaceMode*>(_editorMode);
+			if (placeMode)
+				gridNode->transform.position.y = placeMode->GetPlaneWorldPos().y;
+		}
+	}
 
 	// Update scene manager
 	if (_sceneManager)

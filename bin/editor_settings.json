@@ -12,6 +12,6 @@
 	"exportSeparateGeometry": false,
 	"mouseSensitivity": 0.0020000000949949026,
 	"shapesDir": "data/assets/models/shapes",
-	"texturesDir": "data/textures",
+	"texturesDir": "data/assets/textures/tiles",
 	"undoMax": 64
 }

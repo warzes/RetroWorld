@@ -203,23 +203,13 @@ void ed::PlaceMode::Update()
 	handleInput();
 	updateCamera();
 
-	// Update grid Y position to match editing plane
-	if (sceneMan.root)
-	{
-		auto* gridNode = sceneMan.root->FindChild("grid");
-		if (gridNode)
-		{
-			gridNode->transform.position.y = _planeWorldPos.y;
-		}
-	}
-
 	// Update cursor scene node
 	EnsureCursorAssets();
 	if (sceneMan.root)
 	{
 		sceneMan.root->RemoveChild("cursor");
 
-		if (_cursor)
+		if (_cursor && !_multiSelectActive)
 		{
 			auto& cursorNode = sceneMan.root->AddChild<scene::ModelNode>("cursor");
 			cursorNode.castShadow = false;
@@ -331,6 +321,11 @@ void ed::PlaceMode::handleInput()
 		if (input::IsMouseDown(MouseType::MOUSE_BUTTON_LEFT))
 		{
 			placeTile();
+		}
+
+		if (input::IsMouseDown(MouseType::MOUSE_BUTTON_MIDDLE))
+		{
+			deleteTile();
 		}
 
 		_previousMousePosition = currentMouse;
@@ -507,5 +502,62 @@ std::array<std::shared_ptr<ed::TexHandle>, ed::TEXTURES_PER_TILE> ed::PlaceMode:
 const ed::Ent& ed::PlaceMode::GetCursorEnt() const
 {
 	return _cursorEnt;
+}
+//=============================================================================
+void ed::PlaceMode::deleteTile()
+{
+	auto& tiles = _mapMan.Tiles();
+
+	glm::vec3 startGrid, endGrid;
+	if (_multiSelectActive && _cursor == &_tileCursor)
+	{
+		glm::vec3 curGrid = tiles.WorldToGridPos(_cursor->position);
+		curGrid.y = _planeGridPos.y;
+		glm::vec3 start(_multiSelectStartGrid.x, _planeGridPos.y, _multiSelectStartGrid.z);
+		startGrid = glm::min(start, curGrid);
+		endGrid = glm::max(start, curGrid);
+	}
+	else
+	{
+		startGrid = _cursorPreviousGridPos;
+		endGrid = _cursorPreviousGridPos;
+	}
+
+	int i = static_cast<int>(startGrid.x);
+	int j = static_cast<int>(startGrid.y);
+	int k = static_cast<int>(startGrid.z);
+	int w = static_cast<int>(endGrid.x - startGrid.x) + 1;
+	int h = static_cast<int>(endGrid.y - startGrid.y) + 1;
+	int l = static_cast<int>(endGrid.z - startGrid.z) + 1;
+
+	if (i < 0 || j < 0 || k < 0 ||
+		static_cast<size_t>(i) >= tiles.GetWidth() ||
+		static_cast<size_t>(j) >= tiles.GetHeight() ||
+		static_cast<size_t>(k) >= tiles.GetLength())
+		return;
+	if (i + w > static_cast<int>(tiles.GetWidth()) ||
+		j + h > static_cast<int>(tiles.GetHeight()) ||
+		k + l > static_cast<int>(tiles.GetLength()))
+		return;
+
+	// Early exit for single cell if already empty
+	if (!_multiSelectActive || _cursor != &_tileCursor)
+	{
+		Tile under = tiles.GetTile(
+			static_cast<size_t>(i),
+			static_cast<size_t>(j),
+			static_cast<size_t>(k));
+		if (!under)
+			return;
+	}
+
+	_mapMan.ExecuteTileAction(
+		static_cast<size_t>(i),
+		static_cast<size_t>(j),
+		static_cast<size_t>(k),
+		static_cast<size_t>(w),
+		static_cast<size_t>(h),
+		static_cast<size_t>(l),
+		Tile());
 }
 //=============================================================================

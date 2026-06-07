@@ -64,6 +64,7 @@ namespace ed
 		const Ent& GetCursorEnt() const;
 		[[nodiscard]] glm::vec3 GetCursorWorldPos() const noexcept { return _cursorWorldPos; }
 		[[nodiscard]] glm::vec3 GetCursorEndWorldPos() const noexcept { return _cursorWorldEndPos; }
+		[[nodiscard]] glm::vec3 GetPlaneWorldPos() const noexcept { return _planeWorldPos; }
 		[[nodiscard]] bool HasActiveCursor() const noexcept { return _cursor != nullptr; }
 
 		void ResetCamera();
@@ -97,5 +98,6 @@ namespace ed
 		void updateCamera();
 		void drawUI();
 		void placeTile();
+		void deleteTile();
 	};
 } // namespace ed

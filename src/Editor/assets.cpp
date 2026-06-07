@@ -107,14 +107,14 @@ namespace
 						faceVerts.push_back(newIdx);
 					}
 				}
-				// Fan-triangulate with reversed winding to match engine's CCW front face
+				// Fan-triangulate preserving original OBJ winding order
 				if (faceVerts.size() >= 3)
 				{
 					for (size_t i = 2; i < faceVerts.size(); ++i)
 					{
 						indices.push_back(faceVerts[0]);
-						indices.push_back(faceVerts[i]);
 						indices.push_back(faceVerts[i - 1]);
+						indices.push_back(faceVerts[i]);
 					}
 				}
 			}
