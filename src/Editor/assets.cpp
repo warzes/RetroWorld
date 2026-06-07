@@ -23,8 +23,8 @@ namespace
 		return result;
 	}
 
-	// Load an OBJ file and return a gr::Mesh (single mesh, triangulated faces)
-	static gr::Mesh LoadOBJFromStream(std::istream& stream)
+	// Load an OBJ file and return meshes (supports usemtl primary/secondary submeshes)
+	static std::vector<gr::Mesh> LoadOBJFromStream(std::istream& stream)
 	{
 		struct VertexData
 		{
@@ -33,16 +33,20 @@ namespace
 			glm::vec3 norm;
 		};
 
+		struct SubMeshData
+		{
+			std::vector<VertexData> verts;
+			std::vector<uint32_t> indices;
+			std::unordered_map<std::string, uint32_t> mapper;
+		};
+
+		std::vector<SubMeshData> subMeshes(1);
+		int currentMesh = 0;
+
 		std::vector<glm::vec3> positions;
 		std::vector<glm::vec2> uvs;
 		std::vector<glm::vec3> normals;
-		std::vector<VertexData> verts;
-		std::vector<uint32_t> indices;
 
-		// Map OBJ face triplet -> vertex index in `verts`
-		std::unordered_map<std::string, uint32_t> mapper;
-
-		// Default UV (0,0) and normal (0,1,0) if file doesn't provide them
 		positions.reserve(256);
 		uvs.reserve(256);
 		normals.reserve(256);
@@ -73,9 +77,18 @@ namespace
 					std::stof(tokens[2]),
 					std::stof(tokens[3])));
 			}
+			else if (tokens[0] == "usemtl" && tokens.size() > 1)
+			{
+				std::string mtlName = tokens[1];
+				std::transform(mtlName.begin(), mtlName.end(), mtlName.begin(),
+					[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				currentMesh = (mtlName == "secondary") ? 1 : 0;
+				while ((size_t)currentMesh >= subMeshes.size())
+					subMeshes.emplace_back();
+			}
 			else if (tokens[0] == "f" && tokens.size() >= 4)
 			{
-				// Collect face vertex indices (deduplicated via mapper)
+				auto& mesh = subMeshes[currentMesh];
 				std::vector<uint32_t> faceVerts;
 				for (size_t i = 1; i < tokens.size(); ++i)
 				{
@@ -87,14 +100,14 @@ namespace
 					int nrmIdx = std::stoi(idxParts[2]) - 1;
 
 					const std::string& key = tokens[i];
-					auto it = mapper.find(key);
-					if (it != mapper.end())
+					auto it = mesh.mapper.find(key);
+					if (it != mesh.mapper.end())
 					{
 						faceVerts.push_back(it->second);
 					}
 					else
 					{
-						uint32_t newIdx = static_cast<uint32_t>(verts.size());
+						uint32_t newIdx = static_cast<uint32_t>(mesh.verts.size());
 						VertexData vd;
 						vd.pos  = (posIdx >= 0 && (size_t)posIdx < positions.size())
 							? positions[posIdx] : glm::vec3(0.0f);
@@ -102,8 +115,8 @@ namespace
 							? uvs[uvIdx] : glm::vec2(0.0f);
 						vd.norm = (nrmIdx >= 0 && (size_t)nrmIdx < normals.size())
 							? normals[nrmIdx] : glm::vec3(0.0f, 1.0f, 0.0f);
-						verts.push_back(vd);
-						mapper[key] = newIdx;
+						mesh.verts.push_back(vd);
+						mesh.mapper[key] = newIdx;
 						faceVerts.push_back(newIdx);
 					}
 				}
@@ -112,47 +125,56 @@ namespace
 				{
 					for (size_t i = 2; i < faceVerts.size(); ++i)
 					{
-						indices.push_back(faceVerts[0]);
-						indices.push_back(faceVerts[i - 1]);
-						indices.push_back(faceVerts[i]);
+						mesh.indices.push_back(faceVerts[0]);
+						mesh.indices.push_back(faceVerts[i - 1]);
+						mesh.indices.push_back(faceVerts[i]);
 					}
 				}
 			}
-			// ignore o, usemtl, mtllib, s, etc.
+			// ignore o, mtllib, s, etc.
 		}
 
-		if (verts.empty())
-			return gr::Mesh::CreateCube();
-
-		// Build MeshVertex array
-		std::vector<gr::MeshVertex> meshVerts;
-		meshVerts.reserve(verts.size());
-		std::vector<glm::vec3> aabbPositions;
-		aabbPositions.reserve(verts.size());
-
-		for (const auto& vd : verts)
+		// Build GPU meshes
+		std::vector<gr::Mesh> result;
+		for (auto& sub : subMeshes)
 		{
-			meshVerts.push_back(gr::MeshVertex{
-				.position = vd.pos,
-				.normal   = vd.norm,
-				.uv       = vd.uv,
-				.color    = glm::vec4(1.0f)
-			});
-			aabbPositions.push_back(vd.pos);
+			if (sub.verts.empty())
+				continue;
+
+			std::vector<gr::MeshVertex> meshVerts;
+			meshVerts.reserve(sub.verts.size());
+			std::vector<glm::vec3> aabbPositions;
+			aabbPositions.reserve(sub.verts.size());
+
+			for (const auto& vd : sub.verts)
+			{
+				meshVerts.push_back(gr::MeshVertex{
+					.position = vd.pos,
+					.normal   = vd.norm,
+					.uv       = vd.uv,
+					.color    = glm::vec4(1.0f)
+				});
+				aabbPositions.push_back(vd.pos);
+			}
+
+			gr::Mesh mesh;
+			mesh.vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
+			mesh.vbo = gpu::buffer::CreateBuffer(
+				meshVerts.data(), meshVerts.size() * sizeof(gr::MeshVertex));
+			mesh.ibo = gpu::buffer::CreateBuffer(
+				sub.indices.data(), sub.indices.size() * sizeof(uint32_t));
+			mesh.vertexCount = static_cast<uint32_t>(meshVerts.size());
+			mesh.indexCount  = static_cast<uint32_t>(sub.indices.size());
+			mesh.isIndexed   = true;
+			mesh.ComputeAABB(aabbPositions);
+
+			result.push_back(std::move(mesh));
 		}
 
-		gr::Mesh mesh;
-		mesh.vao = gpu::vao::CreateVertexArray(gr::MeshVertexBindingDescs);
-		mesh.vbo = gpu::buffer::CreateBuffer(
-			meshVerts.data(), meshVerts.size() * sizeof(gr::MeshVertex));
-		mesh.ibo = gpu::buffer::CreateBuffer(
-			indices.data(), indices.size() * sizeof(uint32_t));
-		mesh.vertexCount = static_cast<uint32_t>(meshVerts.size());
-		mesh.indexCount  = static_cast<uint32_t>(indices.size());
-		mesh.isIndexed   = true;
-		mesh.ComputeAABB(aabbPositions);
+		if (result.empty())
+			result.push_back(gr::Mesh::CreateCube());
 
-		return mesh;
+		return result;
 	}
 } // anonymous namespace
 //=============================================================================
@@ -237,7 +259,7 @@ std::shared_ptr<ed::TexHandle> ed::Assets::GetTexture(const fs::path& path)
 	return handle;
 }
 //=============================================================================
-std::shared_ptr<ed::ModelHandle> ed::Assets::GetModel(const fs::path& path)
+	std::shared_ptr<ed::ModelHandle> ed::Assets::GetModel(const fs::path& path)
 {
 	auto& inst = Get();
 	auto it = inst._modelCache.find(path);
@@ -248,7 +270,7 @@ std::shared_ptr<ed::ModelHandle> ed::Assets::GetModel(const fs::path& path)
 	}
 
 	// Try loading OBJ file from disk
-	auto mesh = std::make_shared<gr::Mesh>();
+	std::vector<std::shared_ptr<gr::Mesh>> meshes;
 	if (fs::exists(path))
 	{
 		std::ifstream file(path);
@@ -256,24 +278,26 @@ std::shared_ptr<ed::ModelHandle> ed::Assets::GetModel(const fs::path& path)
 		{
 			try
 			{
-				*mesh = LoadOBJFromStream(file);
+				auto loaded = LoadOBJFromStream(file);
+				for (auto& m : loaded)
+					meshes.push_back(std::make_shared<gr::Mesh>(std::move(m)));
 			}
 			catch (...)
 			{
-				*mesh = gr::Mesh::CreateCube();
+				meshes.push_back(std::make_shared<gr::Mesh>(gr::Mesh::CreateCube()));
 			}
 		}
 		else
 		{
-			*mesh = gr::Mesh::CreateCube();
+			meshes.push_back(std::make_shared<gr::Mesh>(gr::Mesh::CreateCube()));
 		}
 	}
 	else
 	{
-		*mesh = gr::Mesh::CreateCube();
+		meshes.push_back(std::make_shared<gr::Mesh>(gr::Mesh::CreateCube()));
 	}
 
-	auto handle = std::make_shared<ModelHandle>(path, mesh);
+	auto handle = std::make_shared<ModelHandle>(path, std::move(meshes));
 	inst._modelCache[path] = handle;
 	return handle;
 }

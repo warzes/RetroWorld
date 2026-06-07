@@ -520,21 +520,42 @@ void ed::MapMan::SyncSceneGraph(scene::SceneNode& root, scene::SceneManager& sm)
 				if (tile.textures[0] < 0 || tile.textures[0] >= static_cast<TexID>(_textureList.size())) continue;
 
 				auto meshHandle = _modelList[tile.shape];
+				if (!meshHandle) continue;
+
 				auto texHandle = _textureList[tile.textures[0]];
-				if (!meshHandle || !texHandle) continue;
-
-				auto mesh = meshHandle->GetMesh();
-				auto texture = texHandle->GetTexture();
-				if (!mesh || !texture) continue;
-
-				BatchKey key{ mesh, texture };
+				if (!texHandle) continue;
 
 				glm::vec3 worldPos = _tileGrid.GridToWorldPos(
 					glm::vec3(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)), true);
 				glm::mat4 transform = glm::translate(glm::mat4(1.0f), worldPos);
 				transform = transform * TileRotationMatrix(tile.yaw, tile.pitch);
 
-				batchGroups[key].push_back(transform);
+				// Primary submesh with primary texture
+				auto primaryMesh = meshHandle->GetMesh(0);
+				auto primaryTex = texHandle->GetTexture();
+				if (primaryMesh && primaryTex)
+				{
+					BatchKey key{ primaryMesh, primaryTex };
+					batchGroups[key].push_back(transform);
+				}
+
+				// Secondary submesh with secondary texture (if available)
+				if (meshHandle->GetMeshCount() > 1
+					&& tile.textures[1] >= 0
+					&& tile.textures[1] < static_cast<TexID>(_textureList.size()))
+				{
+					auto secondaryMesh = meshHandle->GetMesh(1);
+					auto secondaryTexHandle = _textureList[tile.textures[1]];
+					if (secondaryMesh && secondaryTexHandle)
+					{
+						auto secondaryTex = secondaryTexHandle->GetTexture();
+						if (secondaryTex)
+						{
+							BatchKey key{ secondaryMesh, secondaryTex };
+							batchGroups[key].push_back(transform);
+						}
+					}
+				}
 			}
 		}
 	}

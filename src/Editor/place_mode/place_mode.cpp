@@ -250,6 +250,9 @@ void ed::PlaceMode::Update()
 				{
 					cursorWorldPos.y += 0.05f;
 					cursorNode.transform.position = cursorWorldPos;
+					// Apply tile yaw rotation to cursor preview
+					float yawRad = float(_tileCursor.tile.yaw % 4) * -glm::half_pi<float>();
+					cursorNode.transform.rotation = glm::quat(glm::vec3(0.0f, yawRad, 0.0f));
 				}
 			}
 			else if (_cursor == &_brushCursor)
@@ -294,12 +297,19 @@ void ed::PlaceMode::handleInput()
 
 	if (!io.WantCaptureKeyboard)
 	{
+		// Q: rotate tile yaw 90 degrees on press
+		{
+			bool qDown = input::IsKeyDown(KeyboardType::KEY_Q);
+			if (qDown && !_qPreviousState)
+				_tileCursor.tile.yaw = (_tileCursor.tile.yaw + 1) % 4;
+			_qPreviousState = qDown;
+		}
+
 		float speed = _cameraMoveSpeed * dt;
 		if (input::IsKeyDown(KeyboardType::KEY_W)) _camera.Move(gr::Movement::Forward, speed);
 		if (input::IsKeyDown(KeyboardType::KEY_S)) _camera.Move(gr::Movement::Backward, speed);
 		if (input::IsKeyDown(KeyboardType::KEY_A)) _camera.Move(gr::Movement::Left, speed);
 		if (input::IsKeyDown(KeyboardType::KEY_D)) _camera.Move(gr::Movement::Right, speed);
-		if (input::IsKeyDown(KeyboardType::KEY_Q)) _camera.Move(gr::Movement::Down, speed);
 		if (input::IsKeyDown(KeyboardType::KEY_E)) _camera.Move(gr::Movement::Up, speed);
 	}
 
@@ -355,6 +365,7 @@ void ed::PlaceMode::drawUI()
 	ImGui::SeparatorText("Tile Cursor");
 	ImGui::Text("Shape ID: %d", _tileCursor.tile.shape);
 	ImGui::Text("Tex IDs: %d, %d", _tileCursor.tile.textures[0], _tileCursor.tile.textures[1]);
+	ImGui::Text("Yaw: %d (Q to rotate)", _tileCursor.tile.yaw);
 
 	ImGui::End();
 }

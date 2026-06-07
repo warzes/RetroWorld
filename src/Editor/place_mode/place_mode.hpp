@@ -90,6 +90,7 @@ namespace ed
 		glm::vec3 _cursorWorldEndPos = glm::vec3(0.0f);
 		bool _multiSelectActive = false;
 		glm::vec3 _multiSelectStartGrid = glm::vec3(0.0f);
+		bool _qPreviousState = false;
 		std::shared_ptr<ModelHandle> _cursorShape;
 		std::array<std::shared_ptr<TexHandle>, TEXTURES_PER_TILE> _cursorTextures;
 		Ent _cursorEnt;

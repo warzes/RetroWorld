@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <string>
 #include <filesystem>
 #include <gpu_texture.h>
@@ -23,18 +24,28 @@ namespace ed
 		gpu::texture::TexturePtr _texture;
 	};
 
-	class ModelHandle final
+class ModelHandle final
+{
+public:
+	ModelHandle(const std::filesystem::path& path, std::shared_ptr<gr::Mesh> mesh)
+		: _path(path)
 	{
-	public:
-		ModelHandle(const std::filesystem::path& path, std::shared_ptr<gr::Mesh> mesh)
-			: _path(path), _mesh(std::move(mesh))
-		{}
+		_meshes.push_back(std::move(mesh));
+	}
 
-		[[nodiscard]] const std::filesystem::path& GetPath() const noexcept { return _path; }
-		[[nodiscard]] std::shared_ptr<gr::Mesh> GetMesh() const noexcept { return _mesh; }
+	ModelHandle(const std::filesystem::path& path, std::vector<std::shared_ptr<gr::Mesh>> meshes)
+		: _path(path), _meshes(std::move(meshes))
+	{}
 
-	private:
-		std::filesystem::path _path;
-		std::shared_ptr<gr::Mesh> _mesh;
-	};
+	[[nodiscard]] const std::filesystem::path& GetPath() const noexcept { return _path; }
+	[[nodiscard]] std::shared_ptr<gr::Mesh> GetMesh(size_t index = 0) const noexcept
+	{
+		return (index < _meshes.size()) ? _meshes[index] : nullptr;
+	}
+	[[nodiscard]] size_t GetMeshCount() const noexcept { return _meshes.size(); }
+
+private:
+	std::filesystem::path _path;
+	std::vector<std::shared_ptr<gr::Mesh>> _meshes;
+};
 } // namespace ed
