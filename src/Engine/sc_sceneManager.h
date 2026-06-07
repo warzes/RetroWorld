@@ -4,6 +4,7 @@
 #include "sc_cameraNode.h"
 #include "sc_lightNode.h"
 #include "sc_modelNode.h"
+#include "sc_chunkNode.h"
 #include "gr_renderQueue.h"
 #include "gpu_pipeline.h"
 #include "gpu_program.h"

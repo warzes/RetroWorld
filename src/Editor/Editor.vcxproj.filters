@@ -4,22 +4,128 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="EditorApp.cpp" />
-    <ClCompile Include="MapEditor.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="assets.cpp" />
+    <ClCompile Include="tile.cpp" />
+    <ClCompile Include="ent.cpp" />
+    <ClCompile Include="menu_bar.cpp" />
+    <ClCompile Include="place_mode\tile_cursor.cpp">
+      <Filter>place_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="place_mode\place_mode.cpp">
+      <Filter>place_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="place_mode\ent_cursor.cpp">
+      <Filter>place_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="place_mode\brush_cursor.cpp">
+      <Filter>place_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="pick_mode\pick_mode.cpp">
+      <Filter>pick_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="pick_mode\shape_pick_mode.cpp">
+      <Filter>pick_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="pick_mode\texture_pick_mode.cpp">
+      <Filter>pick_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="map_man\map_man.cpp">
+      <Filter>map_man</Filter>
+    </ClCompile>
+    <ClCompile Include="map_man\map_man_actions.cpp">
+      <Filter>map_man</Filter>
+    </ClCompile>
+    <ClCompile Include="map_man\map_man_export.cpp">
+      <Filter>map_man</Filter>
+    </ClCompile>
+    <ClCompile Include="ent_mode\ent_mode.cpp">
+      <Filter>ent_mode</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\about_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\asset_path_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\confirmation_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\expand_map_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\export_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\file_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\instructions_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\new_map_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\settings_dialog.cpp">
+      <Filter>dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="dialogs\shortcuts_dialog.cpp">
+      <Filter>dialogs</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="MapEditor.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="editor_app.hpp" />
+    <ClInclude Include="editor_math.hpp" />
+    <ClInclude Include="text_util.hpp" />
+    <ClInclude Include="grid.hpp" />
+    <ClInclude Include="tile.hpp" />
+    <ClInclude Include="ent.hpp" />
+    <ClInclude Include="handle.hpp" />
+    <ClInclude Include="assets.hpp" />
+    <ClInclude Include="menu_bar.hpp" />
+    <ClInclude Include="place_mode\place_mode.hpp">
+      <Filter>place_mode</Filter>
+    </ClInclude>
+    <ClInclude Include="pick_mode\pick_mode.hpp">
+      <Filter>pick_mode</Filter>
+    </ClInclude>
+    <ClInclude Include="map_man\map_man.hpp">
+      <Filter>map_man</Filter>
+    </ClInclude>
+    <ClInclude Include="ent_mode\ent_mode.hpp">
+      <Filter>ent_mode</Filter>
+    </ClInclude>
+    <ClInclude Include="dialogs\dialogs.hpp">
+      <Filter>dialogs</Filter>
+    </ClInclude>
+    <ClInclude Include="assets\shaders\map_shader.hpp">
+      <Filter>assets\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="assets\shaders\sprite_shader.hpp">
+      <Filter>assets\shaders</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+    <Filter Include="place_mode">
+      <UniqueIdentifier>{4cc93177-1ee5-473d-9f60-fe3b8fab7372}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+    <Filter Include="pick_mode">
+      <UniqueIdentifier>{eed241eb-1e51-4bd6-ad89-5cd3f8792498}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="map_man">
+      <UniqueIdentifier>{5836e3a4-411e-4327-af48-aa291583376f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ent_mode">
+      <UniqueIdentifier>{4ad68e78-bf83-438f-bf75-2a5c0d22850c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="dialogs">
+      <UniqueIdentifier>{237528dc-a18b-411f-bacc-385d5fb980cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets">
+      <UniqueIdentifier>{1dfe21e4-427e-4278-9a89-e9879dc14d27}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets\shaders">
+      <UniqueIdentifier>{4f89f823-620b-4c7c-8870-65219716e057}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

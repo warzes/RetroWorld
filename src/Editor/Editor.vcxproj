@@ -13,7 +13,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{C2FE8D74-B253-E255-CFFB-2D4448C86A7A}</ProjectGuid>
+    <ProjectGuid>{A6338A14-0814-493B-BF3A-B680072C480B}</ProjectGuid>
     <RootNamespace>RPGGame</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -94,15 +94,54 @@
   <ItemGroup>
     <ClCompile Include="EditorApp.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="MapEditor.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="assets.cpp" />
+    <ClCompile Include="tile.cpp" />
+    <ClCompile Include="ent.cpp" />
+    <ClCompile Include="menu_bar.cpp" />
+    <ClCompile Include="map_man\map_man.cpp" />
+    <ClCompile Include="map_man\map_man_actions.cpp" />
+    <ClCompile Include="map_man\map_man_export.cpp" />
+    <ClCompile Include="place_mode\place_mode.cpp" />
+    <ClCompile Include="place_mode\tile_cursor.cpp" />
+    <ClCompile Include="place_mode\ent_cursor.cpp" />
+    <ClCompile Include="place_mode\brush_cursor.cpp" />
+    <ClCompile Include="pick_mode\pick_mode.cpp" />
+    <ClCompile Include="pick_mode\texture_pick_mode.cpp" />
+    <ClCompile Include="pick_mode\shape_pick_mode.cpp" />
+    <ClCompile Include="ent_mode\ent_mode.cpp" />
+    <ClCompile Include="dialogs\new_map_dialog.cpp" />
+    <ClCompile Include="dialogs\expand_map_dialog.cpp" />
+    <ClCompile Include="dialogs\file_dialog.cpp" />
+    <ClCompile Include="dialogs\asset_path_dialog.cpp" />
+    <ClCompile Include="dialogs\settings_dialog.cpp" />
+    <ClCompile Include="dialogs\about_dialog.cpp" />
+    <ClCompile Include="dialogs\shortcuts_dialog.cpp" />
+    <ClCompile Include="dialogs\instructions_dialog.cpp" />
+    <ClCompile Include="dialogs\export_dialog.cpp" />
+    <ClCompile Include="dialogs\confirmation_dialog.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MapEditor.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="editor_app.hpp" />
+    <ClInclude Include="editor_math.hpp" />
+    <ClInclude Include="text_util.hpp" />
+    <ClInclude Include="grid.hpp" />
+    <ClInclude Include="tile.hpp" />
+    <ClInclude Include="ent.hpp" />
+    <ClInclude Include="handle.hpp" />
+    <ClInclude Include="assets.hpp" />
+    <ClInclude Include="menu_bar.hpp" />
+    <ClInclude Include="map_man\map_man.hpp" />
+    <ClInclude Include="place_mode\place_mode.hpp" />
+    <ClInclude Include="pick_mode\pick_mode.hpp" />
+    <ClInclude Include="ent_mode\ent_mode.hpp" />
+    <ClInclude Include="dialogs\dialogs.hpp" />
+    <ClInclude Include="assets\shaders\map_shader.hpp" />
+    <ClInclude Include="assets\shaders\sprite_shader.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

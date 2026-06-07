@@ -10,7 +10,8 @@ namespace scene
 		Model,
 		Light,
 		Camera,
-		ReflectionProbe
+		ReflectionProbe,
+		Chunk
 	};
 
 	class SceneNode

@@ -139,6 +139,7 @@
     <ClInclude Include="res_modelLoader.h" />
     <ClInclude Include="res_textureLoader.h" />
     <ClInclude Include="sc_cameraNode.h" />
+    <ClInclude Include="sc_chunkNode.h" />
     <ClInclude Include="sc_lightNode.h" />
     <ClInclude Include="sc_modelNode.h" />
     <ClInclude Include="sc_node.h" />
@@ -183,6 +184,7 @@
     <ClCompile Include="res_modelLoader.cpp" />
     <ClCompile Include="res_textureLoader.cpp" />
     <ClCompile Include="sc_cameraNode.cpp" />
+    <ClCompile Include="sc_chunkNode.cpp" />
     <ClCompile Include="sc_lightNode.cpp" />
     <ClCompile Include="sc_modelNode.cpp" />
     <ClCompile Include="sc_node.cpp" />

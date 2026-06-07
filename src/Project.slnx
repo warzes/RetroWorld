@@ -11,7 +11,7 @@
     <File Path="WebGL2.md" />
   </Folder>
   <Project Path="3rdparty/3rdparty.vcxproj" Id="85d00892-bf33-46df-b47c-bdfc3b6937a1" />
-  <Project Path="Editor/Editor.vcxproj">
+  <Project Path="Editor/Editor.vcxproj" Id="a6338a14-0814-493b-bf3a-b680072c480b">
     <BuildDependency Project="3rdparty/3rdparty.vcxproj" />
     <BuildDependency Project="Engine/Engine.vcxproj" />
   </Project>

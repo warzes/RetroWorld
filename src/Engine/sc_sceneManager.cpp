@@ -133,6 +133,50 @@ gr::RenderQueue scene::SceneManager::BuildRenderQueue(const math::Frustum& frust
 	root->Traverse([&](SceneNode& node, const glm::mat4& world)
 		{
 			if (!node.visible) return;
+
+			// Handle ChunkNode
+			if (node.type == NodeType::Chunk)
+			{
+				auto* chunkNode = static_cast<ChunkNode*>(&node);
+
+				if (passType == RenderPassType::Shadow && !chunkNode->castShadow)
+					return;
+
+				// Frustum culling on the whole chunk AABB
+				if (enableFrustumCulling && passType != RenderPassType::Shadow)
+				{
+					if (!math::TestAABB(frustum, chunkNode->chunkAABB, world))
+					{
+						++lastFrameStats.culledObjects;
+						return;
+					}
+				}
+
+			for (const auto& batch : chunkNode->GetBatches())
+			{
+				if (!batch.mesh || !batch.material || batch.transforms.empty())
+					continue;
+
+				if (passType == RenderPassType::Shadow && !batch.material->castShadow)
+					continue;
+
+				gr::RenderItem item;
+				item.node = nullptr;
+				item.chunkMesh = batch.mesh.get();
+				item.chunkMaterial = batch.material.get();
+				item.worldTransform = batch.transforms[0];
+				item.distanceToCamera = glm::distance(cameraPos, glm::vec3(batch.transforms[0][3]));
+				item.materialId = reinterpret_cast<uintptr_t>(batch.material.get());
+				item.isInstanced = batch.transforms.size() > 1;
+				item.instanceTransforms = batch.transforms;
+
+				bool isTransparent = batch.material->IsTransparent();
+				queue.Submit(item, isTransparent);
+				++lastFrameStats.instancedBatches;
+			}
+				return;
+			}
+
 			if (node.type != NodeType::Model) return;
 
 			auto* modelNode = static_cast<ModelNode*>(&node);
@@ -522,7 +566,7 @@ void scene::SceneManager::RenderOpaquePass(gr::RenderQueue& queue, const gpu::pr
 
 	for (auto& item : queue.opaqueItems)
 	{
-		if (!item.node || !item.node->mesh) continue;
+		if (item.node && !item.node->mesh) continue;
 		drawRenderItem(item, blinnPhongShader, true);
 	}
 
@@ -561,7 +605,7 @@ void scene::SceneManager::RenderTransparentPass(gr::RenderQueue& queue, const gp
 
 	for (auto& item : queue.transparentItems)
 	{
-		if (!item.node || !item.node->mesh) continue;
+		if (item.node && !item.node->mesh) continue;
 		drawRenderItem(item, blinnPhongShader, true);
 	}
 
@@ -754,16 +798,32 @@ glm::vec3 scene::SceneManager::GetActiveCameraPosition() const
 //=============================================================================
 void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::program::ShaderProgramPtr& shader, bool receiveShadowUniform)
 {
-	if (!item.node || !item.node->mesh || !item.node->material) return;
+	// Resolve mesh + material: either from ModelNode or from chunk item
+	const gr::Mesh* meshPtr = nullptr;
+	gr::Material* matPtr = nullptr;
 
-	const auto& mesh = *item.node->mesh;
-	auto& material = *item.node->material;
+	if (item.node)
+	{
+		meshPtr = item.node->mesh.get();
+		matPtr = item.node->material.get();
+	}
+	else
+	{
+		meshPtr = item.chunkMesh;
+		matPtr = item.chunkMaterial;
+	}
+
+	if (!meshPtr || !matPtr) return;
+
+	const auto& mesh = *meshPtr;
+	gr::Material& material = *matPtr;
 
 	// Upload receiveShadow uniform
 	if (receiveShadowUniform)
 	{
+		bool receiveShadow = item.node ? item.node->receiveShadow : true;
 		int loc = gpu::program::GetUniformLocation(shader, "u_receiveShadow");
-		gpu::program::SetUniform(shader, loc, item.node->receiveShadow);
+		gpu::program::SetUniform(shader, loc, receiveShadow);
 	}
 
 	// Bind material
@@ -808,7 +868,8 @@ void scene::SceneManager::drawRenderItem(const gr::RenderItem& item, const gpu::
 
 		// Single draw call for all instances
 		mesh.DrawInstanced(count);
-		item.node->instanceTransforms.clear(); // don't leak transforms to next frame
+		if (item.node)
+			item.node->instanceTransforms.clear(); // don't leak transforms to next frame
 		++lastFrameStats.instancedBatches;
 		++lastFrameStats.drawCalls;
 	}

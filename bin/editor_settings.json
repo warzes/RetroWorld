@@ -1,0 +1,17 @@
+{
+	"assetHideRegex": "",
+	"backgroundColor": [
+		0.11999999731779099,
+		0.11999999731779099,
+		0.11999999731779099
+	],
+	"cullFaces": true,
+	"defaultShapePath": "",
+	"defaultTexturePath": "",
+	"exportFilePath": "",
+	"exportSeparateGeometry": false,
+	"mouseSensitivity": 0.0020000000949949026,
+	"shapesDir": "data/assets/models/shapes",
+	"texturesDir": "data/textures",
+	"undoMax": 64
+}
