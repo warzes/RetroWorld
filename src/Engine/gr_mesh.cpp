@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "gr_mesh.h"
 #include "gpu_cmd.h"
+#include "gpu_pipeline.h"
 //=============================================================================
 void gr::Mesh::Close()
 {
@@ -21,6 +22,9 @@ void gr::Mesh::Bind() const
 void gr::Mesh::Draw() const
 {
 	if (!vao) return;
+	gpu::InputAssemblyState ias;
+	ias.topology = topology;
+	gpu::cmd::SetState(ias);
 	if (isIndexed) gpu::cmd::DrawIndexed(indexCount, 1, 0, 0, 0);
 	else           gpu::cmd::Draw(vertexCount, 1, 0, 0);
 }
@@ -28,6 +32,9 @@ void gr::Mesh::Draw() const
 void gr::Mesh::DrawInstanced(uint32_t count) const
 {
 	if (!vao || count == 0) return;
+	gpu::InputAssemblyState ias;
+	ias.topology = topology;
+	gpu::cmd::SetState(ias);
 	if (isIndexed) gpu::cmd::DrawIndexed(indexCount, count, 0, 0, 0);
 	else           gpu::cmd::Draw(vertexCount, count, 0, 0);
 }
@@ -112,6 +119,55 @@ gr::Mesh gr::Mesh::CreateCube()
 	mesh.vertexCount = static_cast<uint32_t>(vertices.size());
 	mesh.indexCount = static_cast<uint32_t>(indices.size());
 	mesh.isIndexed = true;
+
+	std::array<glm::vec3, 8> positions;
+	for (size_t i = 0; i < 8; ++i)
+	{
+		float x = (i & 1) ? 0.5f : -0.5f;
+		float y = (i & 2) ? 0.5f : -0.5f;
+		float z = (i & 4) ? 0.5f : -0.5f;
+		positions[i] = glm::vec3(x, y, z);
+	}
+	mesh.ComputeAABB(positions);
+
+	return mesh;
+}
+//=============================================================================
+gr::Mesh gr::Mesh::CreateCubeWireframe()
+{
+	Mesh mesh;
+	mesh.topology = gpu::PrimitiveTopology::LineList;
+
+	// 12 edges, 2 vertices each = 24 vertices, non-indexed
+	constexpr std::array<glm::vec3, 24> edgeVerts = { {
+		// bottom face
+		{-0.5f, -0.5f, -0.5f}, { 0.5f, -0.5f, -0.5f},
+		{ 0.5f, -0.5f, -0.5f}, { 0.5f, -0.5f,  0.5f},
+		{ 0.5f, -0.5f,  0.5f}, {-0.5f, -0.5f,  0.5f},
+		{-0.5f, -0.5f,  0.5f}, {-0.5f, -0.5f, -0.5f},
+		// top face
+		{-0.5f,  0.5f, -0.5f}, { 0.5f,  0.5f, -0.5f},
+		{ 0.5f,  0.5f, -0.5f}, { 0.5f,  0.5f,  0.5f},
+		{ 0.5f,  0.5f,  0.5f}, {-0.5f,  0.5f,  0.5f},
+		{-0.5f,  0.5f,  0.5f}, {-0.5f,  0.5f, -0.5f},
+		// vertical edges
+		{-0.5f, -0.5f, -0.5f}, {-0.5f,  0.5f, -0.5f},
+		{ 0.5f, -0.5f, -0.5f}, { 0.5f,  0.5f, -0.5f},
+		{ 0.5f, -0.5f,  0.5f}, { 0.5f,  0.5f,  0.5f},
+		{-0.5f, -0.5f,  0.5f}, {-0.5f,  0.5f,  0.5f},
+	} };
+
+	std::array<MeshVertex, 24> vertices;
+	for (size_t i = 0; i < 24; ++i)
+	{
+		vertices[i].position = edgeVerts[i];
+		vertices[i].normal   = glm::vec3(0.0f, 1.0f, 0.0f);
+	}
+
+	mesh.vao = gpu::vao::CreateVertexArray(MeshVertexBindingDescs);
+	mesh.vbo = gpu::buffer::CreateBuffer(vertices.data(), sizeof(vertices));
+	mesh.vertexCount = static_cast<uint32_t>(vertices.size());
+	mesh.isIndexed = false;
 
 	std::array<glm::vec3, 8> positions;
 	for (size_t i = 0; i < 8; ++i)

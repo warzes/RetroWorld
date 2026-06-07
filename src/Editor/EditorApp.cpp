@@ -22,6 +22,32 @@ namespace
 }
 //=============================================================================
 // Global engine resources
+// LightBlockUBO compatible with blinnPhongFrag std140 layout
+struct alignas(16) EditorLightDataGPU
+{
+	glm::vec4 positionOrDirection;
+	glm::vec3 color;
+	float     intensity;
+	glm::vec3 attenuation;
+	float     radius;
+	glm::vec3 spotDirection;
+	float     innerCutoff;
+	float     outerCutoff;
+	int32_t   type;
+	int32_t   castShadow;
+	float     shadowBias;
+	glm::mat4 lightSpaceMatrix;
+};
+static_assert(sizeof(EditorLightDataGPU) == 144);
+
+struct alignas(16) LightBlockUBO
+{
+	int32_t      lightCount;
+	uint8_t      _pad[12];
+	EditorLightDataGPU lights[16];
+};
+static_assert(sizeof(LightBlockUBO) == 4 + 12 + 144 * 16);
+
 namespace
 {
 	gpu::program::ShaderProgramPtr g_blinnPhongProgram;
@@ -487,6 +513,104 @@ void EditorGameRender()
 	auto queue = sceneMan.BuildRenderQueue(frustum, scene::RenderPassType::Opaque);
 	sceneMan.RenderOpaquePass(queue, g_blinnPhongProgram);
 	sceneMan.RenderTransparentPass(queue, g_blinnPhongProgram);
+
+	// Pink wireframe overlay (cursor outline, no depth test)
+	{
+		auto& placeMode = ed::EditorApp::Get().GetPlaceMode();
+		auto& mapMan = ed::EditorApp::Get().GetMapMan();
+		if (placeMode.HasActiveCursor())
+		{
+			glm::vec3 cursorPos = placeMode.GetCursorWorldPos();
+			glm::vec3 cursorEndPos = placeMode.GetCursorEndWorldPos();
+			float spacing = mapMan.Tiles().GetSpacing();
+
+			// For multi-select, compute center and size from the rectangle
+			glm::vec3 modelPos = cursorPos;
+			glm::vec3 modelScale = glm::vec3(spacing);
+			if (glm::distance(cursorPos, cursorEndPos) > 1e-4f)
+			{
+				glm::vec3 minP = glm::min(cursorPos, cursorEndPos);
+				glm::vec3 maxP = glm::max(cursorPos, cursorEndPos);
+				modelPos = (minP + maxP) * 0.5f;
+				modelScale = (maxP - minP) + glm::vec3(spacing);
+			}
+
+			gpu::cmd::BindShaderProgram(g_blinnPhongProgram);
+
+			// Camera uniforms
+			if (sceneMan.activeCamera && sceneMan.activeCamera->externalCamera)
+			{
+				auto* ec = sceneMan.activeCamera->externalCamera;
+				gpu::program::SetUniform(g_blinnPhongProgram,
+					gpu::program::GetUniformLocation(g_blinnPhongProgram, "u_view"), ec->GetViewMatrix());
+				gpu::program::SetUniform(g_blinnPhongProgram,
+					gpu::program::GetUniformLocation(g_blinnPhongProgram, "u_projection"),
+					sceneMan.activeCamera->GetProjectionMatrix());
+				gpu::program::SetUniform(g_blinnPhongProgram,
+					gpu::program::GetUniformLocation(g_blinnPhongProgram, "u_cameraPos"), ec->GetPosition());
+			}
+
+			// Model matrix
+			glm::mat4 model = glm::translate(glm::mat4(1.0f), modelPos);
+			model = glm::scale(model, modelScale);
+			glm::mat3 normalMat = glm::transpose(glm::inverse(glm::mat3(model)));
+			gpu::program::SetUniform(g_blinnPhongProgram,
+				gpu::program::GetUniformLocation(g_blinnPhongProgram, "u_model"), model);
+			gpu::program::SetUniform(g_blinnPhongProgram,
+				gpu::program::GetUniformLocation(g_blinnPhongProgram, "u_normalMatrix"), normalMat);
+			gpu::program::SetUniform(g_blinnPhongProgram,
+				gpu::program::GetUniformLocation(g_blinnPhongProgram, "u_isInstanced"), false);
+
+			// Light UBO
+			static auto overlayUBO = gpu::buffer::CreateBuffer(
+				sizeof(LightBlockUBO),
+				gpu::buffer::BufferStorageFlag::DynamicStorage,
+				"overlay_light_ubo");
+			{
+				LightBlockUBO block{};
+				block.lightCount = 1;
+				auto& light = block.lights[0];
+				light.positionOrDirection = glm::vec4(0.0f);
+				light.color = glm::vec3(1.0f, 0.95f, 0.85f);
+				light.intensity = 1.2f;
+				light.spotDirection = glm::normalize(glm::vec3(-0.5f, 0.7f, -0.5f));
+				light.type = 0;
+				light.castShadow = 0;
+				light.lightSpaceMatrix = glm::mat4(1.0f);
+				gpu::buffer::UpdateData(overlayUBO, &block, sizeof(LightBlockUBO));
+			}
+			gpu::cmd::BindUniformBuffer(4, overlayUBO, 0, sizeof(LightBlockUBO));
+
+			// Pink wireframe material
+			gr::Material mat;
+			mat.albedoColor = glm::vec3(1.0f, 0.3f, 0.8f);
+			mat.ambientColor = glm::vec3(1.0f);
+			mat.specularColor = glm::vec3(0.0f);
+			mat.shininess = 1.0f;
+			mat.opacity = 1.0f;
+			mat.cullMode = gpu::CullMode::None;
+			mat.Bind(g_blinnPhongProgram);
+
+			gpu::program::SetUniform(g_blinnPhongProgram,
+				gpu::program::GetUniformLocation(g_blinnPhongProgram, "u_receiveShadow"), false);
+
+			// Override depth test: always pass
+			gpu::DepthState ds;
+			ds.depthTestEnable = true;
+			ds.depthCompareOp = gpu::CompareOp::Always;
+			ds.depthWriteEnable = false;
+			gpu::cmd::SetState(ds);
+
+			static auto overlayCube = std::make_shared<gr::Mesh>(gr::Mesh::CreateCubeWireframe());
+			overlayCube->Bind();
+			overlayCube->Draw();
+
+			// Restore depth
+			ds.depthCompareOp = gpu::CompareOp::Less;
+			ds.depthWriteEnable = true;
+			gpu::cmd::SetState(ds);
+		}
+	}
 
 	gpu::cmd::EndDraw();
 }

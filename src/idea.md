@@ -1,4 +1,7 @@
-﻿https://www.youtube.com/watch?v=XpG3YqUkCTY
+﻿https://store.steampowered.com/app/4523820/Broken_Dagger/
+
+
+https://www.youtube.com/watch?v=XpG3YqUkCTY
 	генерация острова
 	https://www.youtube.com/watch?v=Nn2qAkpRTCg
 		строительство от негго же

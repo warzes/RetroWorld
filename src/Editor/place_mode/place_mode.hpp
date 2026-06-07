@@ -62,6 +62,9 @@ namespace ed
 		std::shared_ptr<ModelHandle> GetCursorShape() const;
 		std::array<std::shared_ptr<TexHandle>, TEXTURES_PER_TILE> GetCursorTextures() const;
 		const Ent& GetCursorEnt() const;
+		[[nodiscard]] glm::vec3 GetCursorWorldPos() const noexcept { return _cursorWorldPos; }
+		[[nodiscard]] glm::vec3 GetCursorEndWorldPos() const noexcept { return _cursorWorldEndPos; }
+		[[nodiscard]] bool HasActiveCursor() const noexcept { return _cursor != nullptr; }
 
 		void ResetCamera();
 		glm::vec3 GetCameraPosition() const;
@@ -82,6 +85,10 @@ namespace ed
 		float _outlineScale = 1.0f;
 		int _layerViewMin = -100, _layerViewMax = 100;
 		glm::vec3 _planeGridPos = glm::vec3(0.0f), _planeWorldPos = glm::vec3(0.0f);
+		glm::vec3 _cursorWorldPos = glm::vec3(0.0f);
+		glm::vec3 _cursorWorldEndPos = glm::vec3(0.0f);
+		bool _multiSelectActive = false;
+		glm::vec3 _multiSelectStartGrid = glm::vec3(0.0f);
 		std::shared_ptr<ModelHandle> _cursorShape;
 		std::array<std::shared_ptr<TexHandle>, TEXTURES_PER_TILE> _cursorTextures;
 		Ent _cursorEnt;

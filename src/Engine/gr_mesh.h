@@ -2,6 +2,7 @@
 
 #include "gpu_vao.h"
 #include "gpu_buffer.h"
+#include "gpu_pipeline.h"
 #include "math_aabb.h"
 
 namespace gr
@@ -56,6 +57,7 @@ namespace gr
 
 		static Mesh CreateQuad();
 		static Mesh CreateCube();
+		static Mesh CreateCubeWireframe();
 		static Mesh CreatePlane(float size = 10.0f);
 		static Mesh CreateSphere(int rings, int sectors);
 
@@ -69,6 +71,7 @@ namespace gr
 		uint32_t                 indexCount = 0;
 		uint32_t                 vertexCount = 0;
 		bool                     isIndexed = false;
+		gpu::PrimitiveTopology   topology = gpu::PrimitiveTopology::TriangleList;
 
 		math::AABB               aabb;
 	};

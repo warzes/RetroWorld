@@ -18,7 +18,7 @@ namespace ed
 	public:
 		struct Settings
 		{
-			std::string texturesDir = "data/textures";
+			std::string texturesDir = "data/assets/textures/tiles";
 			std::string shapesDir = "data/assets/models/shapes";
 			size_t undoMax = 64;
 			float mouseSensitivity = 0.002f;

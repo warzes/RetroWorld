@@ -65,9 +65,44 @@ ed::PlaceMode::PlaceMode(MapMan& mapMan)
 void ed::PlaceMode::OnEnter()
 {
 	_cursor = &_tileCursor;
-	_tileCursor.tile = Tile();
+
+	if (!_cursorShape)
+	{
+		// Load defaults from settings
+		auto& app = EditorApp::Get();
+		std::string defaultTexPath = app.GetDefaultTexturePath();
+		if (!defaultTexPath.empty())
+		{
+			for (auto& tex : _cursorTextures)
+				tex = Assets::GetTexture(defaultTexPath);
+		}
+		std::string defaultShapePath = app.GetDefaultShapePath();
+		if (!defaultShapePath.empty())
+			_cursorShape = Assets::GetModel(defaultShapePath);
+	}
+
+	// Sync cursor tile state
+	if (_cursorShape)
+	{
+		_tileCursor.tile.shape = EditorApp::Get().GetMapMan().GetOrAddModelID(
+			_cursorShape->GetPath());
+	}
+	for (size_t i = 0; i < TEXTURES_PER_TILE; ++i)
+	{
+		if (_cursorTextures[i])
+			_tileCursor.tile.textures[i] = EditorApp::Get().GetMapMan().GetOrAddTexID(
+				_cursorTextures[i]->GetPath());
+	}
+
 	_cameraYaw = -135.0f;
 	_cameraPitch = -35.0f;
+
+	auto& tiles = _mapMan.Tiles();
+	_planeGridPos = glm::vec3(
+		static_cast<float>(tiles.GetWidth()) * 0.5f,
+		0.0f,
+		static_cast<float>(tiles.GetLength()) * 0.5f);
+	_planeWorldPos = tiles.GridToWorldPos(_planeGridPos, false);
 }
 //=============================================================================
 void ed::PlaceMode::OnExit()
@@ -80,29 +115,102 @@ void ed::PlaceMode::OnExit()
 //=============================================================================
 void ed::PlaceMode::Update()
 {
-	handleInput();
-	updateCamera();
-
 	auto& app = EditorApp::Get();
 	auto& sceneMan = app.GetSceneManager();
 	auto& tiles = _mapMan.Tiles();
 	float spacing = tiles.GetSpacing();
 
 	glm::vec3 cursorWorldPos(0.0f);
-	glm::vec3 cursorScale(1.0f);
 
 	if (_cursor)
 	{
-		glm::vec3 worldPos = _camera.GetPosition() + _camera.GetFront() * (spacing * 5.0f);
-		glm::vec3 gridPos = tiles.WorldToGridPos(worldPos);
-		gridPos.x = glm::floor(gridPos.x);
-		gridPos.y = glm::floor(gridPos.y);
-		gridPos.z = glm::floor(gridPos.z);
-		_cursorPreviousGridPos = gridPos;
+		auto& io = ImGui::GetIO();
+		if (!io.WantCaptureMouse)
+		{
+			// Mouse raycast onto editing plane
+			auto mousePos = input::GetMousePosition();
+			float winW = static_cast<float>(window::GetWidth());
+			float winH = static_cast<float>(window::GetHeight());
 
-		glm::vec3 snapped = tiles.GridToWorldPos(gridPos, true);
-		_cursor->Update(snapped);
-		cursorWorldPos = snapped;
+			float ndcX = (2.0f * static_cast<float>(mousePos.x)) / winW - 1.0f;
+			float ndcY = 1.0f - (2.0f * static_cast<float>(mousePos.y)) / winH;
+
+			glm::vec3 rayOrigin(0.0f);
+			glm::vec3 rayDir(0.0f, -1.0f, 0.0f);
+
+			if (sceneMan.activeCamera)
+			{
+				glm::mat4 invVP = glm::inverse(sceneMan.activeCamera->GetViewProjectionMatrix());
+				glm::vec4 nearP = invVP * glm::vec4(ndcX, ndcY, -1.0f, 1.0f);
+				glm::vec4 farP = invVP * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
+				nearP /= nearP.w;
+				farP /= farP.w;
+				rayOrigin = glm::vec3(nearP);
+				rayDir = glm::normalize(glm::vec3(farP) - rayOrigin);
+			}
+
+			if (glm::abs(rayDir.y) > 1e-6f)
+			{
+				float planeY = _planeWorldPos.y;
+				float t = (planeY - rayOrigin.y) / rayDir.y;
+				if (t >= 0.0f)
+				{
+					glm::vec3 worldPos = rayOrigin + t * rayDir;
+					glm::vec3 gridPos = tiles.WorldToGridPos(worldPos);
+					glm::vec3 snapped = tiles.GridToWorldPos(gridPos, true);
+					snapped.y = _planeWorldPos.y + spacing * 0.5f;
+
+					// Shift+drag multi-select
+					bool shift = input::IsKeyDown(KeyboardType::KEY_LEFT_SHIFT);
+					if (!shift)
+					{
+						_multiSelectActive = false;
+						_cursor->position = snapped;
+						_cursor->endPosition = snapped;
+						_cursorPreviousGridPos = gridPos;
+					}
+					else if (_cursor == &_tileCursor)
+					{
+						if (!_multiSelectActive)
+						{
+							_multiSelectActive = true;
+							_multiSelectStartGrid = gridPos;
+							_cursor->endPosition = snapped;
+						}
+						_cursor->position = snapped;
+						_cursorPreviousGridPos = gridPos;
+					}
+
+					cursorWorldPos = snapped;
+					_cursorWorldPos = _cursor->position;
+					_cursorWorldEndPos = _cursor->endPosition;
+				}
+			}
+
+			// Scroll wheel changes the editing plane height
+			float wheel = io.MouseWheel;
+			if (glm::abs(wheel) > 0.0f)
+			{
+				_planeGridPos.y = glm::clamp(
+					_planeGridPos.y + (wheel > 0.0f ? 1.0f : -1.0f),
+					0.0f, static_cast<float>(tiles.GetHeight() - 1));
+				_planeWorldPos = tiles.GridToWorldPos(_planeGridPos, false);
+			}
+		}
+	}
+
+	// Handle input (placement uses _cursorPreviousGridPos set above)
+	handleInput();
+	updateCamera();
+
+	// Update grid Y position to match editing plane
+	if (sceneMan.root)
+	{
+		auto* gridNode = sceneMan.root->FindChild("grid");
+		if (gridNode)
+		{
+			gridNode->transform.position.y = _planeWorldPos.y;
+		}
 	}
 
 	// Update cursor scene node
@@ -138,8 +246,21 @@ void ed::PlaceMode::Update()
 				if (_cursorTextures[0])
 					cursorNode.material->albedoMap = _cursorTextures[0]->GetTexture();
 
-				cursorWorldPos.y += 0.05f; // slight elevation to avoid z-fighting
-				cursorNode.transform.position = cursorWorldPos;
+				if (_multiSelectActive)
+				{
+					glm::vec3 minP = glm::min(_cursor->position, _cursor->endPosition);
+					glm::vec3 maxP = glm::max(_cursor->position, _cursor->endPosition);
+					glm::vec3 center = (minP + maxP) * 0.5f;
+					center.y += 0.05f;
+					glm::vec3 size = (maxP - minP) + glm::vec3(spacing);
+					cursorNode.transform.position = center;
+					cursorNode.transform.scale = size;
+				}
+				else
+				{
+					cursorWorldPos.y += 0.05f;
+					cursorNode.transform.position = cursorWorldPos;
+				}
 			}
 			else if (_cursor == &_brushCursor)
 			{
@@ -209,8 +330,6 @@ void ed::PlaceMode::handleInput()
 
 		if (input::IsMouseDown(MouseType::MOUSE_BUTTON_LEFT))
 		{
-			bool shift = input::IsKeyDown(KeyboardType::KEY_LEFT_SHIFT);
-			(void)shift;
 			placeTile();
 		}
 
@@ -247,15 +366,56 @@ void ed::PlaceMode::drawUI()
 //=============================================================================
 void ed::PlaceMode::placeTile()
 {
-	int i = static_cast<int>(_cursorPreviousGridPos.x);
-	int j = static_cast<int>(_cursorPreviousGridPos.y);
-	int k = static_cast<int>(_cursorPreviousGridPos.z);
+	auto& tiles = _mapMan.Tiles();
+
+	glm::vec3 startGrid, endGrid;
+	if (_multiSelectActive && _cursor == &_tileCursor)
+	{
+		glm::vec3 curGrid = tiles.WorldToGridPos(_cursor->position);
+		startGrid = glm::min(_multiSelectStartGrid, curGrid);
+		endGrid = glm::max(_multiSelectStartGrid, curGrid);
+	}
+	else
+	{
+		startGrid = _cursorPreviousGridPos;
+		endGrid = _cursorPreviousGridPos;
+	}
+
+	int i = static_cast<int>(startGrid.x);
+	int j = static_cast<int>(startGrid.y);
+	int k = static_cast<int>(startGrid.z);
+	int w = static_cast<int>(endGrid.x - startGrid.x) + 1;
+	int h = static_cast<int>(endGrid.y - startGrid.y) + 1;
+	int l = static_cast<int>(endGrid.z - startGrid.z) + 1;
+
+	if (i < 0 || j < 0 || k < 0 ||
+		static_cast<size_t>(i) >= tiles.GetWidth() ||
+		static_cast<size_t>(j) >= tiles.GetHeight() ||
+		static_cast<size_t>(k) >= tiles.GetLength())
+		return;
+	if (i + w > static_cast<int>(tiles.GetWidth()) ||
+		j + h > static_cast<int>(tiles.GetHeight()) ||
+		k + l > static_cast<int>(tiles.GetLength()))
+		return;
+
+	// Early exit for single cell if tile is same (after bounds check)
+	if (!_multiSelectActive || _cursor != &_tileCursor)
+	{
+		Tile under = tiles.GetTile(
+			static_cast<size_t>(i),
+			static_cast<size_t>(j),
+			static_cast<size_t>(k));
+		if (under == _tileCursor.tile)
+			return;
+	}
 
 	_mapMan.ExecuteTileAction(
 		static_cast<size_t>(i),
 		static_cast<size_t>(j),
 		static_cast<size_t>(k),
-		1, 1, 1,
+		static_cast<size_t>(w),
+		static_cast<size_t>(h),
+		static_cast<size_t>(l),
 		_tileCursor.tile);
 }
 //=============================================================================
@@ -286,9 +446,16 @@ void ed::PlaceMode::SetCameraOrientation(glm::vec3 position, glm::vec3 angles)
 //=============================================================================
 void ed::PlaceMode::ResetGrid()
 {
-	_outlineScale = 1.0f;
-	_layerViewMin = -100;
-	_layerViewMax = 100;
+	_outlineScale = 1.125f;
+	_layerViewMin = 0;
+	_layerViewMax = static_cast<int>(_mapMan.Tiles().GetHeight() - 1);
+
+	auto& tiles = _mapMan.Tiles();
+	_planeGridPos = glm::vec3(
+		static_cast<float>(tiles.GetWidth()) * 0.5f,
+		0.0f,
+		static_cast<float>(tiles.GetLength()) * 0.5f);
+	_planeWorldPos = tiles.GridToWorldPos(_planeGridPos, false);
 }
 //=============================================================================
 void ed::PlaceMode::SetCursorShape(std::shared_ptr<ModelHandle> shape)
@@ -313,6 +480,12 @@ void ed::PlaceMode::SetCursorTextures(std::array<std::shared_ptr<TexHandle>, TEX
 {
 	_cursorTextures = tex;
 	_cursor = &_tileCursor;
+	for (size_t i = 0; i < TEXTURES_PER_TILE; ++i)
+	{
+		if (_cursorTextures[i])
+			_tileCursor.tile.textures[i] = EditorApp::Get().GetMapMan().GetOrAddTexID(
+				_cursorTextures[i]->GetPath());
+	}
 }
 //=============================================================================
 void ed::PlaceMode::SetCursorEnt(const Ent& ent)

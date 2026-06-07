@@ -5,6 +5,8 @@
 #include <imgui/imgui.h>
 #include <regex>
 #include <algorithm>
+
+namespace fs = std::filesystem;
 //=============================================================================
 ed::PickMode::PickMode(int maxSelectionCount, std::string_view fileExtension)
 	: _fileExtension(fileExtension)
@@ -36,7 +38,7 @@ void ed::PickMode::rebuildFrames()
 
 		Frame frame;
 		frame.filePath = path;
-		frame.label = path.stem().string();
+		frame.label = fs::relative(path, _rootDir).stem().string();
 		frame.texture = gpu::texture::TexturePtr();
 		_frames.push_back(std::move(frame));
 	}
@@ -143,7 +145,7 @@ void ed::PickMode::Draw()
 					ImGui::Button("##preview", ImVec2(ICON_SIZE, ICON_SIZE));
 				}
 
-				if (ImGui::IsItemClicked())
+				if (ImGui::IsItemHovered() && (ImGui::IsMouseReleased(ImGuiMouseButton_Left) || ImGui::IsMouseReleased(ImGuiMouseButton_Right)))
 					SelectFrame(frame);
 
 				ImGui::PopStyleColor();

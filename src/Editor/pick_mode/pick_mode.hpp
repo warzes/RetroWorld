@@ -67,10 +67,13 @@ namespace ed
 		TexSelection GetPickedTextures() const { return _selectedTextures; }
 		void SetPickedTextures(TexSelection newTextures) { _selectedTextures = newTextures; }
 
+		void OnEnter() override;
+
 	protected:
 		gpu::texture::TexturePtr GetFrameTexture(const std::filesystem::path& filePath) override;
 		void SelectFrame(const Frame& frame) override;
 		bool IsFrameSelected(const std::filesystem::path& filePath) override;
+		std::string GetSideLabel(const Frame& frame) override;
 
 	private:
 		TexSelection _selectedTextures;
