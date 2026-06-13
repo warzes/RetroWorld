@@ -167,6 +167,7 @@
     <ClInclude Include="_res_loader.h">
       <Filter>resources\private</Filter>
     </ClInclude>
+    <ClInclude Include="sc_chunkNode.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -281,6 +282,7 @@
     <ClCompile Include="_res_loader.cpp">
       <Filter>resources\private</Filter>
     </ClCompile>
+    <ClCompile Include="sc_chunkNode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="core">
