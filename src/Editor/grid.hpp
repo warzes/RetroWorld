@@ -1,9 +1,5 @@
 ﻿#pragma once
 
-#include <vector>
-#include <cassert>
-#include <glm/glm.hpp>
-
 #include "editor_math.hpp"
 
 namespace ed

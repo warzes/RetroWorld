@@ -1,8 +1,4 @@
-#pragma once
-
-#include <cstdint>
-#include <algorithm>
-#include <glm/glm.hpp>
+﻿#pragma once
 
 namespace ed
 {
@@ -22,6 +18,7 @@ namespace ed
 	inline float ToRadians(float degrees) { return degrees * glm::pi<float>() / 180.0f; }
 	inline float ToDegrees(float radians) { return (radians / glm::pi<float>()) * 180.0f; }
 
+	// Ensures that the added degrees stays in the range [0, 360)
 	inline int OffsetDegrees(int base, int add)
 	{
 		return (base + add >= 0) ? (base + add) % 360 : (360 + (base + add));

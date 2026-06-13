@@ -20,4 +20,8 @@
     <BuildDependency Project="3rdparty/3rdparty.vcxproj" />
     <BuildDependency Project="Engine/Engine.vcxproj" />
   </Project>
+  <Project Path="RTSGame/RTSGame.vcxproj" Id="{7034D17F-87DB-4D39-A006-A072F51FAA21}">
+    <BuildDependency Project="3rdparty/3rdparty.vcxproj" />
+    <BuildDependency Project="Engine/Engine.vcxproj" />
+  </Project>
 </Solution>
